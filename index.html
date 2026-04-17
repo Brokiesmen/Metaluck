@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CS Case Opening</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div id="app">
+
+  <!-- HEADER -->
+  <header class="header">
+    <div class="header-inner">
+      <h1 class="logo">CASE <span>OPENING</span></h1>
+      <div class="balance-block">
+        <span class="balance-label">Баланс</span>
+        <div class="balance-value"><span id="balance">1000</span> <span class="coin">●</span></div>
+      </div>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- CASE SELECTION -->
+    <section class="section">
+      <p class="section-title">Выберите кейс</p>
+      <div class="cases-grid" id="cases-grid"></div>
+    </section>
+
+    <!-- STRIP OPENER -->
+    <section class="section opener-section" id="opener-section">
+      <div class="strip-wrapper">
+        <!-- fades -->
+        <div class="fade fade-left"></div>
+        <div class="fade fade-right"></div>
+        <!-- center indicator -->
+        <div class="indicator-arrow ind-top"></div>
+        <div class="indicator-line"></div>
+        <div class="indicator-arrow ind-bot"></div>
+        <!-- scrolling strip -->
+        <div class="strip-track" id="strip-track">
+          <div class="strip" id="strip"></div>
+        </div>
+      </div>
+      <div class="open-controls">
+        <button class="btn-open" id="btn-open" disabled>Выберите кейс</button>
+      </div>
+    </section>
+
+    <!-- POSSIBLE PRIZES -->
+    <section class="section">
+      <p class="section-title">Возможные призы</p>
+      <div class="prizes-grid" id="prizes-grid"></div>
+    </section>
+
+  </main>
+</div>
+
+<!-- RESULT MODAL -->
+<div class="result-overlay" id="result-overlay">
+  <div class="result-card" id="result-card">
+    <div class="result-icon" id="result-icon"></div>
+    <div class="result-rarity" id="result-rarity"></div>
+    <div class="result-name" id="result-name"></div>
+    <button class="btn-close" id="btn-close">Закрыть</button>
+  </div>
+</div>
+
+<script src="main.js"></script>
+</body>
+</html>

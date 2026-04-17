@@ -1,0 +1,10 @@
+{
+  "name": "minigames",
+  "version": "1.0.0",
+  "scripts": {
+    "dev:client": "npm run dev --prefix client",
+    "dev:server": "npm run dev --prefix server",
+    "build": "npm install --prefix client && npm run build --prefix client && npm install --prefix server && npm run build --prefix server",
+    "start": "NODE_ENV=production node server/dist/index.js"
+  }
+}

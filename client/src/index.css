@@ -1,0 +1,1052 @@
+/* ═══════════════════════════════════════════════════════════
+   Telegram Mini App — Case Opening
+   Design tokens follow Telegram's CSS variable convention.
+   Fallbacks = Telegram dark theme colors.
+   ═══════════════════════════════════════════════════════════ */
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  /* Telegram theme vars (set by WebApp SDK at runtime) */
+  --tg-bg:        var(--tg-theme-bg-color,            #17212b);
+  --tg-section:   var(--tg-theme-secondary-bg-color,  #232e3c);
+  --tg-text:      var(--tg-theme-text-color,           #f5f5f5);
+  --tg-hint:      var(--tg-theme-hint-color,           #708499);
+  --tg-link:      var(--tg-theme-link-color,           #5eaee6);
+  --tg-btn:       var(--tg-theme-button-color,         #2481cc);
+  --tg-btn-text:  var(--tg-theme-button-text-color,    #ffffff);
+  --tg-sep:       rgba(255,255,255,0.07);
+
+  /* Rarity */
+  --gray-bg: #F1EFE8; --gray-text: #5F5E5A; --gray-border: #d4d0c7;
+  --blue-bg: #E6F1FB; --blue-text: #185FA5; --blue-border: #a8c8f0;
+  --pur-bg:  #EEEDFE; --pur-text:  #534AB7; --pur-border:  #b0acf5;
+  --gold-bg: #FAEEDA; --gold-text: #854F0B; --gold-border: #e8c06a;
+
+  --red: #e63946;
+  --radius: 12px;
+}
+
+html, body, #root { height: 100%; height: 100dvh; }
+
+body {
+  background: var(--tg-bg);
+  color: var(--tg-text);
+  font-family: -apple-system, 'Segoe UI', system-ui, sans-serif;
+  font-size: 15px;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── App shell ─────────────────────────────────────────────── */
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;             /* fallback for older Android WebView */
+  height: 100dvh;            /* dynamic viewport height for mobile */
+  max-width: 480px;
+  margin: 0 auto;
+  overflow: hidden;
+}
+
+/* ── Header ────────────────────────────────────────────────── */
+.tg-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: var(--tg-bg);
+  border-bottom: 1px solid var(--tg-sep);
+  flex-shrink: 0;
+}
+.tg-header-title {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  font-size: 17px;
+  font-weight: 600;
+}
+.tg-header-left, .tg-header-right { width: 72px; flex-shrink: 0; }
+.tg-header-right { text-align: right; }
+
+/* ── Numeric typography ─────────────────────────────────────── */
+.num {
+  font-variant-numeric: tabular-nums lining-nums;
+  font-feature-settings: 'tnum' 1, 'lnum' 1, 'kern' 1;
+  letter-spacing: 0.01em;
+}
+
+/* ── METALUCK: знак и название раздельно, в lockup — вместе ─── */
+.metaluck-brand {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.metaluck-brand--horizontal { gap: 8px; }
+.metaluck-brand--vertical {
+  flex-direction: column;
+  gap: 4px;
+}
+.metaluck-brand--mark-only,
+.metaluck-brand--wordmark-only { gap: 0; }
+.metaluck-wordmark {
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  color: var(--tg-text);
+  line-height: 1;
+}
+
+.back-btn {
+  background: none; border: none; color: var(--tg-link);
+  font-size: 24px; cursor: pointer; padding: 0; line-height: 1;
+}
+.header-balance { font-size: 15px; font-weight: 600; color: var(--tg-btn); }
+
+/* ── Scrollable page content ───────────────────────────────── */
+.page-content {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ── Telegram section helpers ──────────────────────────────── */
+.tg-section {
+  background: var(--tg-section);
+  border-radius: var(--radius);
+  margin: 0 12px 8px;
+  overflow: hidden;
+}
+.tg-section-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--tg-hint);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 12px 16px 6px;
+}
+.tg-hint-text { color: var(--tg-hint); font-size: 14px; padding: 16px; }
+
+/* ── Error banner ──────────────────────────────────────────── */
+.error-banner {
+  margin: 8px 12px;
+  background: #3d1a1a;
+  border: 1px solid #7d2020;
+  color: #f88;
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  font-size: 13px;
+}
+
+/* ── Strip section ─────────────────────────────────────────── */
+.strip-section { padding: 12px 0 0; }
+
+.strip-wrapper {
+  position: relative;
+  height: 190px;
+  background: var(--tg-section);
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+
+/* Fades */
+.fade {
+  position: absolute; top: 0; bottom: 0;
+  width: 100px; z-index: 5; pointer-events: none;
+}
+.fade-left  { left:  0; background: linear-gradient(to right, var(--tg-section) 10%, transparent); }
+.fade-right { right: 0; background: linear-gradient(to left,  var(--tg-section) 10%, transparent); }
+
+/* Center indicator */
+.ind-line {
+  position: absolute; top: 0; bottom: 0; left: 50%;
+  transform: translateX(-50%); width: 2px; background: var(--red);
+  z-index: 10; pointer-events: none;
+}
+.ind-arrow {
+  position: absolute; left: 50%;
+  transform: translateX(-50%); width: 0; height: 0;
+  z-index: 11; pointer-events: none;
+}
+.ind-top { top: 0; border-left: 9px solid transparent; border-right: 9px solid transparent; border-top: 13px solid var(--red); }
+.ind-bot { bottom: 0; border-left: 9px solid transparent; border-right: 9px solid transparent; border-bottom: 13px solid var(--red); }
+
+/* Strip track */
+.strip-track { height: 100%; overflow: hidden; }
+.strip { display: flex; align-items: center; height: 100%; gap: 8px; will-change: transform; }
+
+.strip-card {
+  flex-shrink: 0; width: 130px; height: 164px;
+  border-radius: 12px; border: 1.5px solid;
+  background: #1a1a2e;
+  position: relative; overflow: hidden;
+}
+.strip-card::before {
+  content: ''; position: absolute;
+  top: 0; left: 0; right: 0; height: 3px;
+  background: currentColor; opacity: 0.9;
+  z-index: 2;
+}
+.card-icon {
+  position: absolute; top: 50%; left: 50%;
+  transform: translate(-50%, -60%);
+  font-size: 46px; line-height: 1; z-index: 1;
+}
+.card-img {
+  position: absolute; top: 0; left: 0;
+  width: 100%; height: 100%;
+  object-fit: cover; display: block;
+  border-radius: 11px;
+}
+.card-overlay {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  background: linear-gradient(to top, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.4) 55%, transparent 100%);
+  padding: 28px 7px 8px;
+  z-index: 1;
+}
+.card-name {
+  font-size: 7.5px; font-weight: 700;
+  text-align: center; text-transform: uppercase;
+  letter-spacing: 0.3px; line-height: 1.35;
+  color: #fff; width: 100%;
+}
+
+/* ── Telegram-style primary button ────────────────────────── */
+.tg-btn {
+  display: block; width: calc(100% - 24px);
+  margin: 0 12px;
+  background: var(--tg-btn); color: var(--tg-btn-text);
+  border: none; border-radius: var(--radius);
+  padding: 14px 20px;
+  font-size: 15px; font-weight: 600;
+  cursor: pointer; transition: opacity 0.15s, transform 0.15s;
+}
+.tg-btn:hover:not(:disabled) { opacity: 0.88; }
+.tg-btn:active:not(:disabled) { transform: scale(0.98); }
+.tg-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.tg-btn.open-btn {
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.tg-btn.loading { opacity: 0.7; }
+
+/* Фирменная звезда на кнопке «Открыть» — лёгкое сверкание раз в 6 с */
+.open-btn-star {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  line-height: 0;
+}
+.open-btn-star .tg-star-svg {
+  animation: open-btn-star-sparkle 6s ease-in-out infinite;
+  transform-origin: center;
+}
+@keyframes open-btn-star-sparkle {
+  0%, 7%, 100% {
+    filter: brightness(1);
+    transform: scale(1);
+  }
+  1.2% {
+    filter: brightness(1.45) drop-shadow(0 0 10px rgba(255, 235, 180, 0.95));
+    transform: scale(1.1);
+  }
+  3.5% {
+    filter: brightness(1.12) drop-shadow(0 0 4px rgba(255, 215, 120, 0.55));
+    transform: scale(1.03);
+  }
+}
+
+/* ── Case pills ────────────────────────────────────────────── */
+.cases-section { padding: 4px 0 8px; }
+.cases-row {
+  display: flex; gap: 8px;
+  padding: 0 12px;
+  overflow-x: auto; scrollbar-width: none;
+}
+.cases-row::-webkit-scrollbar { display: none; }
+
+.case-pill {
+  flex-shrink: 0;
+  display: flex; flex-direction: column; align-items: center;
+  background: var(--tg-section);
+  border: 2px solid transparent;
+  border-radius: var(--radius);
+  padding: 14px 16px 12px;
+  cursor: pointer; min-width: 110px;
+  transition: border-color 0.18s, background 0.18s;
+  position: relative; overflow: hidden;
+}
+.case-pill::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0;
+  height: 3px; background: var(--case-color, var(--tg-btn));
+  opacity: 0;  transition: opacity 0.18s;
+}
+.case-pill:hover:not(:disabled)::before, .case-pill.active::before { opacity: 1; }
+.case-pill.active { border-color: var(--case-color, var(--tg-btn)); }
+
+.case-pill-icon {
+  font-size: 38px;
+  margin-bottom: 8px;
+  display: block;
+  animation: case-float 2.8s ease-in-out infinite;
+  will-change: transform;
+}
+.cases-row .case-pill:nth-child(2) .case-pill-icon { animation-delay: -0.9s; }
+.cases-row .case-pill:nth-child(3) .case-pill-icon { animation-delay: -1.8s; }
+
+@keyframes case-float {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  30%       { transform: translateY(-6px) rotate(-3deg); }
+  60%       { transform: translateY(-4px) rotate(2deg); }
+}
+.case-pill-name { font-size: 12px; font-weight: 600; color: var(--tg-text); margin-bottom: 4px; }
+.case-pill-price {
+  display: inline-flex; align-items: center; justify-content: center;
+  gap: 4px; font-size: 12px; font-weight: 700; color: var(--tg-btn);
+}
+
+/* ── Prizes grid ───────────────────────────────────────────── */
+.prizes-section { padding: 4px 0 16px; }
+.prizes-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 8px; padding: 0 12px;
+}
+.prize-card {
+  border-radius: 12px; border: 1.5px solid;
+  background: #1a1a2e;
+  aspect-ratio: 1;
+  transition: transform 0.15s, box-shadow 0.15s;
+  position: relative; overflow: hidden;
+  cursor: default;
+}
+.prize-card::before {
+  content: ''; position: absolute;
+  top: 0; left: 0; right: 0; height: 3px;
+  background: currentColor; opacity: 0.8;
+  z-index: 2;
+}
+.prize-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.5); }
+.prize-img-wrap {
+  position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+  border-radius: 11px;
+  overflow: hidden;
+}
+.prize-img {
+  width: 100%; height: 100%; object-fit: cover; display: block;
+  border-radius: 11px;
+}
+.prize-icon {
+  position: absolute; top: 50%; left: 50%;
+  transform: translate(-50%, -60%);
+  font-size: 32px; z-index: 1;
+}
+.prize-card-overlay {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  background: linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.45) 55%, transparent 100%);
+  padding: 30px 8px 9px;
+  z-index: 1;
+}
+.prize-name { font-size: 8.5px; font-weight: 700; text-transform: uppercase; line-height: 1.4; margin-bottom: 2px; color: #fff; }
+.prize-rarity { font-size: 8px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; opacity: 0.65; color: #fff; }
+
+/* ── Telegram Stars icon ───────────────────────────────────── */
+.tg-star-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.tg-star-glow {
+  position: absolute;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255,210,0,0.45) 0%, rgba(255,140,0,0.15) 50%, transparent 70%);
+  pointer-events: none;
+}
+
+.tg-star-svg { display: block; flex-shrink: 0; }
+
+/* Subtle scale — closer to in-app Star balance (no “game” bounce) */
+.tg-star-animated .tg-star-svg {
+  animation: tg-star-pulse 3s ease-in-out infinite;
+  transform-origin: center;
+}
+@keyframes tg-star-pulse {
+  0%, 100% { transform: scale(1);    filter: drop-shadow(0 0 2px rgba(255,167,38,0.35)); }
+  50%       { transform: scale(1.04); filter: drop-shadow(0 0 8px rgba(255,179,0,0.55)); }
+}
+
+.tg-star-animated .tg-star-glow {
+  animation: tg-glow-pulse 3s ease-in-out infinite;
+}
+@keyframes tg-glow-pulse {
+  0%, 100% { opacity: 0.5; transform: scale(1); }
+  50%       { opacity: 0.85; transform: scale(1.08); }
+}
+
+/* ── Star prize cards (strip) ──────────────────────────────── */
+.card-star-prize {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 6px;
+  background: radial-gradient(ellipse at 50% 40%, #2d2200 0%, #120e00 100%);
+}
+.card-star-emoji {
+  font-size: 52px; line-height: 1;
+  filter: drop-shadow(0 0 14px rgba(255, 210, 50, 0.9));
+  animation: star-card-glow 1.8s ease-in-out infinite;
+}
+.card-star-amount {
+  font-size: 22px; font-weight: 900;
+  color: #ffd700;
+  text-shadow: 0 0 10px rgba(255, 215, 0, 0.8);
+  letter-spacing: 0.5px;
+}
+@keyframes star-card-glow {
+  0%, 100% { transform: scale(1);    filter: drop-shadow(0 0 8px  rgba(255, 210, 50, 0.7)); }
+  50%       { transform: scale(1.12); filter: drop-shadow(0 0 22px rgba(255, 210, 50, 1.0)); }
+}
+
+/* ── Star prize in prizes grid ─────────────────────────────── */
+.prize-star-wrap {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 6px;
+  background: radial-gradient(ellipse at 50% 40%, #2d2200 0%, #120e00 100%);
+  border-radius: 11px;
+}
+.prize-star-emoji {
+  font-size: 40px; line-height: 1;
+  filter: drop-shadow(0 0 10px rgba(255, 210, 50, 0.85));
+  animation: star-card-glow 1.8s ease-in-out infinite;
+}
+.prize-star-count {
+  font-size: 15px; font-weight: 900;
+  color: #ffd700;
+  text-shadow: 0 0 8px rgba(255, 215, 0, 0.8);
+}
+
+/* ── Star prize in result modal ────────────────────────────── */
+.modal-star-prize {
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 8px; width: 100%; height: 100%;
+}
+.modal-star-emoji {
+  font-size: 90px; line-height: 1;
+  filter: drop-shadow(0 0 24px rgba(255, 210, 50, 1));
+  animation: star-card-glow 1.4s ease-in-out infinite;
+}
+.modal-star-count {
+  font-size: 36px; font-weight: 900;
+  color: #ffd700;
+  text-shadow: 0 0 16px rgba(255, 215, 0, 0.9);
+}
+
+/* ── Bottom tab bar ────────────────────────────────────────── */
+.tab-bar {
+  display: flex;
+  background: var(--tg-section);
+  border-top: 1px solid var(--tg-sep);
+  flex-shrink: 0;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.tab-item {
+  flex: 1; display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 3px; padding: 10px 0 8px;
+  background: none; border: none;
+  color: var(--tg-hint); cursor: pointer;
+  transition: color 0.15s;
+}
+.tab-item.active { color: var(--tg-btn); }
+.tab-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
+}
+.tab-icon--cases .tab-cases-icon {
+  width: 24px;
+  height: 24px;
+}
+/* Подарок: монохром как в референсе, цвет от темы */
+.tab-icon--cases {
+  color: inherit;
+}
+
+/* Кабинет: белый сквиркл + лавандовое свечение (не наследует синий active) */
+.tab-icon--cabinet .tab-cabinet-icon {
+  width: 24px;
+  height: 24px;
+  color: rgba(255, 255, 255, 0.42);
+  filter: drop-shadow(0 0 3px rgba(168, 85, 247, 0.45));
+}
+.tab-item.active .tab-icon--cabinet .tab-cabinet-icon {
+  color: #fff;
+  filter:
+    drop-shadow(0 0 4px rgba(167, 139, 250, 0.9))
+    drop-shadow(0 0 12px rgba(139, 92, 246, 0.55));
+}
+.tab-label { font-size: 11px; font-weight: 500; }
+
+/* ── Cabinet ───────────────────────────────────────────────── */
+.cabinet { padding: 8px 0 16px; }
+
+.profile-row {
+  display: flex; align-items: center; gap: 14px; padding: 14px 16px;
+}
+.avatar {
+  width: 56px; height: 56px; border-radius: 50%;
+  object-fit: cover; flex-shrink: 0;
+}
+.avatar-placeholder {
+  display: flex; align-items: center; justify-content: center;
+  background: var(--tg-btn); color: #fff;
+  font-size: 20px; font-weight: 700;
+}
+.profile-name { font-size: 17px; font-weight: 600; color: var(--tg-text); }
+.profile-username { font-size: 14px; color: var(--tg-hint); margin-top: 2px; }
+.dev-badge {
+  display: inline-block; margin-top: 4px;
+  background: #3d3417; color: #e8a319;
+  font-size: 11px; font-weight: 600;
+  padding: 2px 8px; border-radius: 20px;
+}
+
+.balance-row {
+  display: flex; align-items: baseline; gap: 8px;
+  padding: 16px;
+}
+.balance-big { font-size: 36px; font-weight: 700; color: var(--tg-text); }
+.balance-unit { font-size: 16px; color: var(--tg-hint); }
+
+.history-count {
+  margin-left: auto;
+  background: rgba(255,255,255,0.08);
+  border-radius: 20px;
+  padding: 2px 8px;
+  font-size: 12px;
+  color: var(--tg-hint);
+}
+
+/* ── Cabinet stats ──────────────────────────────────────────── */
+.cabinet-stats-grid {
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  gap: 0;
+}
+.cabinet-stat {
+  padding: 14px 8px; text-align: center;
+  border-right: 1px solid var(--tg-sep);
+}
+.cabinet-stat:last-child { border-right: none; }
+.cabinet-stat-value { font-size: 22px; font-weight: 700; color: var(--tg-text); line-height: 1; margin-bottom: 4px; }
+.cabinet-stat-label { font-size: 10px; color: var(--tg-hint); text-transform: uppercase; letter-spacing: 0.3px; }
+
+/* ── History list ───────────────────────────────────────────── */
+.history-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 16px;
+}
+.history-item-btn { cursor: pointer; transition: background 0.15s; }
+.history-item-btn:hover { background: rgba(255,255,255,0.04); }
+.history-item.sep { border-bottom: 1px solid var(--tg-sep); }
+
+.history-thumb {
+  width: 52px; height: 52px; flex-shrink: 0;
+  border-radius: 12px; border: 1.5px solid;
+  overflow: hidden; position: relative;
+  background: #1a1a2e;
+}
+.history-thumb-img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.history-info { flex: 1; min-width: 0; }
+.history-name {
+  font-size: 14px; font-weight: 600;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.history-meta { font-size: 12px; margin-top: 3px; }
+.history-right { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
+.history-date { font-size: 11px; color: var(--tg-hint); }
+.history-chevron { font-size: 18px; color: var(--tg-hint); line-height: 1; }
+.history-gift-img { width: 32px; height: 32px; object-fit: contain; display: block; }
+
+/* ── Gift detail sheet ──────────────────────────────────────── */
+.gift-detail-sheet { padding-bottom: 32px; }
+.gift-detail-stats {
+  width: 100%; background: rgba(255,255,255,0.05);
+  border-radius: var(--radius); margin-bottom: 24px;
+  overflow: hidden;
+}
+.gift-stat-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 12px 16px; border-bottom: 1px solid var(--tg-sep);
+}
+.gift-stat-row:last-child { border-bottom: none; }
+.gift-stat-label { font-size: 14px; color: var(--tg-hint); }
+.gift-stat-value { font-size: 14px; font-weight: 600; color: var(--tg-text); }
+
+/* ── Result modal (bottom sheet style) ─────────────────────── */
+.modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.6);
+  backdrop-filter: blur(8px);
+  z-index: 200;
+  display: flex; align-items: flex-end; justify-content: center;
+}
+.modal-sheet {
+  background: var(--tg-section);
+  border-radius: 20px 20px 0 0;
+  padding: 8px 24px 40px;
+  width: 100%; max-width: 480px;
+  text-align: center;
+  animation: slide-up 0.3s cubic-bezier(0.34, 1.2, 0.64, 1) both;
+}
+@keyframes slide-up {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+.modal-handle {
+  width: 36px; height: 4px; border-radius: 2px;
+  background: rgba(255,255,255,0.15);
+  margin: 0 auto 24px;
+}
+.modal-icon-wrap {
+  width: 180px; height: 180px;
+  border-radius: 28px; border: 2px solid;
+  background: rgba(255,255,255,0.04);
+  display: flex; align-items: center; justify-content: center;
+  margin: 0 auto 16px; overflow: hidden;
+  box-shadow: 0 0 40px -8px currentColor;
+}
+.modal-anim {
+  width: 160px; height: 160px; object-fit: contain; display: block;
+  border-radius: 22px;
+}
+.modal-icon { font-size: 52px; line-height: 1; }
+
+.history-gift-img { width: 32px; height: 32px; object-fit: contain; display: block; }
+.modal-rarity {
+  font-size: 12px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 1.5px;
+  opacity: 0.7; margin-bottom: 6px;
+}
+/* ── Leaders Tab ────────────────────────────────────────────── */
+.leaders-page {
+  padding: 24px 16px 16px;
+  text-align: center;
+}
+
+.leaders-header {
+  margin-bottom: 24px;
+}
+
+.leaders-title {
+  font-size: 28px;
+  font-weight: 800;
+  color: #ffffff;
+  margin-bottom: 8px;
+}
+
+.leaders-subtitle {
+  font-size: 14px;
+  color: var(--tg-hint);
+  margin-bottom: 24px;
+  line-height: 1.4;
+}
+
+.leaders-trophy {
+  font-size: 120px;
+  line-height: 1;
+  margin-bottom: 16px;
+  animation: trophy-jump 1.8s cubic-bezier(0.36, 0.07, 0.19, 0.97) infinite;
+  transform-origin: bottom center;
+  display: inline-block;
+}
+
+@keyframes trophy-jump {
+  0%   { transform: translateY(0)    scale(1)    rotate(0deg);
+         filter: drop-shadow(0 4px 0 rgba(0,0,0,0.3)) drop-shadow(0 0 20px rgba(255,215,0,0.4)); }
+  15%  { transform: translateY(-28px) scale(1.08) rotate(-4deg);
+         filter: drop-shadow(0 28px 0 rgba(0,0,0,0.15)) drop-shadow(0 0 60px rgba(255,215,0,1)); }
+  30%  { transform: translateY(0)    scale(0.96) rotate(0deg);
+         filter: drop-shadow(0 2px 0 rgba(0,0,0,0.35)) drop-shadow(0 0 30px rgba(255,215,0,0.6)); }
+  40%  { transform: translateY(-10px) scale(1.03) rotate(2deg);
+         filter: drop-shadow(0 10px 0 rgba(0,0,0,0.2))  drop-shadow(0 0 40px rgba(255,215,0,0.8)); }
+  50%  { transform: translateY(0)    scale(1)    rotate(0deg);
+         filter: drop-shadow(0 4px 0 rgba(0,0,0,0.3)) drop-shadow(0 0 20px rgba(255,215,0,0.4)); }
+  100% { transform: translateY(0)    scale(1)    rotate(0deg);
+         filter: drop-shadow(0 4px 0 rgba(0,0,0,0.3)) drop-shadow(0 0 20px rgba(255,215,0,0.4)); }
+}
+
+.leaders-list {
+  display: flex;
+  flex-direction: column;
+  background: var(--tg-section);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.leader-item {
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--tg-sep);
+  text-align: left;
+}
+
+.leader-item:last-child {
+  border-bottom: none;
+}
+
+.leader-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  overflow: hidden;
+  flex-shrink: 0;
+  margin-right: 16px;
+}
+
+.leader-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.leader-initials {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.leader-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.leader-name {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--tg-text);
+  margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.leader-balance {
+  font-size: 13px;
+  color: var(--tg-hint);
+}
+
+.leader-rank {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--tg-text);
+  margin-left: 16px;
+}
+
+/* ── Telegram Premium card (strip) ─────────────────────────── */
+.card-premium-prize {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 2px;
+  background: radial-gradient(ellipse at 50% 30%, #2a1060 0%, #0d0820 100%);
+  animation: premium-card-pulse 2.2s ease-in-out infinite;
+}
+.card-premium-logo {
+  font-size: 42px; line-height: 1;
+  filter: drop-shadow(0 0 12px rgba(168,85,247,0.9));
+}
+.card-premium-name {
+  font-size: 11px; font-weight: 800;
+  color: #c084fc; line-height: 1.1;
+  letter-spacing: 0.3px; text-align: center;
+}
+@keyframes premium-card-pulse {
+  0%,100% { filter: brightness(1); }
+  50%      { filter: brightness(1.25) drop-shadow(0 0 8px rgba(168,85,247,0.5)); }
+}
+
+/* ── Telegram Premium in prizes grid ───────────────────────── */
+.prize-card--premium {
+  background: linear-gradient(135deg, rgba(108,61,232,0.12) 0%, rgba(168,85,247,0.08) 100%);
+}
+.prize-premium-wrap {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 4px;
+  background: radial-gradient(ellipse at 50% 35%, #1e0a4a 0%, #0a0515 100%);
+  border-radius: 11px;
+}
+.prize-premium-icon {
+  font-size: 34px; line-height: 1;
+  filter: drop-shadow(0 0 10px rgba(168,85,247,0.85));
+  animation: premium-card-pulse 2.2s ease-in-out infinite;
+}
+.prize-premium-label {
+  font-size: 10px; font-weight: 800;
+  color: #c084fc; letter-spacing: 0.5px;
+}
+
+/* ── Telegram Premium result modal ─────────────────────────── */
+.modal-sheet--premium {
+  background: linear-gradient(180deg, #130831 0%, var(--tg-section) 60%);
+}
+.modal-premium-star {
+  font-size: 96px; line-height: 1;
+  margin: 8px auto 16px;
+  filter: drop-shadow(0 0 32px rgba(168,85,247,1)) drop-shadow(0 0 64px rgba(236,72,153,0.6));
+  animation: premium-star-spin 3s ease-in-out infinite;
+}
+@keyframes premium-star-spin {
+  0%,100% { transform: scale(1) rotate(-3deg);   filter: drop-shadow(0 0 24px rgba(168,85,247,0.9)); }
+  50%      { transform: scale(1.12) rotate(3deg); filter: drop-shadow(0 0 48px rgba(236,72,153,1));   }
+}
+.modal-premium-brand {
+  font-size: 13px; font-weight: 800;
+  text-transform: uppercase; letter-spacing: 2px;
+  background: linear-gradient(90deg, #818cf8, #a855f7, #ec4899);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text; margin-bottom: 8px;
+}
+.modal-premium-duration {
+  font-size: 28px; font-weight: 700; color: var(--tg-text); margin-bottom: 12px;
+}
+.modal-premium-note {
+  font-size: 13px; color: var(--tg-hint); margin-bottom: 24px; line-height: 1.4;
+}
+.tg-btn--premium {
+  background: linear-gradient(135deg, #6c3de8 0%, #a855f7 50%, #ec4899 100%);
+}
+
+/* ── Referral card ──────────────────────────────────────────── */
+.referral-card { padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+
+.referral-header { display: flex; align-items: center; gap: 12px; }
+.referral-icon   { font-size: 36px; line-height: 1; }
+.referral-title  { font-size: 15px; font-weight: 700; color: var(--tg-text); }
+.referral-subtitle { font-size: 13px; color: var(--tg-hint); margin-top: 2px; }
+
+.referral-stats { display: flex; align-items: center; gap: 0; background: rgba(255,255,255,0.05); border-radius: 12px; overflow: hidden; }
+.referral-stat  { flex: 1; text-align: center; padding: 12px 8px; }
+.referral-stat-value { font-size: 22px; font-weight: 700; color: var(--tg-text); }
+.referral-stat-label { font-size: 11px; color: var(--tg-hint); margin-top: 2px; text-transform: uppercase; letter-spacing: 0.3px; }
+.referral-stat-sep   { width: 1px; background: var(--tg-sep); align-self: stretch; }
+
+.referral-link-row  { display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.06); border-radius: 10px; padding: 4px 4px 4px 12px; }
+.referral-link-text { flex: 1; font-size: 12px; color: var(--tg-hint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.referral-copy-btn  { flex-shrink: 0; padding: 8px 14px; border-radius: 8px; border: none; cursor: pointer; font-size: 13px; font-weight: 600; background: var(--tg-btn); color: var(--tg-btn-text); transition: opacity 0.15s; }
+.referral-copy-btn:hover { opacity: 0.85; }
+.referral-copy-btn.copied { background: #2d7a3e; }
+
+.referral-share-btn { width: 100%; }
+
+/* ── Daily reward open button (in Cabinet) ─────────────────── */
+.daily-open-btn {
+  width: 100%; display: flex; align-items: center; gap: 14px;
+  padding: 14px 16px; background: none; border: none; cursor: pointer;
+  color: var(--tg-text); text-align: left; border-radius: var(--radius);
+  transition: background 0.15s;
+}
+.daily-open-btn:hover { background: rgba(255,255,255,0.04); }
+.daily-open-btn--ready {
+  background: linear-gradient(135deg, rgba(36,129,204,0.12), rgba(36,129,204,0.05));
+  animation: daily-btn-pulse 2s ease-in-out infinite;
+}
+@keyframes daily-btn-pulse {
+  0%,100% { box-shadow: 0 0 0 0 rgba(36,129,204,0); }
+  50%      { box-shadow: 0 0 0 6px rgba(36,129,204,0.18); }
+}
+.daily-open-icon { font-size: 36px; flex-shrink: 0; }
+.daily-open-text { flex: 1; }
+.daily-open-title { font-size: 15px; font-weight: 600; }
+.daily-open-sub   { font-size: 13px; color: var(--tg-hint); margin-top: 2px; }
+.daily-open-btn--ready .daily-open-sub { color: #5eaee6; }
+.daily-open-badge {
+  background: #e63946; color: #fff; border-radius: 50%;
+  width: 20px; height: 20px; font-size: 12px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.daily-open-arrow { font-size: 22px; color: var(--tg-hint); flex-shrink: 0; }
+
+/* ── Daily reward modal ─────────────────────────────────────── */
+.daily-sheet { padding-bottom: 36px; }
+.daily-title    { font-size: 20px; font-weight: 700; margin-bottom: 6px; }
+.daily-subtitle { font-size: 13px; color: var(--tg-hint); margin-bottom: 20px; }
+
+.daily-grid {
+  display: grid; grid-template-columns: repeat(7, 1fr);
+  gap: 6px; margin-bottom: 24px;
+}
+.daily-day {
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  background: rgba(255,255,255,0.05); border-radius: 10px;
+  padding: 8px 4px; border: 1.5px solid transparent;
+  transition: all 0.2s;
+}
+.daily-day--claimed {
+  background: rgba(94,174,230,0.1); border-color: rgba(94,174,230,0.3);
+  opacity: 0.7;
+}
+.daily-day--current {
+  background: rgba(36,129,204,0.15); border-color: #2481cc;
+  box-shadow: 0 0 12px rgba(36,129,204,0.35);
+  animation: daily-day-glow 1.8s ease-in-out infinite;
+}
+.daily-day--future { opacity: 0.4; }
+@keyframes daily-day-glow {
+  0%,100% { box-shadow: 0 0 8px rgba(36,129,204,0.3); }
+  50%      { box-shadow: 0 0 18px rgba(36,129,204,0.7); }
+}
+.daily-day-num   { font-size: 9px; color: var(--tg-hint); font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px; }
+.daily-day-icon  { font-size: 20px; line-height: 1; }
+.daily-day-check { font-size: 18px; color: #5eaee6; }
+.daily-day-label { font-size: 9px; color: var(--tg-hint); text-align: center; line-height: 1.2; font-weight: 600; }
+
+.daily-claim-action { width: 100%; margin-top: 4px; }
+.daily-countdown {
+  text-align: center; padding: 12px;
+  background: rgba(255,255,255,0.04); border-radius: var(--radius);
+}
+.daily-countdown-label { font-size: 13px; color: var(--tg-hint); margin-bottom: 4px; }
+.daily-countdown-time  { font-size: 22px; font-weight: 700; color: var(--tg-text); }
+
+/* ── Daily result ────────────────────────────────────────────── */
+.daily-result-sheet { padding-bottom: 40px; }
+.daily-result-label { font-size: 13px; color: var(--tg-hint); margin-bottom: 16px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; }
+.daily-result-stars { display: flex; flex-direction: column; align-items: center; gap: 8px; margin-bottom: 16px; }
+.daily-result-star-emoji { font-size: 80px; line-height: 1; filter: drop-shadow(0 0 20px rgba(255,215,0,0.9)); animation: star-card-glow 1.4s ease-in-out infinite; }
+.daily-result-star-count  { font-size: 32px; font-weight: 900; color: #ffd700; }
+
+/* ── Stars modal icon ──────────────────────────────────────── */
+.modal-icon-wrap--stars {
+  border-color: #e8c06a !important;
+  background: radial-gradient(ellipse at 50% 40%, #2d2200 0%, #120e00 100%);
+  box-shadow: 0 0 40px -8px rgba(232,192,106,0.6);
+}
+
+/* ── Top-up inline button ────────────────────────────────── */
+.topup-inline-btn {
+  margin-left: auto;
+  padding: 6px 14px;
+  background: rgba(36,129,204,0.15);
+  border: 1.5px solid rgba(36,129,204,0.4);
+  border-radius: 20px;
+  color: #5eaee6;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.18s, border-color 0.18s;
+  white-space: nowrap;
+}
+.topup-inline-btn:active { background: rgba(36,129,204,0.28); }
+
+/* ── Top-up modal sheet ──────────────────────────────────── */
+.topup-sheet {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding-bottom: 40px;
+}
+.topup-header { text-align: center; margin-bottom: 20px; }
+.topup-title   { font-size: 18px; font-weight: 700; margin-bottom: 4px; }
+.topup-subtitle { font-size: 14px; color: var(--tg-hint); }
+
+/* ── Package grid ────────────────────────────────────────── */
+.topup-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.topup-pkg {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 16px 10px 14px;
+  background: var(--tg-section);
+  border: 1.5px solid rgba(255,255,255,0.08);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: border-color 0.18s, background 0.18s, transform 0.12s;
+}
+.topup-pkg:active { transform: scale(0.97); }
+.topup-pkg:disabled { opacity: 0.6; pointer-events: none; }
+
+.topup-pkg--popular {
+  border-color: #2481cc;
+  background: rgba(36,129,204,0.1);
+  box-shadow: 0 0 16px rgba(36,129,204,0.2);
+}
+
+.topup-pkg-badge {
+  position: absolute;
+  top: -9px; left: 50%;
+  transform: translateX(-50%);
+  background: #2481cc;
+  color: #fff;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.topup-pkg-icon   { line-height: 1; }
+.topup-pkg-amount { font-size: 22px; font-weight: 900; color: var(--tg-text); }
+.topup-pkg-label  { font-size: 12px; color: var(--tg-hint); font-weight: 500; }
+.topup-pkg-bonus  {
+  font-size: 11px; font-weight: 700;
+  color: #4cd964;
+  background: rgba(76,217,100,0.12);
+  padding: 2px 8px; border-radius: 8px;
+  margin-top: 2px;
+}
+
+.topup-cancel {
+  width: 100%;
+  padding: 12px;
+  background: none;
+  border: none;
+  color: var(--tg-hint);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+/* ── Top-up success screen ───────────────────────────────── */
+.topup-success {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 0 8px;
+  text-align: center;
+}
+.topup-success-icon  { font-size: 64px; line-height: 1; }
+.topup-success-title { font-size: 20px; font-weight: 700; }
+.topup-success-amount {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 28px; font-weight: 900; color: #ffd700;
+}
+.topup-success .tg-btn { width: 100%; margin-top: 8px; }
