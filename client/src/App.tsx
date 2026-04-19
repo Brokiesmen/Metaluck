@@ -8,6 +8,7 @@ import { ResultModal } from './components/ResultModal';
 import { PrizesGrid } from './components/PrizesGrid';
 import { Cabinet } from './components/Cabinet';
 import { Leaders } from './components/Leaders';
+import { DailyReward } from './components/DailyReward';
 import { StarIcon } from './components/StarIcon';
 import { MetaluckBrand } from './components/branding';
 import type { Case, Prize } from './types';
@@ -102,6 +103,8 @@ export function App() {
             <MetaluckBrand layout="horizontal" markSize={24} />
           ) : tab === 'leaders' ? (
             'Лидеры'
+          ) : tab === 'daily' ? (
+            'Ежедневный подарок'
           ) : (
             'Кабинет'
           )}
@@ -142,8 +145,23 @@ export function App() {
           </>
         ) : tab === 'leaders' ? (
           <Leaders />
+        ) : tab === 'daily' ? (
+          <div className="daily-tab-wrap">
+            <DailyReward
+              onClose={() => setTab('cases')}
+              onBalanceUpdate={setBalance}
+            />
+          </div>
         ) : (
-          <Cabinet user={user} balance={balance} isDev={isDev} />
+          <Cabinet
+            user={user}
+            balance={balance}
+            isDev={isDev}
+            onBalanceUpdate={setBalance}
+            openInvoice={tg?.openInvoice?.bind(tg)}
+            isTelegram={!!tg}
+            tg={tg}
+          />
         )}
       </main>
 

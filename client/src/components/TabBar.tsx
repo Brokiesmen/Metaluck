@@ -1,8 +1,9 @@
 import { TabCasesIcon } from './tab-icons/TabCasesIcon';
 import { TabCabinetIcon } from './tab-icons/TabCabinetIcon';
 import { TabLeadersIcon } from './tab-icons/TabLeadersIcon';
+import { TabDailyIcon } from './tab-icons/TabDailyIcon';
 
-export type Tab = 'cases' | 'cabinet' | 'leaders';
+export type Tab = 'cases' | 'cabinet' | 'leaders' | 'daily';
 
 interface Props {
   active: Tab;
@@ -31,6 +32,16 @@ export function TabBar({ active, onChange }: Props) {
           <TabLeadersIcon />
         </span>
         <span className="tab-label">Лидеры</span>
+      </button>
+      <button
+        type="button"
+        className={`tab-item${active === 'daily' ? ' active' : ''}`}
+        onClick={() => onChange('daily')}
+      >
+        <span className="tab-icon tab-icon--daily" aria-hidden>
+          <TabDailyIcon />
+        </span>
+        <span className="tab-label">Ежедневно</span>
       </button>
       <button
         type="button"

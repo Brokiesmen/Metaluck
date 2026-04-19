@@ -1050,3 +1050,31 @@ body {
   font-size: 28px; font-weight: 900; color: #ffd700;
 }
 .topup-success .tg-btn { width: 100%; margin-top: 8px; }
+/* ── Leaders pagination ──────────────────────────────────────── */
+.leaders-total {
+  font-size: 13px; color: var(--tg-hint); margin-top: 4px;
+}
+.leaders-load-more {
+  display: block; width: calc(100% - 32px); margin: 12px 16px 24px;
+  padding: 13px; border-radius: 14px; border: none; cursor: pointer;
+  background: var(--tg-section); color: var(--tg-text);
+  font-size: 15px; font-weight: 600;
+  transition: background 0.15s;
+}
+.leaders-load-more:active { background: var(--tg-section-sep); }
+
+/* ── Daily tab page wrapper ──────────────────────────────── */
+.daily-tab-wrap { flex: 1; overflow-y: auto; }
+.daily-tab-wrap .modal-overlay {
+  position: static;
+  background: none;
+  backdrop-filter: none;
+  z-index: auto;
+  display: block;
+}
+.daily-tab-wrap .modal-sheet {
+  max-width: none;
+  border-radius: 0;
+  padding: 20px 16px 24px;
+}
+.daily-tab-wrap .modal-handle { display: none; }

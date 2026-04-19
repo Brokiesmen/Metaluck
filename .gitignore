@@ -7,3 +7,5 @@ db.json
 db.json.migrated
 .env
 .DS_Store
+ecosystem.config.cjs
+dev-tunnel.sh

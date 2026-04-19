@@ -2,12 +2,18 @@ import { useEffect, useState } from 'react';
 import { api } from '../api';
 import { RARITY, GIFT_IMAGES } from '../data';
 import { StarIcon } from './StarIcon';
+import { TopUpModal } from './TopUpModal';
+import { ReferralCard } from './ReferralCard';
 import type { TelegramUser, HistoryEntry } from '../types';
 
 interface Props {
   user: TelegramUser;
   balance: number;
   isDev: boolean;
+  onBalanceUpdate: (b: number) => void;
+  openInvoice?: (url: string, cb?: (status: 'paid' | 'cancelled' | 'failed' | 'pending') => void) => void;
+  isTelegram: boolean;
+  tg?: any;
 }
 
 function formatDate(ts: number): string {
@@ -46,9 +52,9 @@ function GiftDetail({ entry, onClose }: GiftDetailProps) {
         <div className="modal-icon-wrap"
           style={{ borderColor: r.border, color: r.border }}>
           {img?.animated
-            ? <img src={img.animated} alt={entry.prize.name} className="modal-anim" />
+            ? <img src={img.animated} alt={entry.prize.name} className="modal-anim" loading="lazy" />
             : img
-              ? <img src={img.image} alt={entry.prize.name} className="modal-anim" />
+              ? <img src={img.image} alt={entry.prize.name} className="modal-anim" loading="lazy" />
               : <span className="modal-icon">{entry.prize.icon}</span>}
         </div>
 
@@ -80,13 +86,53 @@ function GiftDetail({ entry, onClose }: GiftDetailProps) {
   );
 }
 
-export function Cabinet({ user, balance, isDev }: Props) {
-  const [history, setHistory] = useState<HistoryEntry[]>([]);
-  const [selected, setSelected] = useState<HistoryEntry | null>(null);
+const CACHE_KEY = 'metaluck_history_v1';
+const PAGE_SIZE = 20;
 
+function readCache(): HistoryEntry[] {
+  try { return JSON.parse(localStorage.getItem(CACHE_KEY) ?? '[]'); } catch { return []; }
+}
+function writeCache(items: HistoryEntry[]) {
+  try { localStorage.setItem(CACHE_KEY, JSON.stringify(items.slice(0, 60))); } catch {}
+}
+
+export function Cabinet({ user, balance, isDev, onBalanceUpdate, openInvoice, isTelegram, tg }: Props) {
+  const [history, setHistory]     = useState<HistoryEntry[]>(() => readCache());
+  const [historyFresh, setFresh]  = useState(false);
+  const [hasMore, setHasMore]     = useState(false);
+  const [loadingMore, setLoadMore]= useState(false);
+  const [page, setPage]           = useState(0);
+  const [selected, setSelected]   = useState<HistoryEntry | null>(null);
+  const [showTopUp, setShowTopUp] = useState(false);
+
+  // SWR: show cache instantly, refresh in background
   useEffect(() => {
-    api.getHistory().then(setHistory).catch(() => {});
+    api.getHistory(0, PAGE_SIZE).then(res => {
+      setHistory(res.history);
+      setHasMore(res.pagination.hasMore);
+      setPage(0);
+      setFresh(true);
+      writeCache(res.history);
+    }).catch(() => setFresh(true));
   }, []);
+
+  const loadMore = async () => {
+    if (loadingMore) return;
+    setLoadMore(true);
+    try {
+      const next = page + 1;
+      const res = await api.getHistory(next, PAGE_SIZE);
+      setHistory(prev => {
+        const combined = [...prev, ...res.history];
+        writeCache(combined);
+        return combined;
+      });
+      setHasMore(res.pagination.hasMore);
+      setPage(next);
+    } finally {
+      setLoadMore(false);
+    }
+  };
 
   const fullName = [user.first_name, user.last_name].filter(Boolean).join(' ');
 
@@ -121,6 +167,9 @@ export function Cabinet({ user, balance, isDev }: Props) {
             {balance.toLocaleString('ru-RU')}
           </span>
           <span className="balance-unit">звёзд</span>
+          <button className="topup-inline-btn" onClick={() => setShowTopUp(true)}>
+            Пополнить
+          </button>
         </div>
       </div>
 
@@ -151,14 +200,20 @@ export function Cabinet({ user, balance, isDev }: Props) {
         </>
       )}
 
+      {/* ── Referral ────────────────────────────────────────────── */}
+      <div className="tg-section-title">Пригласить друга</div>
+      <ReferralCard tg={tg} />
+
       {/* ── History ─────────────────────────────────────────────── */}
       <div className="tg-section-title">
         История открытий
         {history.length > 0 && <span className="history-count num">{history.length}</span>}
       </div>
 
-      {history.length === 0 ? (
+      {history.length === 0 && historyFresh ? (
         <div className="tg-section tg-hint-text">Откройте первый кейс!</div>
+      ) : history.length === 0 ? (
+        <div className="tg-section tg-hint-text" style={{ color: 'var(--tg-hint)' }}>Загрузка…</div>
       ) : (
         <div className="tg-section history-list">
           {history.map((entry, i) => {
@@ -172,7 +227,7 @@ export function Cabinet({ user, balance, isDev }: Props) {
               >
                 <div className="history-thumb" style={{ borderColor: r.border, color: r.border }}>
                   {img
-                    ? <img src={img.image} alt={entry.prize.name} className="history-thumb-img" />
+                    ? <img src={img.image} alt={entry.prize.name} className="history-thumb-img" loading="lazy" />
                     : <span>{entry.prize.icon}</span>}
                 </div>
                 <div className="history-info">
@@ -193,7 +248,22 @@ export function Cabinet({ user, balance, isDev }: Props) {
         </div>
       )}
 
+      {hasMore && (
+        <button className="leaders-load-more" onClick={loadMore} disabled={loadingMore}>
+          {loadingMore ? 'Загрузка…' : 'Загрузить ещё'}
+        </button>
+      )}
+
       {selected && <GiftDetail entry={selected} onClose={() => setSelected(null)} />}
+
+      {showTopUp && (
+        <TopUpModal
+          onClose={() => setShowTopUp(false)}
+          onBalanceUpdate={onBalanceUpdate}
+          openInvoice={openInvoice}
+          isTelegram={isTelegram}
+        />
+      )}
     </div>
   );
 }

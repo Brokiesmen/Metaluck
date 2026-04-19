@@ -50,3 +50,21 @@ export interface HistoryEntry {
   prize: Prize;
   timestamp: number;
 }
+
+export interface TopupPackage {
+  id: string;
+  xtrAmount: number;
+  balanceAmount: number;
+  label: string;
+  popular: boolean;
+}
+
+export interface LeaderPage {
+  leaders: Leader[];
+  pagination: { page: number; limit: number; total: number; hasMore: boolean };
+}
+
+export interface HistoryPage {
+  history: HistoryEntry[];
+  pagination: { page: number; limit: number; total: number; hasMore: boolean };
+}

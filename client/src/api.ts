@@ -1,4 +1,4 @@
-import type { Prize, Case, HistoryEntry, Leader } from './types';
+import type { Prize, Case, HistoryEntry, Leader, TopupPackage, LeaderPage, HistoryPage } from './types';
 
 let _initData = '';
 export function setInitData(d: string) { _initData = d; }
@@ -28,11 +28,40 @@ export const api = {
   getCases: () =>
     request<{ cases: Case[] }>('/api/cases').then(d => d.cases),
 
-  getHistory: () =>
-    request<{ history: HistoryEntry[] }>('/api/history').then(d => d.history),
+  getHistory: (page = 0, limit = 20) =>
+    request<HistoryPage>(`/api/history?page=${page}&limit=${limit}`),
 
-  getLeaders: () =>
-    request<{ leaders: Leader[] }>('/api/leaders').then(d => d.leaders),
+  getLeaders: (page = 0, limit = 50) =>
+    request<LeaderPage>(`/api/leaders?page=${page}&limit=${limit}`),
+
+  getDailyStatus: () =>
+    request<{ currentDay: number; canClaim: boolean; nextClaimAt: number; claimedDays: boolean[] }>('/api/daily/status'),
+
+  claimDaily: () =>
+    request<{ prize: { id: number; name: string; rarity: string; icon: string; stars?: number }; newBalance: number; day: number }>('/api/daily/claim', { method: 'POST', body: '{}' }),
+
+  getReferralStatus: () =>
+    request<{ code: string; referredCount: number; totalEarned: number }>('/api/referral/status'),
+
+  activateReferral: (code: string) =>
+    request<{ success: boolean; reward: number }>('/api/referral/activate', {
+      method: 'POST',
+      body: JSON.stringify({ code }),
+    }),
+
+  getTopupPackages: () =>
+    request<{ packages: TopupPackage[] }>('/api/topup/packages').then(d => d.packages),
+
+  createTopupInvoice: (packageId: string) =>
+    request<{ invoiceLink: string; payload: string }>('/api/topup/create-invoice', {
+      method: 'POST',
+      body: JSON.stringify({ packageId }),
+    }),
+
+  getTopupStatus: (payload: string) =>
+    request<{ status: string; balanceAmount: number; newBalance: number | null }>(
+      `/api/topup/status/${encodeURIComponent(payload)}`
+    ),
 
   openCase: (caseId: number) =>
     request<{ prize: Prize; newBalance: number }>('/api/case/open', {

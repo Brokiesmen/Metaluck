@@ -1,5 +1,6 @@
 import Fastify, { type FastifyRequest } from 'fastify';
 import cors from '@fastify/cors';
+import compress from '@fastify/compress';
 import staticFiles from '@fastify/static';
 import Database from 'better-sqlite3';
 import path from 'path';
@@ -36,6 +37,7 @@ db.exec(`
     ts        INTEGER NOT NULL
   );
   CREATE INDEX IF NOT EXISTS histories_user ON histories(user_id, ts DESC);
+  CREATE INDEX IF NOT EXISTS idx_balances_rank ON balances(balance DESC, user_id ASC);
   CREATE TABLE IF NOT EXISTS daily_states (
     user_id    INTEGER PRIMARY KEY,
     claimed_day INTEGER NOT NULL DEFAULT 0,
@@ -96,26 +98,20 @@ if (fs.existsSync(JSON_PATH)) {
 }
 
 // ── DB helpers ─────────────────────────────────────────────────────────────────
-const DEFAULT_BALANCE = 15000;
+const DEFAULT_BALANCE = 500;
 
 function getBalance(userId: number): number {
-  const row = db.prepare('SELECT balance FROM balances WHERE user_id = ?').get(userId) as { balance: number } | undefined;
-  return row?.balance ?? DEFAULT_BALANCE;
+  db.prepare('INSERT OR IGNORE INTO balances(user_id, balance) VALUES(?,?)').run(userId, DEFAULT_BALANCE);
+  const row = db.prepare('SELECT balance FROM balances WHERE user_id = ?').get(userId) as { balance: number };
+  return row.balance;
 }
 
 function setBalance(userId: number, balance: number) {
   db.prepare('INSERT INTO balances(user_id, balance) VALUES(?,?) ON CONFLICT(user_id) DO UPDATE SET balance=excluded.balance').run(userId, balance);
 }
 
-function getHistory(userId: number): HistoryEntry[] {
-  const rows = db.prepare('SELECT case_id, case_name, prize, ts FROM histories WHERE user_id = ? ORDER BY ts DESC LIMIT 50').all(userId) as any[];
-  return rows.map(r => ({ caseId: r.case_id, caseName: r.case_name, prize: JSON.parse(r.prize), timestamp: r.ts }));
-}
-
 function addHistory(userId: number, entry: HistoryEntry) {
   db.prepare('INSERT INTO histories(user_id, case_id, case_name, prize, ts) VALUES(?,?,?,?,?)').run(userId, entry.caseId, entry.caseName, JSON.stringify(entry.prize), entry.timestamp);
-  // Keep only latest 50
-  db.prepare('DELETE FROM histories WHERE user_id = ? AND id NOT IN (SELECT id FROM histories WHERE user_id = ? ORDER BY ts DESC LIMIT 50)').run(userId, userId);
 }
 
 function getProfile(userId: number) {
@@ -148,6 +144,7 @@ function ensureReferral(userId: number) {
 const isProd = process.env.NODE_ENV === 'production';
 const app = Fastify({ logger: { level: 'info' } });
 await app.register(cors, { origin: true });
+await app.register(compress, { global: true });
 
 if (isProd) {
   const clientDist = path.join(__dirname, '../../client/dist');
@@ -210,26 +207,47 @@ app.get('/api/prizes', async () => ({
 
 app.get('/api/cases', async () => ({ cases: CASES }));
 
-app.get('/api/history', async req => {
+app.get<{ Querystring: { page?: string; limit?: string } }>('/api/history', async req => {
   const userId = getUserId(req);
-  return { history: getHistory(userId) };
+  const page  = Math.max(0, parseInt(req.query.page  ?? '0',  10) || 0);
+  const limit = Math.min(50, Math.max(5,  parseInt(req.query.limit ?? '20', 10) || 20));
+  const offset = page * limit;
+
+  const { total } = db.prepare('SELECT COUNT(*) as total FROM histories WHERE user_id = ?').get(userId) as { total: number };
+  const rows = db.prepare(
+    'SELECT case_id, case_name, prize, ts FROM histories WHERE user_id = ? ORDER BY ts DESC LIMIT ? OFFSET ?'
+  ).all(userId, limit, offset) as any[];
+
+  return {
+    history: rows.map(r => ({ caseId: r.case_id, caseName: r.case_name, prize: JSON.parse(r.prize), timestamp: r.ts })),
+    pagination: { page, limit, total, hasMore: offset + limit < total },
+  };
 });
 
-app.get('/api/leaders', async () => {
+app.get<{ Querystring: { page?: string; limit?: string } }>('/api/leaders', async (req) => {
+  const page  = Math.max(0, parseInt(req.query.page  ?? '0',  10) || 0);
+  const limit = Math.min(100, Math.max(10, parseInt(req.query.limit ?? '50', 10) || 50));
+  const offset = page * limit;
+
+  const { total } = db.prepare('SELECT COUNT(*) as total FROM balances').get() as { total: number };
+
   const rows = db.prepare(`
     SELECT b.user_id, b.balance, p.name, p.photo_url
     FROM balances b
     LEFT JOIN user_profiles p ON b.user_id = p.user_id
-    ORDER BY b.balance DESC
-    LIMIT 100
-  `).all() as any[];
-  const leaders = rows.map(r => ({
-    userId: r.user_id,
-    name: r.name || 'Аноним',
-    photoUrl: r.photo_url ?? undefined,
-    balance: r.balance,
-  }));
-  return { leaders };
+    ORDER BY b.balance DESC, b.user_id ASC
+    LIMIT ? OFFSET ?
+  `).all(limit, offset) as any[];
+
+  return {
+    leaders: rows.map(r => ({
+      userId:   r.user_id,
+      name:     r.name || 'Аноним',
+      photoUrl: r.photo_url ?? undefined,
+      balance:  r.balance,
+    })),
+    pagination: { page, limit, total, hasMore: offset + limit < total },
+  };
 });
 
 // ── Daily reward ──────────────────────────────────────────────────────────────
