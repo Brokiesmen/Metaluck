@@ -48,6 +48,7 @@ export const api = {
       referredCount: number;
       totalEarned: number;
       rewardPerInvite: number;
+      cashbackPercent: number;
     }>('/api/referral/status'),
 
   activateReferral: (code: string) =>

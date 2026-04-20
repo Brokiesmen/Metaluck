@@ -40,7 +40,13 @@ export function ReferralCard({ tg }) {
             _jsx("div", { className: "referral-icon", children: "👥" }),
             _jsxs("div", { children: [
                 _jsx("div", { className: "referral-title", children: "Реферальная программа" }),
-                _jsxs("div", { className: "referral-subtitle", children: ["Приведи друга — получи ", reward, " звёзд"] }),
+                _jsxs("div", { className: "referral-subtitle", children: [
+                  "Приведи друга — ",
+                  reward,
+                  " звёзд + ",
+                  data?.cashbackPercent ?? 10,
+                  "% кэшбэк",
+                ] }),
             ]}),
         ]}),
 

@@ -72,7 +72,7 @@ export function CaseGrid({ cases, selected, onSelect, disabled }: Props) {
               {isFreeNow ? (
                 <span className="case-badge case-badge--free">БЕСПЛАТНО</span>
               ) : c.isFree ? (
-                <span className="case-badge case-badge--paid">100 ★</span>
+                <span className="case-badge case-badge--paid">ЕЖЕДНЕВНО</span>
               ) : null}
 
               {/* Icon */}

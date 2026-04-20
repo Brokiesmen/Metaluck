@@ -44,7 +44,8 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS daily_states (
     user_id    INTEGER PRIMARY KEY,
     claimed_day INTEGER NOT NULL DEFAULT 0,
-    last_claim_at INTEGER NOT NULL DEFAULT 0
+    last_claim_at INTEGER NOT NULL DEFAULT 0,
+    last_free_case_at INTEGER NOT NULL DEFAULT 0
   );
   CREATE TABLE IF NOT EXISTS referrals (
     user_id        INTEGER PRIMARY KEY,
@@ -52,6 +53,11 @@ db.exec(`
     referred_by    INTEGER,
     referred_users TEXT NOT NULL DEFAULT '[]',
     total_earned   INTEGER NOT NULL DEFAULT 0
+  );
+  CREATE TABLE IF NOT EXISTS user_meta (
+    user_id        INTEGER PRIMARY KEY,
+    first_seen_at  INTEGER NOT NULL,
+    is_premium     INTEGER NOT NULL DEFAULT 0
   );
   CREATE TABLE IF NOT EXISTS topup_orders (
     payload                     TEXT PRIMARY KEY,
@@ -68,6 +74,12 @@ db.exec(`
   );
   CREATE INDEX IF NOT EXISTS topup_orders_user_created ON topup_orders(user_id, created_at DESC);
 `);
+
+try {
+  db.prepare('ALTER TABLE daily_states ADD COLUMN last_free_case_at INTEGER NOT NULL DEFAULT 0').run();
+} catch {
+  // Column already exists on most databases; keep startup idempotent.
+}
 
 // ── Sprint-5 migration: add last_free_case_at column ──────────────────────────
 try {
@@ -155,6 +167,25 @@ function getProfile(userId: number) {
 
 function setProfile(userId: number, name: string, photoUrl?: string) {
   db.prepare('INSERT INTO user_profiles(user_id, name, photo_url) VALUES(?,?,?) ON CONFLICT(user_id) DO UPDATE SET name=excluded.name, photo_url=excluded.photo_url').run(userId, name, photoUrl ?? null);
+}
+
+function upsertUserMeta(userId: number, isPremium: boolean) {
+  const now = Date.now();
+  db.prepare(
+    `INSERT INTO user_meta(user_id, first_seen_at, is_premium)
+     VALUES(?, ?, ?)
+     ON CONFLICT(user_id) DO UPDATE SET
+       is_premium = CASE
+         WHEN excluded.is_premium = 1 THEN 1
+         ELSE user_meta.is_premium
+       END`,
+  ).run(userId, now, isPremium ? 1 : 0);
+}
+
+function getUserMeta(userId: number) {
+  return db
+    .prepare('SELECT first_seen_at, is_premium FROM user_meta WHERE user_id = ?')
+    .get(userId) as { first_seen_at: number; is_premium: number } | undefined;
 }
 
 function getTopupPackageById(packageId: string) {
@@ -250,13 +281,17 @@ function setDailyState(userId: number, claimedDay: number, lastClaimAt: number) 
 }
 
 function getLastFreeCaseAt(userId: number): number {
-  const row = db.prepare('SELECT last_free_case_at FROM daily_states WHERE user_id = ?').get(userId) as { last_free_case_at: number } | undefined;
-  return row?.last_free_case_at ?? 0;
+  const row = db
+    .prepare('SELECT last_free_case_at FROM daily_states WHERE user_id = ?')
+    .get(userId) as { last_free_case_at: number } | undefined;
+  return Number(row?.last_free_case_at ?? 0);
 }
 
 function setLastFreeCaseAt(userId: number, ts: number) {
   db.prepare(
-    'INSERT INTO daily_states(user_id, claimed_day, last_claim_at, last_free_case_at) VALUES(?,0,0,?) ON CONFLICT(user_id) DO UPDATE SET last_free_case_at=excluded.last_free_case_at',
+    `INSERT INTO daily_states(user_id, claimed_day, last_claim_at, last_free_case_at)
+     VALUES(?, 0, 0, ?)
+     ON CONFLICT(user_id) DO UPDATE SET last_free_case_at=excluded.last_free_case_at`,
   ).run(userId, ts);
 }
 
@@ -307,7 +342,15 @@ function buildReferralLink(code: string): string | null {
   return `https://t.me/${username}/${pathPart}?startapp=${encodeURIComponent(code)}`;
 }
 
-function activateReferralCode(userId: number, rawCode: unknown): { activated: boolean; message?: string } {
+function isReferralSignupBonusEligible(userId: number): boolean {
+  const meta = getUserMeta(userId);
+  if (!meta) return false;
+  if (Number(meta.is_premium) === 1) return true;
+  const MONTH_MS = 30 * 24 * 60 * 60 * 1000;
+  return Date.now() - Number(meta.first_seen_at) >= MONTH_MS;
+}
+
+function activateReferralCode(userId: number, rawCode: unknown): { activated: boolean; rewardGranted?: number; message?: string } {
   const code = parseRefCode(rawCode);
   if (!code) return { activated: false, message: 'Неверный код' };
   if (userId <= 0) return { activated: false, message: 'Недоступно в dev режиме' };
@@ -332,12 +375,15 @@ function activateReferralCode(userId: number, rawCode: unknown): { activated: bo
       referredUsers.push(userId);
     }
 
+    const bonus = isReferralSignupBonusEligible(userId) ? REFERRAL_REWARD : 0;
     db.prepare(
       'UPDATE referrals SET referred_users=?, total_earned=total_earned+? WHERE user_id=?',
-    ).run(JSON.stringify(referredUsers), REFERRAL_REWARD, refData.user_id);
-    setBalance(refData.user_id, getBalance(refData.user_id) + REFERRAL_REWARD);
+    ).run(JSON.stringify(referredUsers), bonus, refData.user_id);
+    if (bonus > 0) {
+      setBalance(refData.user_id, getBalance(refData.user_id) + bonus);
+    }
     db.prepare('UPDATE referrals SET referred_by=? WHERE user_id=?').run(refData.user_id, userId);
-    return { activated: true };
+    return { activated: true, rewardGranted: bonus };
   });
 
   return tx();
@@ -392,16 +438,17 @@ if (isProd) {
 
 // ── Daily reward config ───────────────────────────────────────────────────────
 const DAILY_REWARDS = [
-  { day: 1, type: 'stars' as const, stars: 50 },
-  { day: 2, type: 'stars' as const, stars: 150 },
-  { day: 3, type: 'gift'  as const, rarity: 'blue' },
-  { day: 4, type: 'stars' as const, stars: 300 },
-  { day: 5, type: 'gift'  as const, rarity: 'purple' },
-  { day: 6, type: 'stars' as const, stars: 600 },
-  { day: 7, type: 'gift'  as const, rarity: 'gold' },
+  { day: 1, type: 'stars' as const, stars: 1 },
+  { day: 2, type: 'stars' as const, stars: 1 },
+  { day: 3, type: 'stars' as const, stars: 2 },
+  { day: 4, type: 'stars' as const, stars: 1 },
+  { day: 5, type: 'stars' as const, stars: 2 },
+  { day: 6, type: 'stars' as const, stars: 3 },
+  { day: 7, type: 'gift_case' as const },
 ];
 
-const REFERRAL_REWARD = 500;
+const REFERRAL_REWARD = 3;
+const REFERRAL_CASHBACK_PERCENT = 10;
 
 interface HistoryEntry {
   caseId: number;
@@ -420,6 +467,8 @@ function getUserId(req: FastifyRequest): number {
     const ln = (result.user.last_name as string) || '';
     const name = `${fn} ${ln}`.trim();
     const photoUrl = (result.user.photo_url as string) || undefined;
+    const isPremium = Boolean(result.user.is_premium);
+    upsertUserMeta(result.userId, isPremium);
     if (name) {
       const existing = getProfile(result.userId);
       if (!existing || existing.name !== name || existing.photo_url !== photoUrl) {
@@ -574,9 +623,9 @@ app.post('/api/daily/claim', { schema: { body: { type: 'object' } } }, async (re
     setBalance(userId, newBalance);
     prize = { id: 900 + dayToClaim, name: `${stars} звёзд`, rarity: 'gold', icon: '⭐', stars };
   } else {
-    const candidates = PRIZES.filter(p => p.rarity === reward.rarity && !p.stars && !p.isPremium);
-    prize = candidates[Math.floor(Math.random() * candidates.length)];
-    addHistory(userId, { caseId: 0, caseName: 'Ежедневный подарок', prize, timestamp: now });
+    const giftPool = PRIZES.filter((p) => !p.stars && !p.isPremium);
+    prize = giftPool[Math.floor(Math.random() * giftPool.length)];
+    addHistory(userId, { caseId: 1, caseName: 'Ежедневный кейс (день 7)', prize, timestamp: now });
   }
 
   setDailyState(userId, dayToClaim, now);
@@ -596,6 +645,7 @@ app.get('/api/referral/status', async req => {
     referredCount: refs.length,
     totalEarned: data.total_earned,
     rewardPerInvite: REFERRAL_REWARD,
+    cashbackPercent: REFERRAL_CASHBACK_PERCENT,
   };
 });
 
@@ -609,7 +659,7 @@ app.post<{ Body: ActivateBody }>('/api/referral/activate', {
   if (!result.activated) {
     return reply.status(400).send({ message: result.message ?? 'Не удалось активировать код' });
   }
-  return { success: true, reward: REFERRAL_REWARD };
+  return { success: true, reward: result.rewardGranted ?? 0 };
 });
 
 // ── Top-up ────────────────────────────────────────────────────────────────────
@@ -692,19 +742,14 @@ app.post<{ Body: OpenBody }>('/api/case/open', {
   if (!gameCase) return reply.status(404).send({ message: 'Кейс не найден' });
 
   const now = Date.now();
-
-  // Determine actual cost for this open
-  let cost = gameCase.price;
-  let usedFree = false;
-  if (gameCase.isFree) {
-    const lastFree = getLastFreeCaseAt(userId);
-    if ((now - lastFree) >= FREE_CASE_INTERVAL_MS) {
-      cost = 0;
-      usedFree = true;
-    } else {
-      cost = gameCase.paidFallbackPrice ?? 100;
-    }
+  const isFreeCaseLocked = Boolean(
+    gameCase.isFree && (now - getLastFreeCaseAt(userId)) < FREE_CASE_INTERVAL_MS,
+  );
+  if (isFreeCaseLocked) {
+    return reply.status(400).send({ message: 'Ежедневный кейс можно открыть только раз в 24 часа' });
   }
+
+  const cost = gameCase.price;
 
   const balance = getBalance(userId);
   if (balance < cost) return reply.status(400).send({ message: 'Недостаточно звёзд' });
@@ -717,8 +762,9 @@ app.post<{ Body: OpenBody }>('/api/case/open', {
 
   if (prize.stars) newBalance += prize.stars;
   setBalance(userId, newBalance);
-
-  if (usedFree) setLastFreeCaseAt(userId, now);
+  if (gameCase.isFree) {
+    setLastFreeCaseAt(userId, now);
+  }
 
   if (!prize.stars) {
     addHistory(userId, { caseId, caseName: gameCase.name, prize, timestamp: now });
@@ -841,6 +887,19 @@ function applySuccessfulPayment(sp: any, payerTelegramId: number) {
 
     db.prepare('INSERT OR IGNORE INTO balances(user_id, balance) VALUES(?, ?)').run(order.user_id, DEFAULT_BALANCE);
     db.prepare('UPDATE balances SET balance = balance + ? WHERE user_id = ?').run(order.balance_amount, order.user_id);
+
+    const referral = db
+      .prepare('SELECT referred_by FROM referrals WHERE user_id = ?')
+      .get(order.user_id) as { referred_by: number | null } | undefined;
+    const inviterId = Number(referral?.referred_by ?? 0);
+    const cashback = inviterId > 0 ? Math.floor((order.balance_amount * REFERRAL_CASHBACK_PERCENT) / 100) : 0;
+    if (cashback > 0) {
+      ensureReferral(inviterId);
+      db.prepare('INSERT OR IGNORE INTO balances(user_id, balance) VALUES(?, ?)').run(inviterId, DEFAULT_BALANCE);
+      db.prepare('UPDATE balances SET balance = balance + ? WHERE user_id = ?').run(cashback, inviterId);
+      db.prepare('UPDATE referrals SET total_earned = total_earned + ? WHERE user_id = ?').run(cashback, inviterId);
+    }
+
     db.prepare(
       `UPDATE topup_orders
        SET status='paid',

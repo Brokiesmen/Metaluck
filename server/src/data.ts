@@ -3,7 +3,7 @@ import type { WeightedPrize, Case } from './types.js';
 export const FREE_CASE_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24h
 
 export const CASES: Case[] = [
-  { id: 1, name: 'Стартовый кейс',   price: 0,    icon: '📦', color: '#4a9eda', isFree: true, paidFallbackPrice: 100 },
+  { id: 1, name: 'Стартовый кейс',   price: 0,    icon: '📦', color: '#4a9eda', isFree: true },
   { id: 2, name: 'Продвинутый кейс', price: 100,  icon: '🎁', color: '#9b59b6' },
   { id: 3, name: 'Элитный кейс',     price: 1000, icon: '💎', color: '#e8a319' },
 ];

@@ -5,10 +5,9 @@ import { TabBar, type Tab } from './components/TabBar';
 import { CaseGrid } from './components/CaseGrid';
 import { StripOpener } from './components/StripOpener';
 import { ResultModal } from './components/ResultModal';
-import { PrizesGrid } from './components/PrizesGrid';
 import { Cabinet } from './components/Cabinet';
 import { Leaders } from './components/Leaders';
-import { DailyReward } from './components/DailyReward';
+import { DailyTab } from './components/DailyTab';
 import { StarIcon } from './components/StarIcon';
 import { MetaluckBrand } from './components/branding';
 import type { Case, Prize } from './types';
@@ -65,6 +64,13 @@ export function App() {
   const reloadCases = useCallback(() => {
     api.getCases().then(setCases).catch(() => {});
   }, []);
+
+  // Navigate to cases tab and pre-select the free case
+  const goToFreeCase = useCallback(() => {
+    const freeCase = cases.find(c => c.isFree) ?? null;
+    setSelectedCase(freeCase);
+    setTab('cases');
+  }, [cases]);
 
   const handleOpen = useCallback(async () => {
     if (!selectedCase || isAnimating) return;
@@ -147,17 +153,16 @@ export function App() {
               onSelect={setSelectedCase}
               disabled={isAnimating}
             />
-            <PrizesGrid prizes={prizes} />
           </>
         ) : tab === 'leaders' ? (
           <Leaders />
         ) : tab === 'daily' ? (
-          <div className="daily-tab-wrap">
-            <DailyReward
-              onClose={() => setTab('cases')}
-              onBalanceUpdate={setBalance}
-            />
-          </div>
+          <DailyTab
+            prizes={prizes}
+            cases={cases}
+            onBalanceUpdate={setBalance}
+            onGoToFreeCase={goToFreeCase}
+          />
         ) : (
           <Cabinet
             user={user}

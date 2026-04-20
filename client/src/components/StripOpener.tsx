@@ -1,4 +1,4 @@
-import { useRef, useEffect, useCallback } from 'react';
+import { useRef, useEffect, useCallback, useMemo, useState } from 'react';
 import { RARITY, GIFT_IMAGES } from '../data';
 import { StarIcon } from './StarIcon';
 import type { Prize, Case } from '../types';
@@ -41,11 +41,20 @@ function pickAny(prizes: Prize[]): Prize {
   return prizes[Math.floor(Math.random() * prizes.length)];
 }
 
+function formatCountdown(ms: number): string {
+  if (ms <= 0) return '00:00:00';
+  const h = Math.floor(ms / 3600000);
+  const m = Math.floor((ms % 3600000) / 60000);
+  const s = Math.floor((ms % 60000) / 1000);
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+}
+
 export function StripOpener({
   selectedCase, prizes, winner, previewKey, isAnimating, onOpen, onDone,
 }: Props) {
   const stripRef = useRef<HTMLDivElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
+  const [nowMs, setNowMs] = useState(() => Date.now());
 
   const buildStrip = useCallback((w: Prize) => {
     const strip = stripRef.current;
@@ -88,6 +97,24 @@ export function StripOpener({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [winner]);
 
+  const isFreeCaseLocked = useMemo(() => {
+    if (!selectedCase?.isFree) return false;
+    if (selectedCase.freeAvailable === true) return false;
+    if (!selectedCase.nextFreeAt) return false;
+    return selectedCase.nextFreeAt > nowMs;
+  }, [selectedCase, nowMs]);
+
+  useEffect(() => {
+    if (!isFreeCaseLocked) return;
+    const id = setInterval(() => setNowMs(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [isFreeCaseLocked]);
+
+  const countdownText = useMemo(() => {
+    if (!selectedCase?.nextFreeAt) return '00:00:00';
+    return formatCountdown(selectedCase.nextFreeAt - nowMs);
+  }, [selectedCase, nowMs]);
+
   return (
     <div className="strip-section">
       {/* Tape */}
@@ -106,12 +133,16 @@ export function StripOpener({
       <button
         className={`tg-btn open-btn${isAnimating ? ' loading' : ''}`}
         onClick={onOpen}
-        disabled={!selectedCase || isAnimating}
+        disabled={!selectedCase || isAnimating || isFreeCaseLocked}
       >
         {isAnimating ? (
           'Открывается…'
         ) : !selectedCase ? (
           'Выберите кейс'
+        ) : isFreeCaseLocked ? (
+          `Вращать бесплатно · ${countdownText}`
+        ) : selectedCase.price === 0 ? (
+          'Вращать бесплатно'
         ) : (
           <>
             <span className="open-btn-text num">Открыть · {selectedCase.price}</span>

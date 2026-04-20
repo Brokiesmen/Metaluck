@@ -19,6 +19,7 @@ export interface Case {
   price: number;         // effective price (0 for free case when available)
   icon: string;
   color: string;
-  isFree?: boolean;              // case 1: free once per 24h
-  paidFallbackPrice?: number;    // cost when free timer is active
+  isFree?: boolean;              // case 1: strictly free once per 24h — no paid fallback
+  freeAvailable?: boolean;
+  nextFreeAt?: number | null;
 }
