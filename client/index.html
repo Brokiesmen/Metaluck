@@ -2,14 +2,20 @@
 <html lang="ru">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>CS Case Opening</title>
-    <!-- Telegram Mini App SDK -->
+
+    <!-- Запрет жёсткого кэширования (Android WebView кэширует агрессивно) -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+
+    <!-- Подсказка браузеру: контент меняется при каждой загрузке -->
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+
+    <!-- Telegram Mini App SDK (загружаем первым — синхронно, он нужен до React) -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
-    <!-- Polyfills for older Android devices -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/es6-shim/0.35.6/es6-shim.min.js"></script>
-    
     <script>
       window.startupLog = [];
       function log(msg) {
@@ -18,7 +24,12 @@
       }
       log('Page started');
       window.addEventListener('load', function() { log('Window loaded'); });
-      window.onerror = function(msg, url, line) { log('Global Error: ' + msg + ' at ' + url + ':' + line); };
+      window.onerror = function(msg, url, line, col, err) {
+        log('Error: ' + msg + ' at ' + url + ':' + line + ':' + col);
+      };
+      window.addEventListener('unhandledrejection', function(e) {
+        log('UnhandledPromise: ' + (e.reason?.message || e.reason));
+      });
     </script>
   </head>
   <body>

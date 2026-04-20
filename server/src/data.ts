@@ -1,9 +1,11 @@
 import type { WeightedPrize, Case } from './types.js';
 
+export const FREE_CASE_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24h
+
 export const CASES: Case[] = [
-  { id: 1, name: 'Стартовый кейс', price: 100, icon: '📦', color: '#4a9eda' },
-  { id: 2, name: 'Премиум кейс',   price: 300, icon: '🎁', color: '#9b59b6' },
-  { id: 3, name: 'Элитный кейс',   price: 500, icon: '💼', color: '#e8a319' },
+  { id: 1, name: 'Стартовый кейс',   price: 0,    icon: '📦', color: '#4a9eda', isFree: true, paidFallbackPrice: 100 },
+  { id: 2, name: 'Продвинутый кейс', price: 100,  icon: '🎁', color: '#9b59b6' },
+  { id: 3, name: 'Элитный кейс',     price: 1000, icon: '💎', color: '#e8a319' },
 ];
 
 // Star prizes — 90% of all drops
@@ -121,3 +123,30 @@ export const PRIZES: WeightedPrize[] = [...STAR_PRIZES,
   { id:  99, name: 'Tama Gadgets', rarity: 'blue', weight:  8, icon: '' },
   { id: 100, name: 'Timeless Books', rarity: 'gold', weight:  8, icon: '' },
 ];
+
+// Case 1 (Стартовый) — standard distribution, same as PRIZES
+export const PRIZES_CASE1 = PRIZES;
+
+// Case 2 (Продвинутый) — boosted Rare/Epic, fewer stars/commons
+export const PRIZES_CASE2: WeightedPrize[] = PRIZES.map(p => {
+  if (p.stars) {
+    // Stars still drop but much less often
+    const reduced: Record<number, number> = { 201: 800, 202: 400, 203: 200, 204: 80, 205: 30 };
+    return { ...p, weight: reduced[p.id] ?? p.weight };
+  }
+  if (p.rarity === 'gray')   return { ...p, weight: 5  };
+  if (p.rarity === 'blue')   return { ...p, weight: 20 };
+  if (p.rarity === 'purple') return { ...p, weight: 18 };
+  if (p.rarity === 'gold')   return { ...p, weight: 12 };
+  return p;
+});
+
+// Case 3 (Элитный) — only Epic (purple) and Legendary (gold), no stars, no common
+export const PRIZES_CASE3: WeightedPrize[] = PRIZES.filter(
+  p => !p.stars && (p.rarity === 'purple' || p.rarity === 'gold'),
+).map(p => ({
+  ...p,
+  weight: p.isPremium
+    ? (p.id === 206 ? 10 : p.id === 207 ? 5 : 2)
+    : p.rarity === 'gold' ? 20 : 30,
+}));

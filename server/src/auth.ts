@@ -4,6 +4,7 @@ interface AuthResult {
   valid: boolean;
   userId: number;
   user: Record<string, unknown> | null;
+  startParam: string | null;
 }
 
 /**
@@ -13,7 +14,7 @@ interface AuthResult {
  * https://core.telegram.org/bots/webapps#validating-data-received-via-the-mini-app
  */
 export function validateInitData(initData: string | undefined): AuthResult {
-  const DEV: AuthResult = { valid: true, userId: 0, user: null };
+  const DEV: AuthResult = { valid: true, userId: 0, user: null, startParam: null };
 
   // No initData → dev mode
   if (!initData) return DEV;
@@ -22,16 +23,17 @@ export function validateInitData(initData: string | undefined): AuthResult {
   const userStr = params.get('user');
   const user = userStr ? (JSON.parse(userStr) as Record<string, unknown>) : null;
   const userId = typeof user?.id === 'number' ? user.id : 0;
+  const startParam = params.get('start_param');
 
   const botToken = process.env.TELEGRAM_BOT_TOKEN;
 
   // Bot token not configured → skip validation but use parsed ID (dev mode)
   if (!botToken) {
-    return { valid: true, userId, user };
+    return { valid: true, userId, user, startParam };
   }
 
   const hash = params.get('hash');
-  if (!hash) return { valid: false, userId: 0, user: null };
+  if (!hash) return { valid: false, userId: 0, user: null, startParam: null };
 
   params.delete('hash');
 
@@ -50,7 +52,7 @@ export function validateInitData(initData: string | undefined): AuthResult {
     .update(dataCheckString)
     .digest('hex');
 
-  if (expected !== hash) return { valid: false, userId: 0, user: null };
+  if (expected !== hash) return { valid: false, userId: 0, user: null, startParam: null };
 
-  return { valid: true, userId, user };
+  return { valid: true, userId, user, startParam };
 }

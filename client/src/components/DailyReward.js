@@ -6,12 +6,12 @@ import { GIFT_IMAGES, RARITY } from '../data';
 
 // Must match server DAILY_REWARDS
 const DAILY_REWARDS = [
-  { day: 1, type: 'stars',  stars: 50,  label: '50',  icon: '⭐', color: '#e8c06a' },
-  { day: 2, type: 'stars',  stars: 150, label: '150', icon: '⭐', color: '#e8c06a' },
+  { day: 1, type: 'stars',  stars: 50,  label: '50',  icon: '●', color: '#e8c06a' },
+  { day: 2, type: 'stars',  stars: 150, label: '150', icon: '●', color: '#e8c06a' },
   { day: 3, type: 'gift',   rarity: 'blue',   label: 'Подарок', icon: '🎁', color: '#a8c8f0' },
-  { day: 4, type: 'stars',  stars: 300, label: '300', icon: '⭐', color: '#e8c06a' },
+  { day: 4, type: 'stars',  stars: 300, label: '300', icon: '●', color: '#e8c06a' },
   { day: 5, type: 'gift',   rarity: 'purple', label: 'Подарок', icon: '🎁', color: '#b0acf5' },
-  { day: 6, type: 'stars',  stars: 600, label: '600', icon: '⭐', color: '#e8c06a' },
+  { day: 6, type: 'stars',  stars: 600, label: '600', icon: '●', color: '#e8c06a' },
   { day: 7, type: 'gift',   rarity: 'gold',   label: '🏆 Приз', icon: '🏆', color: '#e8c06a' },
 ];
 
@@ -73,7 +73,7 @@ export function DailyReward({ onClose, onBalanceUpdate }) {
                 _jsx("div", { className: "daily-result-label", children: `🎁 День ${result.day}` }),
                 prize.stars
                     ? _jsxs("div", { className: "daily-result-stars", children: [
-                        _jsx("div", { className: "daily-result-star-emoji", children: "⭐" }),
+                        _jsx("div", { className: "daily-result-star-emoji", children: "Баланс" }),
                         _jsx("div", { className: "daily-result-star-count num", children: `+${prize.stars}` }),
                       ]})
                     : _jsx("div", { className: "modal-icon-wrap", style: { borderColor: r.border, color: r.border }, children:
@@ -117,7 +117,7 @@ export function DailyReward({ onClose, onBalanceUpdate }) {
                             : _jsx("div", { className: "daily-day-icon", style: { color: reward.color }, children: reward.icon }),
                         _jsx("div", { className: "daily-day-label", children:
                             reward.type === 'stars'
-                                ? _jsxs("span", { children: [reward.label, ' ⭐'] })
+                                ? _jsxs("span", { children: [reward.label, ' звёзд'] })
                                 : reward.label
                         }),
                     ]}, dayNum);

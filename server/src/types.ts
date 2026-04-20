@@ -16,7 +16,9 @@ export interface WeightedPrize extends Prize {
 export interface Case {
   id: number;
   name: string;
-  price: number;
+  price: number;         // effective price (0 for free case when available)
   icon: string;
   color: string;
+  isFree?: boolean;              // case 1: free once per 24h
+  paidFallbackPrice?: number;    // cost when free timer is active
 }

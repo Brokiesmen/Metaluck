@@ -66,7 +66,7 @@ function GiftDetail({ entry, onClose }: GiftDetailProps) {
             <span className="gift-stat-label">Редкость</span>
             <span className="gift-stat-value num">
               {Array.from({ length: 4 }).map((_, i) => (
-                <span key={i} style={{ opacity: i < stars ? 1 : 0.2 }}>★</span>
+                <span key={i} style={{ opacity: i < stars ? 1 : 0.2 }}>●</span>
               ))}
             </span>
           </div>

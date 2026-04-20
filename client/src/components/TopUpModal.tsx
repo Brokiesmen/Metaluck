@@ -90,7 +90,7 @@ export function TopUpModal({ onClose, onBalanceUpdate, isTelegram, openInvoice }
 
         {done ? (
           <div className="topup-success">
-            <div className="topup-success-icon">⭐</div>
+            <div className="topup-success-icon">✓</div>
             <div className="topup-success-title">Баланс пополнен</div>
             <div className="topup-success-amount num">
               +{done.amount.toLocaleString('ru-RU')} <StarIcon size={22} />
@@ -117,8 +117,9 @@ export function TopUpModal({ onClose, onBalanceUpdate, isTelegram, openInvoice }
                     disabled={loading}
                   >
                     {pkg.popular && <div className="topup-pkg-badge">ХИТ</div>}
-                    <div className="topup-pkg-icon"><StarIcon size={28} /></div>
-                    <div className="topup-pkg-amount num">{pkg.balanceAmount.toLocaleString('ru-RU')}</div>
+                    <div className="topup-pkg-amount num">
+                      {pkg.balanceAmount.toLocaleString('ru-RU')} <StarIcon size={18} animate={false} />
+                    </div>
                     <div className="topup-pkg-label">{pkg.label}</div>
                     <div className="topup-pkg-bonus num">{pkg.xtrAmount} XTR</div>
                   </button>

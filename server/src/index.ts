@@ -3,11 +3,14 @@ import cors from '@fastify/cors';
 import compress from '@fastify/compress';
 import staticFiles from '@fastify/static';
 import Database from 'better-sqlite3';
+import crypto from 'crypto';
+import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-import { PRIZES, CASES } from './data.js';
+dotenv.config({ path: path.resolve(__dirname, '../../.env') });
+import { PRIZES, PRIZES_CASE1, PRIZES_CASE2, PRIZES_CASE3, CASES, FREE_CASE_INTERVAL_MS } from './data.js';
 import { pickPrize } from './random.js';
 import { validateInitData } from './auth.js';
 import type { Prize } from './types.js';
@@ -50,7 +53,28 @@ db.exec(`
     referred_users TEXT NOT NULL DEFAULT '[]',
     total_earned   INTEGER NOT NULL DEFAULT 0
   );
+  CREATE TABLE IF NOT EXISTS topup_orders (
+    payload                     TEXT PRIMARY KEY,
+    user_id                     INTEGER NOT NULL,
+    package_id                  TEXT NOT NULL,
+    xtr_amount                  INTEGER NOT NULL,
+    balance_amount              INTEGER NOT NULL,
+    status                      TEXT NOT NULL DEFAULT 'pending',
+    telegram_payment_charge_id  TEXT UNIQUE,
+    provider_payment_charge_id  TEXT,
+    error_message               TEXT,
+    created_at                  INTEGER NOT NULL,
+    updated_at                  INTEGER NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS topup_orders_user_created ON topup_orders(user_id, created_at DESC);
 `);
+
+// ── Sprint-5 migration: add last_free_case_at column ──────────────────────────
+try {
+  db.exec('ALTER TABLE daily_states ADD COLUMN last_free_case_at INTEGER NOT NULL DEFAULT 0');
+} catch {
+  // Column already exists — ignore
+}
 
 // ── Migrate from db.json if it exists ─────────────────────────────────────────
 import fs from 'fs';
@@ -99,6 +123,17 @@ if (fs.existsSync(JSON_PATH)) {
 
 // ── DB helpers ─────────────────────────────────────────────────────────────────
 const DEFAULT_BALANCE = 500;
+const TOPUP_PACKAGES = [
+  { id: 'xtr_25', xtrAmount: 25, balanceAmount: 25, label: '25 звёзд', popular: false },
+  { id: 'xtr_50', xtrAmount: 50, balanceAmount: 50, label: '50 звёзд', popular: true },
+  { id: 'xtr_100', xtrAmount: 100, balanceAmount: 100, label: '100 звёзд', popular: false },
+  { id: 'xtr_500', xtrAmount: 500, balanceAmount: 500, label: '500 звёзд', popular: false },
+] as const;
+const PRE_CHECKOUT_DEADLINE_MS = Math.min(
+  9700,
+  Math.max(2500, Number(process.env.PRE_CHECKOUT_DEADLINE_MS ?? 9000)),
+);
+const TELEGRAM_WEBHOOK_SECRET_TOKEN = String(process.env.TELEGRAM_WEBHOOK_SECRET_TOKEN ?? '').trim();
 
 function getBalance(userId: number): number {
   db.prepare('INSERT OR IGNORE INTO balances(user_id, balance) VALUES(?,?)').run(userId, DEFAULT_BALANCE);
@@ -122,12 +157,107 @@ function setProfile(userId: number, name: string, photoUrl?: string) {
   db.prepare('INSERT INTO user_profiles(user_id, name, photo_url) VALUES(?,?,?) ON CONFLICT(user_id) DO UPDATE SET name=excluded.name, photo_url=excluded.photo_url').run(userId, name, photoUrl ?? null);
 }
 
+function getTopupPackageById(packageId: string) {
+  return TOPUP_PACKAGES.find((p) => p.id === packageId) ?? null;
+}
+
+function buildTopupPayload(userId: number, packageId: string): string {
+  const nonce = crypto.randomBytes(6).toString('hex');
+  const payload = `mg:1:${userId}:${packageId}:${nonce}`;
+  if (payload.length > 128) {
+    throw new Error('Invoice payload too long');
+  }
+  return payload;
+}
+
+function parseTopupPayload(payload: string) {
+  const parts = String(payload ?? '').split(':');
+  if (parts.length !== 5 || parts[0] !== 'mg' || parts[1] !== '1') {
+    throw new Error('INVALID_PAYLOAD');
+  }
+  const userId = Number(parts[2]);
+  const packageId = parts[3];
+  if (!Number.isFinite(userId) || userId <= 0 || !getTopupPackageById(packageId)) {
+    throw new Error('INVALID_PAYLOAD');
+  }
+  return { userId, packageId };
+}
+
+function telegramApiUrl(method: string): string {
+  const token = String(process.env.TELEGRAM_BOT_TOKEN ?? '').trim();
+  if (!token) {
+    throw new Error('TELEGRAM_BOT_TOKEN is not configured');
+  }
+  return `https://api.telegram.org/bot${token}/${method}`;
+}
+
+async function telegramJsonMethod<T = unknown>(
+  method: string,
+  body: Record<string, unknown>,
+  timeoutMs = 7000,
+): Promise<T> {
+  const res = await fetch(telegramApiUrl(method), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(timeoutMs),
+  });
+  const data = (await res.json().catch(() => ({}))) as { ok?: boolean; description?: string; result?: T };
+  if (!data.ok) {
+    throw new Error(data.description ?? 'Telegram API error');
+  }
+  return data.result as T;
+}
+
+async function createTopupInvoiceLink(userId: number, pkg: (typeof TOPUP_PACKAGES)[number], payload: string) {
+  const body: Record<string, unknown> = {
+    title: `Пополнение ${pkg.label}`,
+    description: `Пополнение баланса на ${pkg.balanceAmount} звёзд за ${pkg.xtrAmount} XTR.`,
+    payload,
+    currency: 'XTR',
+    provider_token: '',
+    prices: [{ label: pkg.label, amount: pkg.xtrAmount }],
+  };
+  const photoUrl = String(process.env.STARS_INVOICE_PHOTO_URL ?? '').trim();
+  if (photoUrl) {
+    body.photo_url = photoUrl;
+  }
+  return telegramJsonMethod<string>('createInvoiceLink', body);
+}
+
+async function answerPreCheckoutQuery(
+  preCheckoutQueryId: string,
+  ok: boolean,
+  opts: { error_message?: string } = {},
+) {
+  return telegramJsonMethod(
+    'answerPreCheckoutQuery',
+    {
+      pre_checkout_query_id: preCheckoutQueryId,
+      ok,
+      ...opts,
+    },
+    5000,
+  );
+}
+
 function getDailyState(userId: number) {
   return db.prepare('SELECT claimed_day, last_claim_at FROM daily_states WHERE user_id = ?').get(userId) as { claimed_day: number; last_claim_at: number } | undefined;
 }
 
 function setDailyState(userId: number, claimedDay: number, lastClaimAt: number) {
   db.prepare('INSERT INTO daily_states(user_id, claimed_day, last_claim_at) VALUES(?,?,?) ON CONFLICT(user_id) DO UPDATE SET claimed_day=excluded.claimed_day, last_claim_at=excluded.last_claim_at').run(userId, claimedDay, lastClaimAt);
+}
+
+function getLastFreeCaseAt(userId: number): number {
+  const row = db.prepare('SELECT last_free_case_at FROM daily_states WHERE user_id = ?').get(userId) as { last_free_case_at: number } | undefined;
+  return row?.last_free_case_at ?? 0;
+}
+
+function setLastFreeCaseAt(userId: number, ts: number) {
+  db.prepare(
+    'INSERT INTO daily_states(user_id, claimed_day, last_claim_at, last_free_case_at) VALUES(?,0,0,?) ON CONFLICT(user_id) DO UPDATE SET last_free_case_at=excluded.last_free_case_at',
+  ).run(userId, ts);
 }
 
 function getReferral(userId: number) {
@@ -140,11 +270,120 @@ function ensureReferral(userId: number) {
   return getReferral(userId)!;
 }
 
+interface ReferralRow {
+  user_id: number;
+  code: string;
+  referred_by: number | null;
+  referred_users: string;
+  total_earned: number;
+}
+
+function parseRefCode(raw: unknown): string | null {
+  const code = String(raw ?? '').trim().toLowerCase();
+  if (!/^ref(?:dev|\d{1,20})$/.test(code)) return null;
+  return code;
+}
+
+function resolveReferrerByCode(code: string): ReferralRow | undefined {
+  return db.prepare('SELECT * FROM referrals WHERE code = ?').get(code) as ReferralRow | undefined;
+}
+
+function uniqueNumbers(values: unknown[]): number[] {
+  const out: number[] = [];
+  const seen = new Set<number>();
+  for (const v of values) {
+    const n = Number(v);
+    if (!Number.isFinite(n) || n <= 0 || seen.has(n)) continue;
+    seen.add(n);
+    out.push(n);
+  }
+  return out;
+}
+
+function buildReferralLink(code: string): string | null {
+  const username = String(process.env.TELEGRAM_BOT_USERNAME ?? '').trim().replace(/^@/, '');
+  if (!username) return null;
+  const pathPart = String(process.env.TELEGRAM_MINI_APP_PATH ?? 'app').trim().replace(/^\/+|\/+$/g, '') || 'app';
+  return `https://t.me/${username}/${pathPart}?startapp=${encodeURIComponent(code)}`;
+}
+
+function activateReferralCode(userId: number, rawCode: unknown): { activated: boolean; message?: string } {
+  const code = parseRefCode(rawCode);
+  if (!code) return { activated: false, message: 'Неверный код' };
+  if (userId <= 0) return { activated: false, message: 'Недоступно в dev режиме' };
+
+  const tx = db.transaction(() => {
+    const myData = ensureReferral(userId) as ReferralRow;
+    if (myData.referred_by !== null) {
+      return { activated: false, message: 'Уже активировано' };
+    }
+
+    const refData = resolveReferrerByCode(code);
+    if (!refData) {
+      return { activated: false, message: 'Код не найден' };
+    }
+    if (refData.user_id === userId) {
+      return { activated: false, message: 'Нельзя использовать свой код' };
+    }
+
+    const referredUsersRaw = JSON.parse(refData.referred_users || '[]') as unknown[];
+    const referredUsers = uniqueNumbers(referredUsersRaw);
+    if (!referredUsers.includes(userId)) {
+      referredUsers.push(userId);
+    }
+
+    db.prepare(
+      'UPDATE referrals SET referred_users=?, total_earned=total_earned+? WHERE user_id=?',
+    ).run(JSON.stringify(referredUsers), REFERRAL_REWARD, refData.user_id);
+    setBalance(refData.user_id, getBalance(refData.user_id) + REFERRAL_REWARD);
+    db.prepare('UPDATE referrals SET referred_by=? WHERE user_id=?').run(refData.user_id, userId);
+    return { activated: true };
+  });
+
+  return tx();
+}
+
 // ── App ────────────────────────────────────────────────────────────────────────
 const isProd = process.env.NODE_ENV === 'production';
 const app = Fastify({ logger: { level: 'info' } });
-await app.register(cors, { origin: true });
+
+// CORS — явно разрешаем все заголовки и методы (Android WebView строже к preflight)
+await app.register(cors, {
+  origin: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: [
+    'Content-Type',
+    'Authorization',
+    'X-Telegram-Init-Data',
+    'X-Requested-With',
+    'Accept',
+  ],
+  credentials: false,
+  preflight: true,
+  strictPreflight: false,
+});
+
 await app.register(compress, { global: true });
+
+// Security + cache headers — Android WebView иногда кэширует HTML/JS агрессивно
+app.addHook('onSend', async (_req, reply, payload) => {
+  reply.header('X-Content-Type-Options', 'nosniff');
+  reply.header('X-Frame-Options', 'SAMEORIGIN');
+  reply.header('Referrer-Policy', 'strict-origin-when-cross-origin');
+
+  const url = _req.url ?? '';
+  // HTML — никогда не кэшировать (index.html должен всегда быть свежим)
+  if (url === '/' || url.endsWith('.html')) {
+    reply.header('Cache-Control', 'no-cache, no-store, must-revalidate');
+    reply.header('Pragma', 'no-cache');
+    reply.header('Expires', '0');
+  }
+  // Статические ассеты с хешем в имени — кэшировать долго
+  if (/\/assets\/.*-[a-f0-9]{8,}\.(js|css|woff2?|png|webp|jpg)$/.test(url)) {
+    reply.header('Cache-Control', 'public, max-age=31536000, immutable');
+  }
+  return payload;
+});
 
 if (isProd) {
   const clientDist = path.join(__dirname, '../../client/dist');
@@ -191,6 +430,14 @@ function getUserId(req: FastifyRequest): number {
     setProfile(0, 'Dev User');
   }
 
+  if (result.userId > 0) {
+    ensureReferral(result.userId);
+    if (result.startParam) {
+      // Auto-activate only once; idempotency is guaranteed by activateReferralCode.
+      activateReferralCode(result.userId, result.startParam);
+    }
+  }
+
   return result.userId;
 }
 
@@ -205,7 +452,20 @@ app.get('/api/prizes', async () => ({
   prizes: PRIZES.map(({ weight: _w, ...p }) => p),
 }));
 
-app.get('/api/cases', async () => ({ cases: CASES }));
+app.get('/api/cases', async req => {
+  const userId = getUserId(req);
+  const now = Date.now();
+  const lastFree = getLastFreeCaseAt(userId);
+  const freeAvailable = (now - lastFree) >= FREE_CASE_INTERVAL_MS;
+  const nextFreeAt = freeAvailable ? null : lastFree + FREE_CASE_INTERVAL_MS;
+
+  return {
+    cases: CASES.map(c => ({
+      ...c,
+      ...(c.isFree ? { freeAvailable, nextFreeAt } : {}),
+    })),
+  };
+});
 
 app.get<{ Querystring: { page?: string; limit?: string } }>('/api/history', async req => {
   const userId = getUserId(req);
@@ -328,8 +588,15 @@ app.post('/api/daily/claim', { schema: { body: { type: 'object' } } }, async (re
 app.get('/api/referral/status', async req => {
   const userId = getUserId(req);
   const data   = ensureReferral(userId);
-  const refs   = JSON.parse(data.referred_users) as number[];
-  return { code: data.code, referredCount: refs.length, totalEarned: data.total_earned };
+  const refs   = uniqueNumbers(JSON.parse(data.referred_users || '[]') as unknown[]);
+  return {
+    code: data.code,
+    link: buildReferralLink(data.code),
+    referredBy: data.referred_by,
+    referredCount: refs.length,
+    totalEarned: data.total_earned,
+    rewardPerInvite: REFERRAL_REWARD,
+  };
 });
 
 interface ActivateBody { code: string }
@@ -337,39 +604,79 @@ interface ActivateBody { code: string }
 app.post<{ Body: ActivateBody }>('/api/referral/activate', {
   schema: { body: { type: 'object', required: ['code'], properties: { code: { type: 'string' } } } },
 }, async (req, reply) => {
-  const userId     = getUserId(req);
-  const { code }   = req.body;
-  const referrerId = code === 'refdev' ? 0 : parseInt(code.replace(/^ref/, ''), 10);
-  if (isNaN(referrerId)) return reply.status(400).send({ message: 'Неверный код' });
-  if (referrerId === userId) return reply.status(400).send({ message: 'Нельзя использовать свой код' });
-
-  const myData = ensureReferral(userId);
-  if (myData.referred_by !== null) return reply.status(400).send({ message: 'Уже активировано' });
-
-  const refData = ensureReferral(referrerId);
-  const refs    = JSON.parse(refData.referred_users) as number[];
-  refs.push(userId);
-  db.prepare('UPDATE referrals SET referred_users=?, total_earned=total_earned+? WHERE user_id=?').run(JSON.stringify(refs), REFERRAL_REWARD, referrerId);
-  setBalance(referrerId, getBalance(referrerId) + REFERRAL_REWARD);
-  db.prepare('UPDATE referrals SET referred_by=? WHERE user_id=?').run(referrerId, userId);
-
+  const userId = getUserId(req);
+  const result = activateReferralCode(userId, req.body.code);
+  if (!result.activated) {
+    return reply.status(400).send({ message: result.message ?? 'Не удалось активировать код' });
+  }
   return { success: true, reward: REFERRAL_REWARD };
 });
 
 // ── Top-up ────────────────────────────────────────────────────────────────────
 
-interface TopupBody { amount: number }
+app.get('/api/topup/packages', async () => ({
+  packages: TOPUP_PACKAGES,
+}));
 
-app.post<{ Body: TopupBody }>('/api/balance/topup', {
-  schema: { body: { type: 'object', required: ['amount'], properties: { amount: { type: 'number' } } } },
+interface CreateInvoiceBody { packageId: string }
+
+app.post<{ Body: CreateInvoiceBody }>('/api/topup/create-invoice', {
+  schema: {
+    body: {
+      type: 'object',
+      required: ['packageId'],
+      properties: { packageId: { type: 'string' } },
+    },
+  },
 }, async (req, reply) => {
   const userId = getUserId(req);
-  const { amount } = req.body;
-  const VALID = [500, 1000, 3000, 10000];
-  if (!VALID.includes(amount)) return reply.status(400).send({ message: 'Недопустимая сумма' });
-  const newBalance = getBalance(userId) + amount;
-  setBalance(userId, newBalance);
-  return { newBalance };
+  if (userId <= 0) {
+    return reply.status(400).send({ message: 'Оплата доступна только внутри Telegram Mini App.' });
+  }
+
+  const pkg = getTopupPackageById(req.body.packageId);
+  if (!pkg) {
+    return reply.status(400).send({ message: 'Неизвестный пакет пополнения.' });
+  }
+
+  const payload = buildTopupPayload(userId, pkg.id);
+  const now = Date.now();
+  db.prepare(
+    `INSERT INTO topup_orders (
+      payload, user_id, package_id, xtr_amount, balance_amount, status, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, 'pending', ?, ?)`,
+  ).run(payload, userId, pkg.id, pkg.xtrAmount, pkg.balanceAmount, now, now);
+
+  try {
+    const invoiceLink = await createTopupInvoiceLink(userId, pkg, payload);
+    return { invoiceLink, payload };
+  } catch (err) {
+    db.prepare(`UPDATE topup_orders SET status='failed', error_message=?, updated_at=? WHERE payload=?`).run(
+      err instanceof Error ? err.message : 'INVOICE_CREATE_FAILED',
+      Date.now(),
+      payload,
+    );
+    return reply.status(500).send({ message: 'Не удалось создать счёт. Попробуйте ещё раз.' });
+  }
+});
+
+app.get<{ Params: { payload: string } }>('/api/topup/status/:payload', async (req, reply) => {
+  const userId = getUserId(req);
+  const row = db.prepare(
+    `SELECT status, balance_amount
+     FROM topup_orders
+     WHERE payload = ? AND user_id = ?`,
+  ).get(req.params.payload, userId) as { status: string; balance_amount: number } | undefined;
+
+  if (!row) {
+    return reply.status(404).send({ message: 'Платёж не найден' });
+  }
+
+  return {
+    status: row.status,
+    balanceAmount: row.balance_amount,
+    newBalance: row.status === 'paid' ? getBalance(userId) : null,
+  };
 });
 
 // ── Case open ─────────────────────────────────────────────────────────────────
@@ -384,20 +691,191 @@ app.post<{ Body: OpenBody }>('/api/case/open', {
   const gameCase  = CASES.find(c => c.id === caseId);
   if (!gameCase) return reply.status(404).send({ message: 'Кейс не найден' });
 
-  const balance = getBalance(userId);
-  if (balance < gameCase.price) return reply.status(400).send({ message: 'Недостаточно монет' });
+  const now = Date.now();
 
-  let newBalance = balance - gameCase.price;
-  const prize    = pickPrize(PRIZES);
+  // Determine actual cost for this open
+  let cost = gameCase.price;
+  let usedFree = false;
+  if (gameCase.isFree) {
+    const lastFree = getLastFreeCaseAt(userId);
+    if ((now - lastFree) >= FREE_CASE_INTERVAL_MS) {
+      cost = 0;
+      usedFree = true;
+    } else {
+      cost = gameCase.paidFallbackPrice ?? 100;
+    }
+  }
+
+  const balance = getBalance(userId);
+  if (balance < cost) return reply.status(400).send({ message: 'Недостаточно звёзд' });
+
+  let newBalance = balance - cost;
+
+  // Pick from the appropriate prize pool
+  const pool = caseId === 3 ? PRIZES_CASE3 : caseId === 2 ? PRIZES_CASE2 : PRIZES_CASE1;
+  const prize = pickPrize(pool);
 
   if (prize.stars) newBalance += prize.stars;
   setBalance(userId, newBalance);
 
+  if (usedFree) setLastFreeCaseAt(userId, now);
+
   if (!prize.stars) {
-    addHistory(userId, { caseId, caseName: gameCase.name, prize, timestamp: Date.now() });
+    addHistory(userId, { caseId, caseName: gameCase.name, prize, timestamp: now });
   }
 
   return { prize, newBalance };
+});
+
+// ── Telegram webhook for Stars payments ───────────────────────────────────────
+function verifyWebhookSecret(req: FastifyRequest): boolean {
+  if (!TELEGRAM_WEBHOOK_SECRET_TOKEN) return true;
+  const got = String(req.headers['x-telegram-bot-api-secret-token'] ?? '').trim();
+  const expected = TELEGRAM_WEBHOOK_SECRET_TOKEN;
+  const a = Buffer.from(got, 'utf8');
+  const b = Buffer.from(expected, 'utf8');
+  if (a.length !== b.length) return false;
+  return crypto.timingSafeEqual(a, b);
+}
+
+async function evaluatePreCheckoutQuery(q: any) {
+  const fromId = Number(q?.from?.id);
+  if (!Number.isFinite(fromId) || fromId <= 0) {
+    return { ok: false as const, error_message: 'Не удалось определить покупателя.' };
+  }
+  if (q?.currency !== 'XTR') {
+    return { ok: false as const, error_message: 'Поддерживаются только Telegram Stars (XTR).' };
+  }
+
+  const payload = String(q?.invoice_payload ?? '');
+  let parsed: { userId: number; packageId: string };
+  try {
+    parsed = parseTopupPayload(payload);
+  } catch {
+    return { ok: false as const, error_message: 'Некорректный счёт. Запросите новый.' };
+  }
+  if (parsed.userId !== fromId) {
+    return { ok: false as const, error_message: 'Счёт выписан для другого пользователя.' };
+  }
+
+  const row = db.prepare(
+    `SELECT package_id, xtr_amount, status
+     FROM topup_orders
+     WHERE payload = ? AND user_id = ?`,
+  ).get(payload, fromId) as { package_id: string; xtr_amount: number; status: string } | undefined;
+
+  if (!row || row.status !== 'pending') {
+    return { ok: false as const, error_message: 'Счёт не найден или уже обработан.' };
+  }
+  if (row.package_id !== parsed.packageId || Number(q.total_amount) !== row.xtr_amount) {
+    return { ok: false as const, error_message: 'Сумма счёта не совпадает с пакетом.' };
+  }
+  return { ok: true as const };
+}
+
+async function handlePreCheckoutQuery(q: any) {
+  const qid = String(q?.id ?? '');
+  if (!qid) return;
+
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeoutPromise = new Promise<{ kind: 'timeout' }>((resolve) => {
+    timer = setTimeout(() => resolve({ kind: 'timeout' }), PRE_CHECKOUT_DEADLINE_MS);
+  });
+  const evalPromise = evaluatePreCheckoutQuery(q).then(
+    (evaluation) => ({ kind: 'eval' as const, evaluation }),
+    (err) => ({ kind: 'error' as const, err }),
+  );
+
+  const winner = await Promise.race([timeoutPromise, evalPromise]);
+  if (timer) clearTimeout(timer);
+
+  if (winner.kind === 'timeout') {
+    await answerPreCheckoutQuery(qid, false, {
+      error_message: 'Не удалось подтвердить заказ вовремя. Попробуйте снова.',
+    }).catch(() => undefined);
+    return;
+  }
+  if (winner.kind === 'error') {
+    await answerPreCheckoutQuery(qid, false, { error_message: 'Ошибка проверки заказа.' }).catch(() => undefined);
+    return;
+  }
+  if (!winner.evaluation.ok) {
+    await answerPreCheckoutQuery(qid, false, { error_message: winner.evaluation.error_message }).catch(() => undefined);
+    return;
+  }
+  await answerPreCheckoutQuery(qid, true).catch(() => undefined);
+}
+
+function applySuccessfulPayment(sp: any, payerTelegramId: number) {
+  const payload = String(sp?.invoice_payload ?? '');
+  const chargeId = String(sp?.telegram_payment_charge_id ?? '');
+  const providerChargeId = sp?.provider_payment_charge_id ? String(sp.provider_payment_charge_id) : null;
+  const totalAmount = Number(sp?.total_amount);
+  const currency = String(sp?.currency ?? '');
+  if (!payload || !chargeId || currency !== 'XTR' || !Number.isFinite(totalAmount) || totalAmount <= 0) {
+    return;
+  }
+
+  let parsed: { userId: number; packageId: string };
+  try {
+    parsed = parseTopupPayload(payload);
+  } catch {
+    return;
+  }
+  if (parsed.userId !== payerTelegramId) {
+    return;
+  }
+
+  const tx = db.transaction(() => {
+    const order = db.prepare(
+      `SELECT user_id, package_id, xtr_amount, balance_amount, status
+       FROM topup_orders
+       WHERE payload = ?`,
+    ).get(payload) as
+      | { user_id: number; package_id: string; xtr_amount: number; balance_amount: number; status: string }
+      | undefined;
+    if (!order) return;
+    if (order.status === 'paid') return;
+    if (order.user_id !== payerTelegramId) return;
+    if (order.package_id !== parsed.packageId || order.xtr_amount !== totalAmount) return;
+
+    db.prepare('INSERT OR IGNORE INTO balances(user_id, balance) VALUES(?, ?)').run(order.user_id, DEFAULT_BALANCE);
+    db.prepare('UPDATE balances SET balance = balance + ? WHERE user_id = ?').run(order.balance_amount, order.user_id);
+    db.prepare(
+      `UPDATE topup_orders
+       SET status='paid',
+           telegram_payment_charge_id=?,
+           provider_payment_charge_id=?,
+           updated_at=?
+       WHERE payload=?`,
+    ).run(chargeId, providerChargeId, Date.now(), payload);
+  });
+  tx();
+}
+
+app.get('/api/telegram/webhook', async () => ({
+  ok: true,
+  hint: 'Telegram sends POST updates here.',
+}));
+
+app.post('/api/telegram/webhook', async (req, reply) => {
+  if (!verifyWebhookSecret(req)) {
+    return reply.status(403).send({ message: 'Invalid webhook secret' });
+  }
+
+  const update = (req.body ?? {}) as any;
+  if (update.pre_checkout_query) {
+    await handlePreCheckoutQuery(update.pre_checkout_query);
+    return reply.send({ ok: true });
+  }
+  if (update.message?.successful_payment) {
+    const payerId = Number(update.message?.from?.id);
+    if (Number.isFinite(payerId) && payerId > 0) {
+      applySuccessfulPayment(update.message.successful_payment, payerId);
+    }
+    return reply.send({ ok: true });
+  }
+  return reply.send({ ok: true });
 });
 
 // ── SPA fallback ──────────────────────────────────────────────────────────────

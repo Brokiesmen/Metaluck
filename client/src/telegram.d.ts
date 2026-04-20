@@ -37,6 +37,10 @@ interface TelegramWebApp {
   ready(): void;
   setHeaderColor(color: string): void;
   setBackgroundColor(color: string): void;
+  openInvoice(
+    url: string,
+    callback?: (status: 'paid' | 'cancelled' | 'failed' | 'pending') => void,
+  ): void;
 }
 
 declare global {

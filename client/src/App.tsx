@@ -62,6 +62,10 @@ export function App() {
   }, [tg, initData]);
 
   // ── Open case ─────────────────────────────────────────────────────────────
+  const reloadCases = useCallback(() => {
+    api.getCases().then(setCases).catch(() => {});
+  }, []);
+
   const handleOpen = useCallback(async () => {
     if (!selectedCase || isAnimating) return;
     setError(null);
@@ -71,11 +75,13 @@ export function App() {
       const { prize, newBalance } = await api.openCase(selectedCase.id);
       setBalance(newBalance);
       setWinner(prize);
+      // Refresh cases so free-case timer updates
+      reloadCases();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Ошибка сервера');
       setIsAnimating(false);
     }
-  }, [selectedCase, isAnimating]);
+  }, [selectedCase, isAnimating, reloadCases]);
 
   const handleDone = useCallback((prize: Prize) => {
     setIsAnimating(false);

@@ -27,6 +27,10 @@ export interface Case {
   price: number;
   icon: string;
   color: string;
+  isFree?: boolean;
+  paidFallbackPrice?: number;
+  freeAvailable?: boolean;
+  nextFreeAt?: number | null;
 }
 
 export interface RarityConfig {

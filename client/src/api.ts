@@ -41,7 +41,14 @@ export const api = {
     request<{ prize: { id: number; name: string; rarity: string; icon: string; stars?: number }; newBalance: number; day: number }>('/api/daily/claim', { method: 'POST', body: '{}' }),
 
   getReferralStatus: () =>
-    request<{ code: string; referredCount: number; totalEarned: number }>('/api/referral/status'),
+    request<{
+      code: string;
+      link: string | null;
+      referredBy: number | null;
+      referredCount: number;
+      totalEarned: number;
+      rewardPerInvite: number;
+    }>('/api/referral/status'),
 
   activateReferral: (code: string) =>
     request<{ success: boolean; reward: number }>('/api/referral/activate', {

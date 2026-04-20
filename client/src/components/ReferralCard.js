@@ -2,9 +2,6 @@ import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
 import { useEffect, useState } from 'react';
 import { api } from '../api';
 
-const BOT_LINK = 'https://t.me/metaluck_bot/app'; // замени на реальную ссылку бота
-const REWARD   = 500;
-
 export function ReferralCard({ tg }) {
     const [data, setData]     = useState(null);
     const [copied, setCopied] = useState(false);
@@ -13,7 +10,8 @@ export function ReferralCard({ tg }) {
         api.getReferralStatus().then(setData).catch(() => {});
     }, []);
 
-    const refLink = data ? `${BOT_LINK}?startapp=${data.code}` : '';
+    const refLink = data?.link || '';
+    const reward = data?.rewardPerInvite ?? 500;
 
     const handleCopy = () => {
         if (!refLink) return;
@@ -42,7 +40,7 @@ export function ReferralCard({ tg }) {
             _jsx("div", { className: "referral-icon", children: "👥" }),
             _jsxs("div", { children: [
                 _jsx("div", { className: "referral-title", children: "Реферальная программа" }),
-                _jsxs("div", { className: "referral-subtitle", children: ["Приведи друга — получи ", REWARD, " ⭐"] }),
+                _jsxs("div", { className: "referral-subtitle", children: ["Приведи друга — получи ", reward, " звёзд"] }),
             ]}),
         ]}),
 
@@ -54,7 +52,7 @@ export function ReferralCard({ tg }) {
             ]}),
             _jsx("div", { className: "referral-stat-sep" }),
             _jsxs("div", { className: "referral-stat", children: [
-                _jsxs("div", { className: "referral-stat-value num", children: [data.totalEarned, " ⭐"] }),
+                _jsxs("div", { className: "referral-stat-value num", children: [data.totalEarned, " звёзд"] }),
                 _jsx("div", { className: "referral-stat-label", children: "заработано" }),
             ]}),
         ]}),
