@@ -1,0 +1,523 @@
+import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import BetterSqlite3 from 'better-sqlite3';
+import crypto from 'crypto';
+import {
+  codesToRanks,
+  handTotalAndBustFromRanks,
+  handValueFromCodes,
+  isNaturalBlackjack,
+} from './blackjackEngine.js';
+
+const ALLOWED_BETS = [5, 10, 25, 50, 100] as const;
+
+const RANKS = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'] as const;
+const SUITS = ['S', 'H', 'D', 'C'] as const;
+
+const SUIT_SYM: Record<string, string> = {
+  S: '\u2660',
+  H: '\u2665',
+  D: '\u2666',
+  C: '\u2663',
+};
+
+export type BjPhase = 'player' | 'finished';
+
+export interface BjRowState {
+  bet: number;
+  deck: string[];
+  player: string[];
+  dealer: string[];
+  phase: BjPhase;
+  /** пока идёт ход игрока — вторая карта дилера скрыта */
+  dealerHoleHidden: boolean;
+  result?: 'win' | 'lose' | 'push' | 'blackjack' | 'bust';
+  payout?: number;
+}
+
+const CARD_RE = /^(?:A|[2-9]|10|[JQK])[SHDC]$/;
+
+function isValidCardCode(code: string): boolean {
+  return typeof code === 'string' && CARD_RE.test(code);
+}
+
+/** Защита от битого JSON / частичных объектов — иначе hit/stand падают с 500. */
+function parseStoredState(raw: unknown): BjRowState | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const o = raw as Record<string, unknown>;
+  const phase = o.phase;
+  const bet = o.bet;
+  const deck = o.deck;
+  const player = o.player;
+  const dealer = o.dealer;
+  const dealerHoleHidden = o.dealerHoleHidden;
+  if (phase !== 'player' && phase !== 'finished') return null;
+  if (typeof bet !== 'number' || bet < 1 || !Number.isFinite(bet)) return null;
+  if (!Array.isArray(deck) || !Array.isArray(player) || !Array.isArray(dealer)) return null;
+  if (typeof dealerHoleHidden !== 'boolean') return null;
+  if (player.length < 1 || dealer.length < 2) return null;
+  if (!player.every(isValidCardCode) || !dealer.every(isValidCardCode)) return null;
+  for (const c of deck) {
+    if (typeof c !== 'string' || !isValidCardCode(c)) return null;
+  }
+  const st: BjRowState = {
+    bet,
+    deck: deck as string[],
+    player: player as string[],
+    dealer: dealer as string[],
+    phase,
+    dealerHoleHidden,
+  };
+  if (o.result !== undefined) {
+    const r = o.result;
+    if (r === 'win' || r === 'lose' || r === 'push' || r === 'blackjack' || r === 'bust') {
+      st.result = r;
+    }
+  }
+  if (o.payout !== undefined && typeof o.payout === 'number' && Number.isFinite(o.payout)) {
+    st.payout = o.payout;
+  }
+  return st;
+}
+
+function parseCard(code: string): { rank: string; suit: string } {
+  const suit = code.slice(-1);
+  const rank = code.slice(0, -1);
+  return { rank, suit };
+}
+
+function cardLabel(code: string): string {
+  const { rank, suit } = parseCard(code);
+  return `${rank}${SUIT_SYM[suit] ?? suit}`;
+}
+
+function buildDeck(): string[] {
+  const d: string[] = [];
+  for (const s of SUITS) {
+    for (const r of RANKS) {
+      d.push(`${r}${s}`);
+    }
+  }
+  return d;
+}
+
+function shuffle<T>(arr: T[]): T[] {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = crypto.randomInt(0, i + 1);
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function popCard(deck: string[]): string {
+  const c = deck.pop();
+  if (!c) throw new Error('DECK_EMPTY');
+  return c;
+}
+
+function payoutForWin(bet: number): number {
+  return bet * 2;
+}
+
+function payoutForBlackjack(bet: number): number {
+  return Math.floor((bet * 25) / 10);
+}
+
+function dealerShouldHit(codes: string[]): boolean {
+  return handValueFromCodes(codes) < 17;
+}
+
+function playDealer(deck: string[], dealer: string[]): { deck: string[]; dealer: string[] } {
+  const d = [...dealer];
+  let dk = [...deck];
+  while (dealerShouldHit(d)) {
+    d.push(popCard(dk));
+  }
+  return { deck: dk, dealer: d };
+}
+
+function settleRound(
+  bet: number,
+  player: string[],
+  dealer: string[],
+): { result: BjRowState['result']; payout: number } {
+  const pv = handValueFromCodes(player);
+  const dv = handValueFromCodes(dealer);
+  const pNat = isNaturalBlackjack(player);
+  const dNat = isNaturalBlackjack(dealer);
+
+  if (pNat && dNat) return { result: 'push', payout: bet };
+  if (pNat && !dNat) return { result: 'blackjack', payout: payoutForBlackjack(bet) };
+  if (!pNat && dNat) return { result: 'lose', payout: 0 };
+
+  if (pv > 21) return { result: 'bust', payout: 0 };
+  if (dv > 21) return { result: 'win', payout: payoutForWin(bet) };
+  if (pv > dv) return { result: 'win', payout: payoutForWin(bet) };
+  if (pv < dv) return { result: 'lose', payout: 0 };
+  return { result: 'push', payout: bet };
+}
+
+function rowToResponse(state: BjRowState, newBalance: number) {
+  const playerCards = state.player.map((code) => ({
+    code,
+    label: cardLabel(code),
+  }));
+
+  let dealerCards: Array<{ code: string; label: string; faceDown?: boolean }>;
+  let dealerValue: number | null = null;
+
+  if (state.phase === 'player' && state.dealerHoleHidden) {
+    const up = state.dealer[0];
+    if (!up) {
+      throw new Error('BJ_INVALID_STATE_DEALER');
+    }
+    dealerCards = [
+      { code: up, label: cardLabel(up) },
+      { code: 'HIDDEN', label: '', faceDown: true },
+    ];
+  } else {
+    dealerCards = state.dealer.map((code) => ({
+      code,
+      label: cardLabel(code),
+    }));
+    dealerValue = handValueFromCodes(state.dealer);
+  }
+
+  const dealerUpcardValue =
+    state.phase === 'player' && state.dealerHoleHidden && state.dealer[0]
+      ? handValueFromCodes([state.dealer[0]])
+      : null;
+
+  return {
+    newBalance,
+    round: {
+      phase: state.phase,
+      bet: state.bet,
+      playerCards,
+      playerValue: handValueFromCodes(state.player),
+      dealerCards,
+      dealerValue,
+      /** Очки открытой карты дилера, пока дыра скрыта (для UI «Дилер: 10»). */
+      dealerUpcardValue,
+      result: state.result ?? null,
+      payout: state.payout ?? 0,
+    },
+  };
+}
+
+export function registerBlackjackRoutes(
+  app: FastifyInstance,
+  deps: {
+    db: InstanceType<typeof BetterSqlite3>;
+    getUserId: (req: FastifyRequest) => number;
+    getBalance: (userId: number) => number;
+    setBalance: (userId: number, balance: number) => void;
+  },
+) {
+  const { db, getUserId, getBalance, setBalance } = deps;
+
+  const selectRow = db.prepare('SELECT state_json, updated_at FROM blackjack_games WHERE user_id = ?');
+  const upsert = db.prepare(
+    `INSERT INTO blackjack_games(user_id, state_json, updated_at) VALUES(?,?,?)
+     ON CONFLICT(user_id) DO UPDATE SET state_json=excluded.state_json, updated_at=excluded.updated_at`,
+  );
+  function readState(userId: number): BjRowState | null {
+    const row = selectRow.get(userId) as { state_json: string } | undefined;
+    if (!row) return null;
+    try {
+      const parsed = JSON.parse(row.state_json) as unknown;
+      return parseStoredState(parsed);
+    } catch {
+      return null;
+    }
+  }
+
+  function clearState(userId: number) {
+    db.prepare('DELETE FROM blackjack_games WHERE user_id = ?').run(userId);
+  }
+
+  function writeState(userId: number, s: BjRowState) {
+    upsert.run(userId, JSON.stringify(s), Date.now());
+  }
+
+  function jsonError(reply: FastifyReply, statusCode: number, message: string) {
+    return reply.status(statusCode).send({ message });
+  }
+
+  app.get('/api/blackjack/state', async (req) => {
+    const userId = getUserId(req);
+    const s = readState(userId);
+    const bal = getBalance(userId);
+    if (!s) return { newBalance: bal, round: null };
+    try {
+      return rowToResponse(s, bal);
+    } catch (err) {
+      req.log.warn({ err, userId }, 'blackjack rowToResponse failed, clearing saved game');
+      clearState(userId);
+      return { newBalance: bal, round: null };
+    }
+  });
+
+  app.post<{ Body: { bet?: number } }>(
+    '/api/blackjack/deal',
+    {
+      schema: {
+        body: {
+          type: 'object',
+          required: ['bet'],
+          properties: { bet: { type: 'number' } },
+        },
+      },
+    },
+    async (req, reply) => {
+      const userId = getUserId(req);
+      try {
+        const bet = Number(req.body?.bet);
+        if (!ALLOWED_BETS.includes(bet as (typeof ALLOWED_BETS)[number])) {
+          return jsonError(reply, 400, 'Ставка должна быть 2, 10 или 20 звёзд');
+        }
+
+        const existing = readState(userId);
+        if (existing && existing.phase === 'player') {
+          return jsonError(reply, 400, 'Сначала завершите текущую партию');
+        }
+
+        const balance = getBalance(userId);
+        if (balance < bet) {
+          return jsonError(reply, 400, 'Недостаточно звёзд');
+        }
+
+        let deck = shuffle(buildDeck());
+        const player: string[] = [popCard(deck), popCard(deck)];
+        const dealer: string[] = [popCard(deck), popCard(deck)];
+
+        const stakeTaken = balance - bet;
+        setBalance(userId, stakeTaken);
+
+        let state: BjRowState = {
+          bet,
+          deck,
+          player,
+          dealer,
+          phase: 'player',
+          dealerHoleHidden: true,
+        };
+
+        if (isNaturalBlackjack(player)) {
+          state.dealerHoleHidden = false;
+          if (isNaturalBlackjack(dealer)) {
+            setBalance(userId, stakeTaken + bet);
+            state = {
+              ...state,
+              phase: 'finished',
+              result: 'push',
+              payout: bet,
+            };
+          } else {
+            const win = payoutForBlackjack(bet);
+            setBalance(userId, stakeTaken + win);
+            state = {
+              ...state,
+              phase: 'finished',
+              result: 'blackjack',
+              payout: win,
+            };
+          }
+          writeState(userId, state);
+          return rowToResponse(state, getBalance(userId));
+        }
+
+        writeState(userId, state);
+        return rowToResponse(state, getBalance(userId));
+      } catch (err) {
+        req.log.error(err);
+        const msg = err instanceof Error ? err.message : String(err);
+        return jsonError(reply, 500, msg || 'Ошибка раздачи');
+      }
+    },
+  );
+
+  app.post('/api/blackjack/hit', async (req, reply) => {
+    const userId = getUserId(req);
+    try {
+      const state = readState(userId);
+      if (!state) {
+        return jsonError(reply, 404, 'Игра не найдена. Нажмите «Раздать».');
+      }
+      if (state.phase !== 'player') {
+        return jsonError(reply, 400, 'Нет активного хода. Нажмите «Раздать».');
+      }
+
+      let { deck, player, dealer } = state;
+      if (deck.length < 1) {
+        clearState(userId);
+        return jsonError(reply, 409, 'Колода повреждена. Нажмите «Раздать» снова.');
+      }
+
+      player = [...player, popCard(deck)];
+
+      const { total: pv, bust: playerBust } = handTotalAndBustFromRanks(codesToRanks(player));
+      if (playerBust || pv > 21) {
+        const finished: BjRowState = {
+          ...state,
+          deck,
+          player,
+          dealer,
+          phase: 'finished',
+          dealerHoleHidden: false,
+          result: 'bust',
+          payout: 0,
+        };
+        writeState(userId, finished);
+        return rowToResponse(finished, getBalance(userId));
+      }
+
+      if (pv === 21) {
+        let dk = deck;
+        let dl = dealer;
+        const revealed: BjRowState = {
+          ...state,
+          deck: dk,
+          player,
+          dealer: dl,
+          dealerHoleHidden: false,
+          phase: 'player',
+        };
+        const played = playDealer(dk, dl);
+        dk = played.deck;
+        dl = played.dealer;
+        const { result, payout } = settleRound(state.bet, player, dl);
+        setBalance(userId, getBalance(userId) + payout);
+        const done: BjRowState = {
+          ...revealed,
+          deck: dk,
+          dealer: dl,
+          phase: 'finished',
+          dealerHoleHidden: false,
+          result,
+          payout,
+        };
+        writeState(userId, done);
+        return rowToResponse(done, getBalance(userId));
+      }
+
+      const next: BjRowState = { ...state, deck, player };
+      writeState(userId, next);
+      return rowToResponse(next, getBalance(userId));
+    } catch (err) {
+      req.log.error(err);
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg === 'DECK_EMPTY') {
+        return jsonError(reply, 409, 'Колода исчерпана. Начните новую партию (Раздать).');
+      }
+      return jsonError(reply, 500, msg || 'Ошибка хода');
+    }
+  });
+
+  app.post('/api/blackjack/stand', async (req, reply) => {
+    const userId = getUserId(req);
+    try {
+      const state = readState(userId);
+      if (!state) {
+        return jsonError(reply, 404, 'Игра не найдена. Нажмите «Раздать».');
+      }
+      if (state.phase !== 'player') {
+        return jsonError(reply, 400, 'Нет активного хода. Нажмите «Раздать».');
+      }
+
+      let { deck, player, dealer } = state;
+      const revealed: BjRowState = {
+        ...state,
+        deck,
+        player,
+        dealer,
+        dealerHoleHidden: false,
+        phase: 'player',
+      };
+      const played = playDealer(deck, dealer);
+      deck = played.deck;
+      dealer = played.dealer;
+      const { result, payout } = settleRound(state.bet, player, dealer);
+      setBalance(userId, getBalance(userId) + payout);
+      const done: BjRowState = {
+        ...revealed,
+        deck,
+        dealer,
+        phase: 'finished',
+        dealerHoleHidden: false,
+        result,
+        payout,
+      };
+      writeState(userId, done);
+      return rowToResponse(done, getBalance(userId));
+    } catch (err) {
+      req.log.error(err);
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg === 'DECK_EMPTY') {
+        return jsonError(reply, 409, 'Колода повреждена. Начните новую партию.');
+      }
+      return jsonError(reply, 500, msg || 'Ошибка хода');
+    }
+  });
+
+  // ── Double Down ────────────────────────────────────────────────────────────────
+  app.post('/api/blackjack/double', async (req, reply) => {
+    const userId = getUserId(req);
+    try {
+      const state = readState(userId);
+      if (!state) return jsonError(reply, 404, 'Игра не найдена. Нажмите «Раздать».');
+      if (state.phase !== 'player') return jsonError(reply, 400, 'Нет активного хода.');
+      if (state.player.length !== 2) return jsonError(reply, 400, 'Удвоение доступно только с двумя картами.');
+
+      const balance = getBalance(userId);
+      if (balance < state.bet) return jsonError(reply, 400, 'Недостаточно звёзд для удвоения.');
+
+      // Снимаем дополнительную ставку
+      setBalance(userId, balance - state.bet);
+      const totalBet = state.bet * 2;
+
+      // Ровно одна карта игроку
+      let { deck } = state;
+      let { player, dealer } = state;
+      if (deck.length < 1) return jsonError(reply, 409, 'Колода исчерпана. Начните новую партию.');
+      player = [...player, popCard(deck)];
+
+      const pv = handValueFromCodes(player);
+      let result: BjRowState['result'];
+      let payout: number;
+
+      if (pv > 21) {
+        result = 'bust';
+        payout = 0;
+      } else {
+        // Дилер доигрывает
+        const played = playDealer(deck, dealer);
+        deck = played.deck;
+        dealer = played.dealer;
+        const settled = settleRound(totalBet, player, dealer);
+        result = settled.result;
+        payout = settled.payout;
+        if (payout > 0) setBalance(userId, getBalance(userId) + payout);
+      }
+
+      const done: BjRowState = {
+        ...state,
+        bet: totalBet,
+        deck,
+        player,
+        dealer,
+        phase: 'finished',
+        dealerHoleHidden: false,
+        result,
+        payout,
+      };
+      writeState(userId, done);
+      return rowToResponse(done, getBalance(userId));
+    } catch (err) {
+      req.log.error(err);
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg === 'DECK_EMPTY') return jsonError(reply, 409, 'Колода исчерпана. Начните новую партию.');
+      return jsonError(reply, 500, msg || 'Ошибка удвоения');
+    }
+  });
+}

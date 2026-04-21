@@ -16,6 +16,7 @@
     <!-- Telegram Mini App SDK (загружаем первым — синхронно, он нужен до React) -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
+    <!-- Экстренный override базы API без пересборки: window.__MINIGAMES_API_BASE__ = 'https://ваш-туннель'; -->
     <script>
       window.startupLog = [];
       function log(msg) {

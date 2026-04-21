@@ -2,28 +2,28 @@ import { useState, useEffect, useCallback } from 'react';
 import { api, setInitData } from './api';
 import { useTelegram } from './hooks/useTelegram';
 import { TabBar, type Tab } from './components/TabBar';
-import { CaseGrid } from './components/CaseGrid';
-import { StripOpener } from './components/StripOpener';
-import { ResultModal } from './components/ResultModal';
 import { Cabinet } from './components/Cabinet';
 import { Leaders } from './components/Leaders';
 import { DailyTab } from './components/DailyTab';
 import { StarIcon } from './components/StarIcon';
-import { MetaluckBrand } from './components/branding';
 import type { Case, Prize } from './types';
+import { GamesScreen } from './components/GamesScreen';
+import { CaseGame } from './components/CaseGame';
+import { BlackjackGame } from './components/BlackjackGame';
+
+type GameView = 'lobby' | 'cases' | 'blackjack';
 
 export function App() {
   const { tg, user, initData, isDev } = useTelegram();
+  // До первого useEffect дочерних компонентов: иначе /api/blackjack/state уходит без init, а /deal — уже с init (другой user_id → «завершите партию»).
+  setInitData(initData);
 
-  const [tab,          setTab]          = useState<Tab>('cases');
+  const [tab,          setTab]          = useState<Tab>('games');
+  const [gameView,     setGameView]     = useState<GameView>('lobby');
+  const [freeCaseJump, setFreeCaseJump] = useState(0);
   const [balance,      setBalance]      = useState(0);
   const [cases,        setCases]        = useState<Case[]>([]);
   const [prizes,       setPrizes]       = useState<Prize[]>([]);
-  const [selectedCase, setSelectedCase] = useState<Case | null>(null);
-  const [winner,       setWinner]       = useState<Prize | null>(null);
-  const [resultPrize,  setResultPrize]  = useState<Prize | null>(null);
-  const [isAnimating,  setIsAnimating]  = useState(false);
-  const [previewKey,   setPreviewKey]   = useState(0);
   const [error,        setError]        = useState<string | null>(null);
   const [logs,         setLogs]         = useState<string[]>([]);
 
@@ -44,10 +44,7 @@ export function App() {
       tg.setBackgroundColor('#17212b');
     }
     
-    // 2. Set Auth Data
-    setInitData(initData);
-
-    // 3. Fetch data (Wait for auth to be set)
+    // 2. Fetch data (init уже выставлен синхронно в теле App)
     Promise.all([api.getBalance(), api.getCases(), api.getPrizes()])
       .then(([bal, c, p]) => {
         setBalance(bal);
@@ -65,39 +62,25 @@ export function App() {
     api.getCases().then(setCases).catch(() => {});
   }, []);
 
-  // Navigate to cases tab and pre-select the free case
-  const goToFreeCase = useCallback(() => {
-    const freeCase = cases.find(c => c.isFree) ?? null;
-    setSelectedCase(freeCase);
-    setTab('cases');
-  }, [cases]);
-
-  const handleOpen = useCallback(async () => {
-    if (!selectedCase || isAnimating) return;
-    setError(null);
-    setIsAnimating(true);
-    setWinner(null);
-    try {
-      const { prize, newBalance } = await api.openCase(selectedCase.id);
-      setBalance(newBalance);
-      setWinner(prize);
-      // Refresh cases so free-case timer updates
-      reloadCases();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Ошибка сервера');
-      setIsAnimating(false);
-    }
-  }, [selectedCase, isAnimating, reloadCases]);
-
-  const handleDone = useCallback((prize: Prize) => {
-    setIsAnimating(false);
-    setWinner(null);
-    setResultPrize(prize);
+  const openCasesGame = useCallback(() => {
+    setGameView('cases');
+    setTab('games');
   }, []);
 
-  const handleClose = useCallback(() => {
-    setResultPrize(null);
-    setPreviewKey(k => k + 1);
+  const openBlackjackGame = useCallback(() => {
+    setGameView('blackjack');
+    setTab('games');
+  }, []);
+
+  const goToFreeCase = useCallback(() => {
+    setTab('games');
+    setGameView('cases');
+    setFreeCaseJump(v => v + 1);
+  }, []);
+
+  const handleTabChange = useCallback((nextTab: Tab) => {
+    setTab(nextTab);
+    if (nextTab === 'games') setGameView('lobby');
   }, []);
 
   return (
@@ -106,13 +89,19 @@ export function App() {
       {/* ── Top bar (replaces Telegram's native header in dev mode) ── */}
       <header className="tg-header">
         <div className="tg-header-left">
-          {tab !== 'cases' && (
-            <button className="back-btn" onClick={() => setTab('cases')}>‹</button>
+          {tab !== 'games' && (
+            <button className="back-btn" onClick={() => setTab('games')}>‹</button>
           )}
         </div>
         <div className="tg-header-title">
-          {tab === 'cases' ? (
-            <MetaluckBrand layout="horizontal" markSize={24} />
+          {tab === 'games' ? (
+            gameView === 'cases' ? (
+              'Кейсы'
+            ) : gameView === 'blackjack' ? (
+              'Блэкджек'
+            ) : (
+              'Игры'
+            )
           ) : tab === 'leaders' ? (
             'Лидеры'
           ) : tab === 'daily' ? (
@@ -122,7 +111,7 @@ export function App() {
           )}
         </div>
         <div className="tg-header-right">
-          {tab === 'cases' && (
+          {tab === 'games' && (
             <span className="header-balance num">
               {balance.toLocaleString('ru-RU')}
               <StarIcon size={18} />
@@ -135,25 +124,24 @@ export function App() {
       {error && <div className="error-banner">{error}</div>}
 
       {/* ── Pages ─────────────────────────────────────────────────── */}
-      <main className="page-content">
-        {tab === 'cases' ? (
-          <>
-            <StripOpener
-              selectedCase={selectedCase}
-              prizes={prizes}
-              winner={winner}
-              previewKey={previewKey}
-              isAnimating={isAnimating}
-              onOpen={handleOpen}
-              onDone={handleDone}
-            />
-            <CaseGrid
+      <main
+        className={`page-content${tab === 'games' && gameView === 'blackjack' ? ' page-content--blackjack' : ''}`}
+      >
+        {tab === 'games' ? (
+          gameView === 'cases' ? (
+            <CaseGame
               cases={cases}
-              selected={selectedCase}
-              onSelect={setSelectedCase}
-              disabled={isAnimating}
+              prizes={prizes}
+              onBack={() => setGameView('lobby')}
+              onBalanceUpdate={setBalance}
+              onCasesReload={reloadCases}
+              forceSelectFreeSignal={freeCaseJump}
             />
-          </>
+          ) : gameView === 'blackjack' ? (
+            <BlackjackGame onBack={() => setGameView('lobby')} onBalanceUpdate={setBalance} />
+          ) : (
+            <GamesScreen onOpenCases={openCasesGame} onOpenBlackjack={openBlackjackGame} />
+          )
         ) : tab === 'leaders' ? (
           <Leaders />
         ) : tab === 'daily' ? (
@@ -177,10 +165,7 @@ export function App() {
       </main>
 
       {/* ── Tab bar ───────────────────────────────────────────────── */}
-      <TabBar active={tab} onChange={setTab} />
-
-      {/* ── Result modal ──────────────────────────────────────────── */}
-      <ResultModal prize={resultPrize} onClose={handleClose} />
+      <TabBar active={tab} onChange={handleTabChange} />
 
       {/* ── Debug Logs (shows on error) ────────────────────────── */}
       {error && (

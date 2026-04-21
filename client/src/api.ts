@@ -1,20 +1,103 @@
-import type { Prize, Case, HistoryEntry, Leader, TopupPackage, LeaderPage, HistoryPage } from './types';
+import type {
+  Prize,
+  Case,
+  TopupPackage,
+  LeaderPage,
+  HistoryPage,
+  BlackjackStateResponse,
+} from './types';
 
 let _initData = '';
 export function setInitData(d: string) { _initData = d; }
 
-async function request<T>(url: string, options?: RequestInit): Promise<T> {
-  const res = await fetch(url, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      // Send Telegram initData so server knows who is making the request
-      'X-Telegram-Init-Data': _initData,
-      ...(options?.headers ?? {}),
-    },
-  });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.message ?? 'Server error');
+/**
+ * База для API. Пустая строка = относительные `/api/...` (тот же origin — правильно для туннеля,
+ * если и фронт, и API отдаёт один процесс/nginx на одном домене).
+ * Для отдельного домена API задайте VITE_API_BASE_URL при сборке или window.__MINIGAMES_API_BASE__ в index.html.
+ */
+function getApiBase(): string {
+  if (typeof window !== 'undefined' && window.__MINIGAMES_API_BASE__ != null && window.__MINIGAMES_API_BASE__ !== '') {
+    return String(window.__MINIGAMES_API_BASE__).trim().replace(/\/$/, '');
+  }
+  return String(import.meta.env.VITE_API_BASE_URL ?? '')
+    .trim()
+    .replace(/\/$/, '');
+}
+
+function resolveUrl(path: string): string {
+  if (/^https?:\/\//i.test(path)) return path;
+  return `${getApiBase()}${path}`;
+}
+
+function contentTypeLooksJson(ct: string): boolean {
+  const c = ct.toLowerCase();
+  return c.includes('application/json') || c.includes('+json');
+}
+
+function bodyLooksJson(raw: string): boolean {
+  const t = raw.trimStart();
+  return t.startsWith('{') || t.startsWith('[');
+}
+
+async function request<T>(path: string, options?: RequestInit): Promise<T> {
+  let res: Response;
+  try {
+    res = await fetch(resolveUrl(path), {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        // Send Telegram initData so server knows who is making the request
+        'X-Telegram-Init-Data': _initData,
+        ...(options?.headers ?? {}),
+      },
+    });
+  } catch (e) {
+    const reason = e instanceof Error ? e.message : String(e);
+    const isNetwork =
+      reason.includes('Failed to fetch') ||
+      reason.includes('NetworkError') ||
+      reason.includes('Network request failed') ||
+      reason.includes('LOAD_FAILED') ||
+      reason.includes('ECONNREFUSED');
+    const hint = isNetwork
+      ? ' Запустите бэкенд (из папки minigames: npm run dev — сервер и Vite вместе; или только server: npm run dev). Клиент открывайте с dev-сервера (http://127.0.0.1:5173), не через vite preview. Проверка: в браузере http://127.0.0.1:3001/api/health — должен ответить JSON с ok. Если страница по https, а API по http — браузер может блокировать запросы.'
+      : '';
+    throw new Error(
+      `Нет соединения с API (${reason}).${hint}`,
+    );
+  }
+
+  // Vite proxy при выключенном бэкенде часто отдаёт 502/504 с HTML
+  if (res.status === 502 || res.status === 503 || res.status === 504) {
+    throw new Error(
+      'Прокси не достучался до бэкенда (порт 3001). Запустите сервер: в папке server — npm run dev, или из корня minigames — npm run dev.',
+    );
+  }
+
+  const raw = await res.text();
+  const ct = res.headers.get('content-type') ?? '';
+  const head = raw.trimStart().slice(0, 80);
+
+  if (head.startsWith('<!') || head.toLowerCase().startsWith('<html')) {
+    throw new Error(
+      'Сервер вернул HTML вместо JSON (часто index.html или 404 nginx). Проверьте: 1) URL мини-приложения = тот же origin, что и API, или задайте VITE_API_BASE_URL; 2) location /api проксирует на бэкенд, а не на try_files /index.html; 3) бэкенд запущен на 3001.',
+    );
+  }
+
+  const allowParse = contentTypeLooksJson(ct) || bodyLooksJson(raw);
+  if (!allowParse) {
+    throw new Error(raw.slice(0, 200) || 'Некорректный ответ сервера (ожидался JSON)');
+  }
+
+  let data: { message?: string };
+  try {
+    data = JSON.parse(raw) as { message?: string };
+  } catch {
+    throw new Error('Некорректный JSON в ответе сервера');
+  }
+
+  if (!res.ok) throw new Error(data.message ?? `Ошибка ${res.status}`);
   return data as T;
 }
 
@@ -76,4 +159,79 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ caseId }),
     }),
+
+  getBlackjackState: () => request<BlackjackStateResponse>('/api/blackjack/state'),
+
+  blackjackDeal: (bet: number) =>
+    request<BlackjackStateResponse>('/api/blackjack/deal', {
+      method: 'POST',
+      body: JSON.stringify({ bet }),
+    }),
+
+  blackjackHit: () =>
+    request<BlackjackStateResponse>('/api/blackjack/hit', {
+      method: 'POST',
+      body: '{}',
+    }),
+
+  blackjackStand: () =>
+    request<BlackjackStateResponse>('/api/blackjack/stand', {
+      method: 'POST',
+      body: '{}',
+    }),
+
+  blackjackDouble: () =>
+    request<BlackjackStateResponse>('/api/blackjack/double', {
+      method: 'POST',
+      body: '{}',
+    }),
+
+  // ── PvP ──────────────────────────────────────────────────────────────────
+
+  pvpStats: () =>
+    request<{
+      level: number; xp: number; xpForNextLevel: number;
+      rating: number; wins: number; losses: number; draws: number;
+    }>('/api/pvp/stats'),
+
+  pvpFind: () =>
+    request<{ status: 'matched' | 'queuing'; matchId?: string; queuedAt?: number }>(
+      '/api/pvp/find', { method: 'POST', body: '{}' },
+    ),
+
+  pvpLeaveQueue: () =>
+    request<{ ok: boolean }>('/api/pvp/queue', { method: 'DELETE' }),
+
+  pvpGetMatch: (matchId: string) =>
+    request<PvpMatchView>(`/api/pvp/match/${encodeURIComponent(matchId)}`),
+
+  pvpChoose: (matchId: string, card: 'attack' | 'defense' | 'speed') =>
+    request<PvpMatchView>(`/api/pvp/match/${encodeURIComponent(matchId)}/choose`, {
+      method: 'POST',
+      body: JSON.stringify({ card }),
+    }),
 };
+
+// ── PvP types (used by PvpGame.tsx) ──────────────────────────────────────────
+
+export interface PvpRound {
+  myCard: 'attack' | 'defense' | 'speed';
+  opponentCard: 'attack' | 'defense' | 'speed';
+  result: 'win' | 'lose' | 'draw';
+}
+
+export interface PvpMatchView {
+  matchId: string;
+  isBot: boolean;
+  opponentName: string;
+  myRole: 'p1' | 'p2';
+  phase: 'choosing' | 'finished';
+  currentRound: number;
+  roundEndsAt: number;
+  scores: { me: number; opponent: number };
+  myCardThisRound: 'attack' | 'defense' | 'speed' | null;
+  rounds: PvpRound[];
+  matchResult: 'win' | 'lose' | 'draw' | null;
+  xpGained: number;
+  ratingChange: number;
+}

@@ -72,3 +72,28 @@ export interface HistoryPage {
   history: HistoryEntry[];
   pagination: { page: number; limit: number; total: number; hasMore: boolean };
 }
+
+export interface BlackjackPublicCard {
+  code: string;
+  label: string;
+  faceDown?: boolean;
+}
+
+export interface BlackjackRound {
+  phase: 'player' | 'finished';
+  bet: number;
+  playerCards: BlackjackPublicCard[];
+  playerValue: number;
+  dealerCards: BlackjackPublicCard[];
+  /** Полная сумма руки дилера, когда все карты открыты */
+  dealerValue: number | null;
+  /** Сумма только открытой карты, пока вторая закрыта */
+  dealerUpcardValue?: number | null;
+  result: 'win' | 'lose' | 'push' | 'blackjack' | 'bust' | null;
+  payout: number;
+}
+
+export interface BlackjackStateResponse {
+  newBalance: number;
+  round: BlackjackRound | null;
+}

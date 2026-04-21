@@ -1,6 +1,5 @@
 import Fastify, { type FastifyRequest } from 'fastify';
 import cors from '@fastify/cors';
-import compress from '@fastify/compress';
 import staticFiles from '@fastify/static';
 import Database from 'better-sqlite3';
 import crypto from 'crypto';
@@ -13,6 +12,8 @@ dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 import { PRIZES, PRIZES_CASE1, PRIZES_CASE2, PRIZES_CASE3, CASES, FREE_CASE_INTERVAL_MS } from './data.js';
 import { pickPrize } from './random.js';
 import { validateInitData } from './auth.js';
+import { registerBlackjackRoutes } from './blackjack.js';
+import { registerPvpRoutes } from './pvp.js';
 import type { Prize } from './types.js';
 
 // ── SQLite database ────────────────────────────────────────────────────────────
@@ -73,6 +74,34 @@ db.exec(`
     updated_at                  INTEGER NOT NULL
   );
   CREATE INDEX IF NOT EXISTS topup_orders_user_created ON topup_orders(user_id, created_at DESC);
+  CREATE TABLE IF NOT EXISTS blackjack_games (
+    user_id    INTEGER PRIMARY KEY,
+    state_json TEXT NOT NULL,
+    updated_at INTEGER NOT NULL
+  );
+  CREATE TABLE IF NOT EXISTS pvp_queue (
+    user_id   INTEGER PRIMARY KEY,
+    queued_at INTEGER NOT NULL
+  );
+  CREATE TABLE IF NOT EXISTS pvp_matches (
+    match_id   TEXT PRIMARY KEY,
+    player1    INTEGER NOT NULL,
+    player2    INTEGER NOT NULL,
+    state_json TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS pvp_matches_p1 ON pvp_matches(player1);
+  CREATE INDEX IF NOT EXISTS pvp_matches_p2 ON pvp_matches(player2);
+  CREATE TABLE IF NOT EXISTS pvp_stats (
+    user_id INTEGER PRIMARY KEY,
+    level   INTEGER NOT NULL DEFAULT 1,
+    xp      INTEGER NOT NULL DEFAULT 0,
+    rating  INTEGER NOT NULL DEFAULT 1000,
+    wins    INTEGER NOT NULL DEFAULT 0,
+    losses  INTEGER NOT NULL DEFAULT 0,
+    draws   INTEGER NOT NULL DEFAULT 0
+  );
 `);
 
 try {
@@ -393,10 +422,16 @@ function activateReferralCode(userId: number, rawCode: unknown): { activated: bo
 const isProd = process.env.NODE_ENV === 'production';
 const app = Fastify({ logger: { level: 'info' } });
 
-// CORS — явно разрешаем все заголовки и методы (Android WebView строже к preflight)
+// CORS: без CORS_ORIGIN — разрешён любой Origin (origin: true, как у Telegram Mini App).
+// Для явного списка (прод): CORS_ORIGIN=https://web.telegram.org,https://ваш-домен.com
+const corsOrigins = String(process.env.CORS_ORIGIN ?? '')
+  .split(/[,\s]+/)
+  .map((s) => s.trim())
+  .filter(Boolean);
+
 await app.register(cors, {
-  origin: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  origin: corsOrigins.length > 0 ? corsOrigins : true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   allowedHeaders: [
     'Content-Type',
     'Authorization',
@@ -409,32 +444,61 @@ await app.register(cors, {
   strictPreflight: false,
 });
 
-await app.register(compress, { global: true });
+// Не подключаем @fastify/compress глобально: в связке Fastify 4 + compress 6.x малые JSON-ответы
+// при Accept-Encoding: gzip могут зависать (onSend вызывает next() без payload). Сжатие — на nginx/CDN.
 
-// Security + cache headers — Android WebView иногда кэширует HTML/JS агрессивно
-app.addHook('onSend', async (_req, reply, payload) => {
-  reply.header('X-Content-Type-Options', 'nosniff');
-  reply.header('X-Frame-Options', 'SAMEORIGIN');
-  reply.header('Referrer-Policy', 'strict-origin-when-cross-origin');
+/** Без БД и авторизации — чтобы проверить, что процесс слушает порт (curl / браузер). */
+app.get('/api/health', async () => ({ ok: true as const, ts: Date.now() }));
 
-  const url = _req.url ?? '';
-  // HTML — никогда не кэшировать (index.html должен всегда быть свежим)
-  if (url === '/' || url.endsWith('.html')) {
-    reply.header('Cache-Control', 'no-cache, no-store, must-revalidate');
-    reply.header('Pragma', 'no-cache');
-    reply.header('Expires', '0');
+function isApiPath(url: string): boolean {
+  const p = url.split('?')[0] ?? '';
+  return p === '/api' || p.startsWith('/api/');
+}
+
+// Любая ошибка на /api/* — только JSON (никогда HTML)
+app.setErrorHandler((error: Error & { statusCode?: number; validation?: unknown }, request, reply) => {
+  if (!isApiPath(request.url)) {
+    reply.send(error);
+    return;
   }
-  // Статические ассеты с хешем в имени — кэшировать долго
-  if (/\/assets\/.*-[a-f0-9]{8,}\.(js|css|woff2?|png|webp|jpg)$/.test(url)) {
-    reply.header('Cache-Control', 'public, max-age=31536000, immutable');
+  const statusCode =
+    error.statusCode ??
+    (error.message === 'Unauthorized' ? 401 : error.validation ? 400 : 500);
+  const payload: { message: string; code?: string } = {
+    message: error.message || 'Server error',
+  };
+  if (error.validation) {
+    payload.code = 'VALIDATION_ERROR';
   }
-  return payload;
+  reply
+    .status(statusCode)
+    .type('application/json; charset=utf-8')
+    .send(payload);
 });
 
-if (isProd) {
-  const clientDist = path.join(__dirname, '../../client/dist');
-  await app.register(staticFiles, { root: clientDist, prefix: '/' });
-}
+// Не использовать preSerialization + reply.type() для /api/* — в Fastify 4 это приводило к зависанию ответа (incoming request без completed).
+
+// Security + cache headers. onSend через done(): async onSend + payload-stream в Fastify 4 иногда не завершает ответ.
+app.addHook('onSend', (request, reply, payload, done) => {
+  try {
+    reply.header('X-Content-Type-Options', 'nosniff');
+    reply.header('X-Frame-Options', 'SAMEORIGIN');
+    reply.header('Referrer-Policy', 'strict-origin-when-cross-origin');
+
+    const url = request.url ?? '';
+    if (url === '/' || url.endsWith('.html')) {
+      reply.header('Cache-Control', 'no-cache, no-store, must-revalidate');
+      reply.header('Pragma', 'no-cache');
+      reply.header('Expires', '0');
+    }
+    if (/\/assets\/.*-[a-f0-9]{8,}\.(js|css|woff2?|png|webp|jpg)$/.test(url)) {
+      reply.header('Cache-Control', 'public, max-age=31536000, immutable');
+    }
+    done(null, payload);
+  } catch (err) {
+    done(err as Error);
+  }
+});
 
 // ── Daily reward config ───────────────────────────────────────────────────────
 const DAILY_REWARDS = [
@@ -457,10 +521,14 @@ interface HistoryEntry {
   timestamp: number;
 }
 
+function httpError(statusCode: number, message: string): Error & { statusCode: number } {
+  return Object.assign(new Error(message), { statusCode });
+}
+
 function getUserId(req: FastifyRequest): number {
   const raw = req.headers['x-telegram-init-data'] as string | undefined;
   const result = validateInitData(raw);
-  if (!result.valid) throw new Error('Unauthorized');
+  if (!result.valid) throw httpError(401, 'Unauthorized');
 
   if (result.user && result.userId) {
     const fn = (result.user.first_name as string) || '';
@@ -773,6 +841,9 @@ app.post<{ Body: OpenBody }>('/api/case/open', {
   return { prize, newBalance };
 });
 
+registerBlackjackRoutes(app, { db, getUserId, getBalance, setBalance });
+registerPvpRoutes(app, { db, getUserId });
+
 // ── Telegram webhook for Stars payments ───────────────────────────────────────
 function verifyWebhookSecret(req: FastifyRequest): boolean {
   if (!TELEGRAM_WEBHOOK_SECRET_TOKEN) return true;
@@ -937,18 +1008,31 @@ app.post('/api/telegram/webhook', async (req, reply) => {
   return reply.send({ ok: true });
 });
 
-// ── SPA fallback ──────────────────────────────────────────────────────────────
-
+// Статика клиента — только ПОСЛЕ регистрации всех /api/* маршрутов.
+// Иначе @fastify/static с prefix '/' может перехватывать запросы раньше API и отдавать index.html → «Unexpected token <».
 if (isProd) {
-  app.setNotFoundHandler((_req, reply) => {
-    reply.sendFile('index.html');
-  });
+  const clientDist = path.join(__dirname, '../../client/dist');
+  await app.register(staticFiles, { root: clientDist, prefix: '/' });
 }
 
+// ── 404 / SPA fallback ─────────────────────────────────────────────────────────
+// ВАЖНО: маршруты /api/* никогда не должны отдавать index.html — иначе фронт ловит
+// "Unexpected token <" при парсинге JSON.
+app.setNotFoundHandler((request, reply) => {
+  if (isApiPath(request.url)) {
+    return reply.status(404).type('application/json; charset=utf-8').send({ message: 'Not Found' });
+  }
+  if (isProd) {
+    return reply.sendFile('index.html');
+  }
+  return reply.status(404).type('application/json; charset=utf-8').send({ message: 'Not Found' });
+});
+
 // ── Start ─────────────────────────────────────────────────────────────────────
+const PORT = Number(process.env.PORT) || 3001;
 try {
-  await app.listen({ port: 3001, host: '0.0.0.0' });
-  console.log('🚀  http://localhost:3001');
+  await app.listen({ port: PORT, host: '0.0.0.0' });
+  console.log(`🚀  http://localhost:${PORT}`);
 } catch (err) {
   app.log.error(err);
   process.exit(1);

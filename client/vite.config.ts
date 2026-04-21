@@ -1,8 +1,17 @@
-import { defineConfig } from 'vite';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 import legacy from '@vitejs/plugin-legacy';
 
-export default defineConfig({
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), '');
+  // Бэкенд Fastify (API). Обязательно тот же хост/порт, где слушает server (по умолчанию 3001).
+  const apiProxy = env.VITE_DEV_API_PROXY?.trim() || 'http://127.0.0.1:3001';
+
+  return {
   plugins: [
     react(),
     legacy({
@@ -16,6 +25,10 @@ export default defineConfig({
   ],
   resolve: {
     extensions: ['.tsx', '.ts', '.jsx', '.mjs', '.js', '.json'],
+    alias: {
+      // jsnext:main → src/ (CSS-modules, не собирается в Vite). Весь пакет → lib/ (UMD + main.css)
+      'react-playing-cards': path.resolve(__dirname, 'node_modules/react-playing-cards/lib'),
+    },
   },
   build: {
     // target управляется plugin-legacy — явно не указываем
@@ -31,11 +44,15 @@ export default defineConfig({
     port: 5173,
     allowedHosts: true,
     host: true,
+    // Только /api/* → бэкенд (VITE_DEV_API_PROXY, по умолчанию http://127.0.0.1:3001). Остальное — Vite.
     proxy: {
       '/api': {
-        target: 'http://localhost:3001',
+        target: apiProxy,
         changeOrigin: true,
+        secure: false,
+        timeout: 60_000,
       },
     },
   },
+};
 });

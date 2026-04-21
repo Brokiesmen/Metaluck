@@ -46,6 +46,8 @@ interface TelegramWebApp {
 declare global {
   interface Window {
     Telegram?: { WebApp: TelegramWebApp };
+    /** Срочный override базы API без пересборки (например туннель). */
+    __MINIGAMES_API_BASE__?: string;
   }
 }
 

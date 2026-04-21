@@ -21,7 +21,14 @@ export function validateInitData(initData: string | undefined): AuthResult {
 
   const params = new URLSearchParams(initData);
   const userStr = params.get('user');
-  const user = userStr ? (JSON.parse(userStr) as Record<string, unknown>) : null;
+  let user: Record<string, unknown> | null = null;
+  if (userStr) {
+    try {
+      user = JSON.parse(userStr) as Record<string, unknown>;
+    } catch {
+      return { valid: false, userId: 0, user: null, startParam: null };
+    }
+  }
   const userId = typeof user?.id === 'number' ? user.id : 0;
   const startParam = params.get('start_param');
 

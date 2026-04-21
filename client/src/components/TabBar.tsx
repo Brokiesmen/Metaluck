@@ -1,9 +1,9 @@
-import { TabCasesIcon } from './tab-icons/TabCasesIcon';
+import { TabGamesIcon } from './tab-icons/TabGamesIcon';
 import { TabCabinetIcon } from './tab-icons/TabCabinetIcon';
 import { TabLeadersIcon } from './tab-icons/TabLeadersIcon';
 import { TabDailyIcon } from './tab-icons/TabDailyIcon';
 
-export type Tab = 'cases' | 'cabinet' | 'leaders' | 'daily';
+export type Tab = 'games' | 'cabinet' | 'leaders' | 'daily';
 
 interface Props {
   active: Tab;
@@ -15,13 +15,13 @@ export function TabBar({ active, onChange }: Props) {
     <nav className="tab-bar">
       <button
         type="button"
-        className={`tab-item${active === 'cases' ? ' active' : ''}`}
-        onClick={() => onChange('cases')}
+        className={`tab-item${active === 'games' ? ' active' : ''}`}
+        onClick={() => onChange('games')}
       >
-        <span className="tab-icon tab-icon--cases" aria-hidden>
-          <TabCasesIcon />
+        <span className="tab-icon tab-icon--games" aria-hidden>
+          <TabGamesIcon />
         </span>
-        <span className="tab-label">Кейсы</span>
+        <span className="tab-label">Игры</span>
       </button>
       <button
         type="button"
