@@ -1,4 +1,5 @@
 import { RARITY, GIFT_IMAGES } from '../data';
+import { useSettings } from '../settings/SettingsContext';
 import type { Prize } from '../types';
 
 interface Props { prizes: Prize[] }
@@ -6,10 +7,11 @@ interface Props { prizes: Prize[] }
 const ORDER = { gray: 0, blue: 1, purple: 2, gold: 3 } as const;
 
 export function PrizesGrid({ prizes }: Props) {
+  const { t } = useSettings();
   const sorted = [...prizes].sort((a, b) => ORDER[a.rarity] - ORDER[b.rarity]);
   return (
     <div className="prizes-section">
-      <div className="tg-section-title">Возможные призы</div>
+      <div className="tg-section-title">{t.cases.possiblePrizes}</div>
       <div className="prizes-grid">
         {sorted.map(p => {
           const r   = RARITY[p.rarity];
@@ -24,7 +26,7 @@ export function PrizesGrid({ prizes }: Props) {
               </div>
               <div className="prize-card-overlay">
                 <div className="prize-name">{p.name}</div>
-                <div className="prize-rarity">{r.label}</div>
+                <div className="prize-rarity">{t.rarity[p.rarity]}</div>
               </div>
             </div>
           );

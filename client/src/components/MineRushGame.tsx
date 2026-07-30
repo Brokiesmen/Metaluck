@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { api } from '../api';
 import type { MineRushDifficulty, MineRushGameView } from '../types';
+import { useSettings } from '../settings/SettingsContext';
+import { tf } from '../i18n/tf';
 import { StarIcon } from './StarIcon';
 
 interface Props {
@@ -9,10 +11,10 @@ interface Props {
 }
 
 const BETS = [5, 10, 25, 50] as const;
-const DIFFICULTIES: { id: MineRushDifficulty; label: string; mines: number }[] = [
-  { id: 'easy', label: 'Easy', mines: 10 },
-  { id: 'medium', label: 'Medium', mines: 15 },
-  { id: 'hard', label: 'Hard', mines: 20 },
+const DIFFICULTIES: { id: MineRushDifficulty; mines: number }[] = [
+  { id: 'easy', mines: 10 },
+  { id: 'medium', mines: 15 },
+  { id: 'hard', mines: 20 },
 ];
 
 function formatTime(ms: number): string {
@@ -46,6 +48,7 @@ function parseKey(key: string): { x: number; y: number } {
 }
 
 export function MineRushGame({ onBack, onBalanceUpdate }: Props) {
+  const { t, locale } = useSettings();
   const [game, setGame] = useState<MineRushGameView | null>(null);
   const [difficulty, setDifficulty] = useState<MineRushDifficulty>('medium');
   const [bet, setBet] = useState<(typeof BETS)[number]>(10);
@@ -80,7 +83,8 @@ export function MineRushGame({ onBack, onBalanceUpdate }: Props) {
         }
         onBalanceUpdate(res.balance);
       })
-      .catch(() => setErr('Не удалось загрузить игру'));
+      .catch(() => setErr(t.mr.loadError));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onBalanceUpdate]);
 
   useEffect(() => {
@@ -115,11 +119,11 @@ export function MineRushGame({ onBack, onBalanceUpdate }: Props) {
       onBalanceUpdate(res.balance);
       setFlagMode(false);
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'Ошибка старта');
+      setErr(e instanceof Error ? e.message : t.mr.startError);
     } finally {
       setBusy(false);
     }
-  }, [bet, busy, difficulty, onBalanceUpdate]);
+  }, [bet, busy, difficulty, onBalanceUpdate, t.mr.startError]);
 
   const onCell = useCallback(async (x: number, y: number) => {
     if (!game || busy || game.status !== 'active') return;
@@ -145,11 +149,11 @@ export function MineRushGame({ onBack, onBalanceUpdate }: Props) {
         }
       }
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'Ошибка хода');
+      setErr(e instanceof Error ? e.message : t.mr.moveError);
     } finally {
       setBusy(false);
     }
-  }, [busy, flagMode, game, onBalanceUpdate, timerStart]);
+  }, [busy, flagMode, game, onBalanceUpdate, timerStart, t.mr.moveError]);
 
   const cashout = useCallback(async () => {
     if (!game || busy || game.status !== 'active') return;
@@ -162,11 +166,11 @@ export function MineRushGame({ onBack, onBalanceUpdate }: Props) {
       onBalanceUpdate(res.balance);
       setLastPayout(res.payout);
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'Ошибка вывода');
+      setErr(e instanceof Error ? e.message : t.mr.cashError);
     } finally {
       setBusy(false);
     }
-  }, [busy, game, onBalanceUpdate, timerStart]);
+  }, [busy, game, onBalanceUpdate, timerStart, t.mr.cashError]);
 
   const reset = useCallback(() => {
     setGame(null);
@@ -181,8 +185,8 @@ export function MineRushGame({ onBack, onBalanceUpdate }: Props) {
 
   return (
     <div className="mr-root">
-      <button type="button" className="mr-back" onClick={onBack} aria-label="Назад">
-        ‹
+      <button type="button" className="mr-back" onClick={onBack} aria-label={t.mr.back}>
+        {t.mr.back}
       </button>
 
       <div className="mr-chest" aria-hidden title="Призовой сундук">
@@ -192,17 +196,17 @@ export function MineRushGame({ onBack, onBalanceUpdate }: Props) {
 
       <header className="mr-status">
         <div className="mr-stat">
-          <span className="mr-stat-label">Очки</span>
+          <span className="mr-stat-label">{t.mr.score}</span>
           <span className="mr-stat-value num">{game?.score ?? 0}</span>
         </div>
         <div className="mr-stat mr-stat--timer">
-          <span className="mr-stat-label">Время</span>
+          <span className="mr-stat-label">{t.mr.time}</span>
           <span className="mr-stat-value num">{elapsed}</span>
         </div>
         <div className="mr-stat mr-stat--balance">
-          <span className="mr-stat-label">Баланс</span>
+          <span className="mr-stat-label">{t.mr.balance}</span>
           <span className="mr-stat-value num">
-            {(game?.balance ?? 0).toLocaleString('ru-RU')}
+            {(game?.balance ?? 0).toLocaleString(locale)}
             <StarIcon size={14} />
           </span>
         </div>
@@ -242,7 +246,7 @@ export function MineRushGame({ onBack, onBalanceUpdate }: Props) {
                   ].filter(Boolean).join(' ')}
                   disabled={busy || game.status !== 'active' || (cell.state !== 'hidden' && !flagged)}
                   onClick={() => onCell(x, y)}
-                  aria-label={flagged ? 'Флаг' : cell.state === 'hidden' ? 'Скрытая клетка' : `Число ${cell.value ?? 'мина'}`}
+                  aria-label={flagged ? t.mr.flag : undefined}
                 >
                   {flagged && cell.state === 'hidden' && <span className="mr-flag">🚩</span>}
                   {cell.state === 'number' && cell.value! > 0 && (
@@ -288,28 +292,28 @@ export function MineRushGame({ onBack, onBalanceUpdate }: Props) {
               </div>
               <div className="mr-result-sheet-body">
                 <div className="mr-result-sheet-title">
-                  {game.status === 'won' && 'Победа!'}
-                  {game.status === 'lost' && 'Мина!'}
-                  {game.status === 'cashed' && 'Забрано!'}
+                  {game.status === 'won' && t.mr.win}
+                  {game.status === 'lost' && t.mr.mine}
+                  {game.status === 'cashed' && t.mr.cashed}
                 </div>
                 <div className="mr-result-sheet-meta">
-                  <span>Время: {elapsed}</span>
-                  <span>Открыто: {game.score}</span>
+                  <span>{tf(t.mr.timeLabel, { t: elapsed })}</span>
+                  <span>{tf(t.mr.opened, { n: game.score })}</span>
                 </div>
                 {(game.status === 'cashed' && lastPayout != null) || game.status === 'won' ? (
                   <div className="mr-result-sheet-payout num">
-                    +{(game.status === 'won' ? winPayout : lastPayout ?? 0).toLocaleString('ru-RU')}
+                    +{(game.status === 'won' ? winPayout : lastPayout ?? 0).toLocaleString(locale)}
                     <StarIcon size={18} />
                   </div>
                 ) : (
                   <div className="mr-result-sheet-payout mr-result-sheet-payout--lose">
-                    Ставка потеряна
+                    {t.mr.stakeLost}
                   </div>
                 )}
               </div>
             </div>
             <button type="button" className="mr-start" onClick={reset} disabled={busy}>
-              Новая игра
+              {t.mr.newGame}
             </button>
           </>
         ) : !game ? (
@@ -323,7 +327,7 @@ export function MineRushGame({ onBack, onBalanceUpdate }: Props) {
                   onClick={() => setDifficulty(d.id)}
                   disabled={busy}
                 >
-                  {d.label}
+                  {t.mr[d.id]}
                   <span className="mr-diff-mines">{d.mines}💣</span>
                 </button>
               ))}
@@ -347,16 +351,16 @@ export function MineRushGame({ onBack, onBalanceUpdate }: Props) {
               onClick={start}
               disabled={busy}
             >
-              Играть · {bet}
+              {tf(t.mr.play, { bet })}
               <StarIcon size={16} />
             </button>
           </>
         ) : (
           <>
             <div className="mr-cashout-hint">
-              <span className="mr-cashout-hint-label">Можно забрать</span>
+              <span className="mr-cashout-hint-label">{t.mr.canCash}</span>
               <span className="mr-cashout-hint-value num">
-                {cashoutAmount.toLocaleString('ru-RU')}
+                {cashoutAmount.toLocaleString(locale)}
                 <StarIcon size={16} />
               </span>
             </div>
@@ -367,7 +371,7 @@ export function MineRushGame({ onBack, onBalanceUpdate }: Props) {
                 onClick={() => setFlagMode((v) => !v)}
                 disabled={busy}
               >
-                🚩 {flagMode ? 'Флаг вкл' : 'Флаг'}
+                🚩 {flagMode ? t.mr.flagOn : t.mr.flag}
               </button>
               <button
                 type="button"
@@ -375,17 +379,17 @@ export function MineRushGame({ onBack, onBalanceUpdate }: Props) {
                 onClick={cashout}
                 disabled={busy || game.score <= 0}
               >
-                <span>Забрать</span>
+                <span>{t.mr.cashout}</span>
                 <span className="mr-cashout-amount num">
-                  {cashoutAmount.toLocaleString('ru-RU')}
+                  {cashoutAmount.toLocaleString(locale)}
                   <StarIcon size={14} />
                 </span>
               </button>
             </div>
             <div className="mr-meta">
-              <span>Ставка: {game.bet} <StarIcon size={12} /></span>
-              <span>Мин: {game.mineCount}</span>
-              <span>Макс: {winPayout} <StarIcon size={12} /></span>
+              <span>{tf(t.mr.stake, { n: game.bet })} <StarIcon size={12} /></span>
+              <span>{tf(t.mr.mines, { n: game.mineCount })}</span>
+              <span>{tf(t.mr.max, { n: winPayout })} <StarIcon size={12} /></span>
             </div>
           </>
         )}

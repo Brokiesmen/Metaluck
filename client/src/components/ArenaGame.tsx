@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../api';
 import type { ArenaRoundView } from '../types';
+import { useSettings } from '../settings/SettingsContext';
+import { tf } from '../i18n/tf';
 import { StarIcon } from './StarIcon';
 
 interface Props {
@@ -31,8 +33,8 @@ function arcPath(startDeg: number, endDeg: number): string {
   return `M ${s.x.toFixed(2)} ${s.y.toFixed(2)} A ${R} ${R} 0 ${large} 1 ${e.x.toFixed(2)} ${e.y.toFixed(2)}`;
 }
 
-function fmtSeconds(ms: number): string {
-  return `${Math.max(0, Math.ceil(ms / 1000))}с`;
+function fmtSeconds(ms: number, template: string): string {
+  return tf(template, { n: Math.max(0, Math.ceil(ms / 1000)) });
 }
 
 /* ── Confetti (как в coinflip — переиспользует keyframes bj2) ── */
@@ -57,6 +59,7 @@ function Confetti() {
 }
 
 export function ArenaGame({ onBack, onBalanceUpdate }: Props) {
+  const { t, locale } = useSettings();
   const [round, setRound] = useState<ArenaRoundView | null>(null);
   const [bet, setBet] = useState<BetAmount>(25);
   const [busy, setBusy] = useState(false);
@@ -133,7 +136,7 @@ export function ArenaGame({ onBack, onBalanceUpdate }: Props) {
         setErr(null);
       } catch (e) {
         if (aliveRef.current && !synced) {
-          setErr(e instanceof Error ? e.message : 'Ошибка загрузки');
+          setErr(e instanceof Error ? e.message : t.arena.loadError);
         }
       }
       if (aliveRef.current) {
@@ -163,9 +166,9 @@ export function ArenaGame({ onBack, onBalanceUpdate }: Props) {
     api
       .arenaBet(bet)
       .then(applyState)
-      .catch((e) => setErr(e instanceof Error ? e.message : 'Ошибка ставки'))
+      .catch((e) => setErr(e instanceof Error ? e.message : t.arena.betError))
       .finally(() => setBusy(false));
-  }, [bet, busy, applyState]);
+  }, [bet, busy, applyState, t.arena.betError]);
 
   /* ── Производные ───────────────────────────────────────────── */
   const players = round?.players ?? [];
@@ -178,8 +181,8 @@ export function ArenaGame({ onBack, onBalanceUpdate }: Props) {
 
   return (
     <div className="ar">
-      <button className="ar-back" onClick={onBack} aria-label="Назад к играм">
-        ‹ Игры
+      <button className="ar-back" onClick={onBack} aria-label={t.common.backGames}>
+        {t.arena.back}
       </button>
 
       {/* ── Арена ──────────────────────────────────────────── */}
@@ -216,28 +219,28 @@ export function ArenaGame({ onBack, onBalanceUpdate }: Props) {
           <div className="ar-center">
             {round && round.phase === 'finished' && winner ? (
               <>
-                <span className="ar-center-label">Победитель</span>
+                <span className="ar-center-label">{t.arena.winner}</span>
                 <span className="ar-center-value" style={{ color: winner.color }}>
-                  {winner.isMe ? 'Вы!' : winner.name}
+                  {winner.isMe ? t.arena.youWin : winner.name}
                 </span>
                 {round.payout > 0 && (
                   <span className="ar-center-payout num">
-                    +{round.payout.toLocaleString('ru-RU')}
+                    +{round.payout.toLocaleString(locale)}
                     <StarIcon size={13} animate={false} />
                   </span>
                 )}
               </>
             ) : (
               <>
-                <span className="ar-center-label">Банк</span>
+                <span className="ar-center-label">{t.arena.pot}</span>
                 <span className="ar-center-value num">
-                  {(round?.pot ?? 0).toLocaleString('ru-RU')}
+                  {(round?.pot ?? 0).toLocaleString(locale)}
                   <StarIcon size={15} animate={false} />
                 </span>
                 {round && round.phase === 'betting' && players.length > 0 && (
-                  <span className="ar-center-timer num">{fmtSeconds(bettingLeftMs)}</span>
+                  <span className="ar-center-timer num">{fmtSeconds(bettingLeftMs, t.arena.sec)}</span>
                 )}
-                {round?.phase === 'spinning' && <span className="ar-center-timer">Шарик запущен…</span>}
+                {round?.phase === 'spinning' && <span className="ar-center-timer">{t.arena.ballSpinning}</span>}
               </>
             )}
           </div>
@@ -249,13 +252,13 @@ export function ArenaGame({ onBack, onBalanceUpdate }: Props) {
         <div className="ar-players">
           {players.length === 0 ? (
             <div className="ar-empty">
-              Сделайте ставку — раунд начнётся, и другие игроки смогут присоединиться
+              {t.arena.empty}
             </div>
           ) : (
             players.map((p) => (
               <div key={p.userId} className={`ar-player${p.isMe ? ' ar-player--me' : ''}`}>
                 <span className="ar-player-dot" style={{ background: p.color }} />
-                <span className="ar-player-name">{p.isMe ? 'Вы' : p.name}</span>
+                <span className="ar-player-name">{p.isMe ? t.arena.you : p.name}</span>
                 <span className="ar-player-share num">{Math.round(p.share * 100)}%</span>
                 <span className="ar-player-bet num">
                   {p.bet}
@@ -271,7 +274,7 @@ export function ArenaGame({ onBack, onBalanceUpdate }: Props) {
 
       {/* ── Панель ставок ───────────────────────────────────── */}
       <div className="ar-controls">
-        <div className="ar-chips" role="group" aria-label="Размер ставки">
+        <div className="ar-chips" role="group" aria-label={t.arena.betSize}>
           {BETS.map((b) => (
             <button
               key={b}
@@ -286,14 +289,14 @@ export function ArenaGame({ onBack, onBalanceUpdate }: Props) {
         </div>
         <button className="ar-bet-btn" disabled={!canBet} onClick={placeBet}>
           {!synced
-            ? 'Загрузка…'
+            ? t.arena.loading
             : busy
               ? '…'
               : round && round.phase !== 'betting'
-                ? 'Раунд идёт…'
+                ? t.arena.roundRunning
                 : round && round.myBet > 0
-                  ? `ДОБАВИТЬ  •  ${bet} ★`
-                  : `ПОСТАВИТЬ  •  ${bet} ★`}
+                  ? tf(t.arena.addBet, { bet })
+                  : tf(t.arena.placeBet, { bet })}
         </button>
       </div>
     </div>

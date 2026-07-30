@@ -2,6 +2,8 @@ import { useRef, useEffect, useCallback, useMemo, useState } from 'react';
 import { RARITY } from '../data';
 import { StarIcon } from './StarIcon';
 import { stripConfig } from '../lib/stripPerf';
+import { useSettings } from '../settings/SettingsContext';
+import { tf } from '../i18n/tf';
 import type { Prize, Case } from '../types';
 
 const CARD_WIDTH = 130;
@@ -42,6 +44,7 @@ function formatCountdown(ms: number): string {
 export function StripOpener({
   selectedCase, prizes, winner, previewKey, isAnimating, onOpen, onDone,
 }: Props) {
+  const { t } = useSettings();
   const stripRef = useRef<HTMLDivElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
   const spinTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -163,16 +166,18 @@ export function StripOpener({
         disabled={!selectedCase || isAnimating || isFreeCaseLocked}
       >
         {isAnimating ? (
-          'Открывается…'
+          t.cases.opening
         ) : !selectedCase ? (
-          'Выберите кейс'
+          t.cases.selectCase
         ) : isFreeCaseLocked ? (
-          `Вращать бесплатно · ${countdownText}`
+          tf(t.cases.spinFreeTimer, { t: countdownText })
         ) : selectedCase.price === 0 ? (
-          'Вращать бесплатно'
+          t.cases.spinFree
         ) : (
           <>
-            <span className="open-btn-text num">Открыть · {selectedCase.price}</span>
+            <span className="open-btn-text num">
+              {tf(t.cases.openPrice, { price: selectedCase.price })}
+            </span>
             <span className="open-btn-star" aria-hidden>
               <StarIcon size={21} animate={false} glow={false} />
             </span>

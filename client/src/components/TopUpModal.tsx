@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api';
 import { StarIcon } from './StarIcon';
+import { useSettings } from '../settings/SettingsContext';
 import type { TopupPackage } from '../types';
 
 interface Props {
@@ -15,6 +16,7 @@ function sleep(ms: number) {
 }
 
 export function TopUpModal({ onClose, onBalanceUpdate, isTelegram, openInvoice }: Props) {
+  const { t, locale } = useSettings();
   const [packages, setPackages] = useState<TopupPackage[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingPackages, setLoadingPackages] = useState(true);
@@ -24,9 +26,9 @@ export function TopUpModal({ onClose, onBalanceUpdate, isTelegram, openInvoice }
   useEffect(() => {
     api.getTopupPackages()
       .then(setPackages)
-      .catch((err) => setError(err instanceof Error ? err.message : 'Не удалось загрузить пакеты'))
+      .catch((err) => setError(err instanceof Error ? err.message : t.topup.loadFail))
       .finally(() => setLoadingPackages(false));
-  }, []);
+  }, [t.topup.loadFail]);
 
   const waitForPayment = async (payload: string) => {
     for (let attempt = 0; attempt < 8; attempt += 1) {
@@ -37,7 +39,7 @@ export function TopUpModal({ onClose, onBalanceUpdate, isTelegram, openInvoice }
         return true;
       }
       if (status.status === 'failed' || status.status === 'cancelled') {
-        throw new Error('Платеж не был завершен');
+        throw new Error(t.topup.unpaid);
       }
       await sleep(1200);
     }
@@ -49,7 +51,7 @@ export function TopUpModal({ onClose, onBalanceUpdate, isTelegram, openInvoice }
     setError(null);
 
     if (!isTelegram || !openInvoice) {
-      setError('Оплата Telegram Stars доступна только внутри Telegram Mini App');
+      setError(t.topup.onlyInTelegram);
       return;
     }
 
@@ -61,13 +63,13 @@ export function TopUpModal({ onClose, onBalanceUpdate, isTelegram, openInvoice }
         openInvoice(invoiceLink, async (status) => {
           try {
             if (status === 'cancelled' || status === 'failed') {
-              reject(new Error('Платеж отменен'));
+              reject(new Error(t.topup.cancelled));
               return;
             }
 
             const paid = await waitForPayment(payload);
             if (!paid) {
-              reject(new Error('Платеж создан, но подтверждение еще не пришло. Проверьте баланс через пару секунд.'));
+              reject(new Error(t.topup.pendingConfirm));
               return;
             }
             resolve();
@@ -77,7 +79,7 @@ export function TopUpModal({ onClose, onBalanceUpdate, isTelegram, openInvoice }
         });
       });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Ошибка оплаты');
+      setError(err instanceof Error ? err.message : t.topup.payError);
     } finally {
       setLoading(false);
     }
@@ -91,21 +93,21 @@ export function TopUpModal({ onClose, onBalanceUpdate, isTelegram, openInvoice }
         {done ? (
           <div className="topup-success">
             <div className="topup-success-icon">✓</div>
-            <div className="topup-success-title">Баланс пополнен</div>
+            <div className="topup-success-title">{t.topup.successTitle}</div>
             <div className="topup-success-amount num">
-              +{done.amount.toLocaleString('ru-RU')} <StarIcon size={22} />
+              +{done.amount.toLocaleString(locale)} <StarIcon size={22} />
             </div>
-            <button className="tg-btn" onClick={onClose}>Отлично</button>
+            <button className="tg-btn" onClick={onClose}>{t.topup.successOk}</button>
           </div>
         ) : (
           <div>
             <div className="topup-header">
-              <div className="topup-title">Пополнить звёзды</div>
-              <div className="topup-subtitle">Оплата пройдёт через Telegram Stars</div>
+              <div className="topup-title">{t.topup.title}</div>
+              <div className="topup-subtitle">{t.topup.viaTelegram}</div>
             </div>
 
             {error && <div className="error-banner" style={{ margin: '0 0 12px' }}>{error}</div>}
-            {loadingPackages && <div className="loading">Загрузка пакетов...</div>}
+            {loadingPackages && <div className="loading">{t.topup.loadingPackages}</div>}
 
             {!loadingPackages && (
               <div className="topup-grid">
@@ -116,9 +118,9 @@ export function TopUpModal({ onClose, onBalanceUpdate, isTelegram, openInvoice }
                     onClick={() => handleBuy(pkg)}
                     disabled={loading}
                   >
-                    {pkg.popular && <div className="topup-pkg-badge">ХИТ</div>}
+                    {pkg.popular && <div className="topup-pkg-badge">{t.topup.hit}</div>}
                     <div className="topup-pkg-amount num">
-                      {pkg.balanceAmount.toLocaleString('ru-RU')} <StarIcon size={18} animate={false} />
+                      {pkg.balanceAmount.toLocaleString(locale)} <StarIcon size={18} animate={false} />
                     </div>
                     <div className="topup-pkg-label">{pkg.label}</div>
                     <div className="topup-pkg-bonus num">{pkg.xtrAmount} XTR</div>
@@ -127,7 +129,7 @@ export function TopUpModal({ onClose, onBalanceUpdate, isTelegram, openInvoice }
               </div>
             )}
 
-            <button className="topup-cancel" onClick={onClose}>Отмена</button>
+            <button className="topup-cancel" onClick={onClose}>{t.topup.cancel}</button>
           </div>
         )}
       </div>

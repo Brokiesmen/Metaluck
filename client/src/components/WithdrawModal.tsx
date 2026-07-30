@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api';
 import { StarIcon } from './StarIcon';
+import { useSettings } from '../settings/SettingsContext';
+import { tf } from '../i18n/tf';
 
 interface Props {
   balance: number;
@@ -11,6 +13,7 @@ interface Props {
 const FALLBACK_PRESETS = [50, 100, 250, 500, 1000, 5000];
 
 export function WithdrawModal({ balance, onClose, onBalanceUpdate }: Props) {
+  const { t, locale } = useSettings();
   const [presets, setPresets] = useState<number[]>(FALLBACK_PRESETS);
   const [minAmount, setMinAmount] = useState(50);
   const [amount, setAmount] = useState<number | ''>('');
@@ -44,7 +47,7 @@ export function WithdrawModal({ balance, onClose, onBalanceUpdate }: Props) {
       onBalanceUpdate(res.newBalance);
       setDone({ amount: res.amount, orderId: res.orderId });
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Ошибка вывода');
+      setError(e instanceof Error ? e.message : t.withdraw.error);
     } finally {
       setLoading(false);
     }
@@ -58,21 +61,24 @@ export function WithdrawModal({ balance, onClose, onBalanceUpdate }: Props) {
         {done ? (
           <div className="topup-success">
             <div className="topup-success-icon">✓</div>
-            <div className="topup-success-title">Заявка принята</div>
+            <div className="topup-success-title">{t.withdraw.successTitle}</div>
             <div className="topup-success-amount num">
-              −{done.amount.toLocaleString('ru-RU')} <StarIcon size={22} />
+              −{done.amount.toLocaleString(locale)} <StarIcon size={22} />
             </div>
             <div className="topup-subtitle" style={{ marginBottom: 16 }}>
-              Заявка #{done.orderId}. Звёзды будут отправлены вручную в Telegram.
+              {tf(t.withdraw.successBody, { id: done.orderId })}
             </div>
-            <button className="tg-btn" onClick={onClose}>Понятно</button>
+            <button className="tg-btn" onClick={onClose}>{t.withdraw.ok}</button>
           </div>
         ) : (
           <div>
             <div className="topup-header">
-              <div className="topup-title">Вывести звёзды</div>
+              <div className="topup-title">{t.withdraw.title}</div>
               <div className="topup-subtitle">
-                Доступно: {balance.toLocaleString('ru-RU')} ★ · мин. {minAmount} ★
+                {tf(t.withdraw.available, {
+                  balance: balance.toLocaleString(locale),
+                  min: minAmount.toLocaleString(locale),
+                })}
               </div>
             </div>
 
@@ -88,14 +94,14 @@ export function WithdrawModal({ balance, onClose, onBalanceUpdate }: Props) {
                   onClick={() => setAmount(p)}
                 >
                   <div className="topup-pkg-amount num">
-                    {p.toLocaleString('ru-RU')} <StarIcon size={16} />
+                    {p.toLocaleString(locale)} <StarIcon size={16} />
                   </div>
                 </button>
               ))}
             </div>
 
             <label className="withdraw-custom">
-              <span>Своя сумма</span>
+              <span>{t.withdraw.customAmount}</span>
               <input
                 className="withdraw-input num"
                 type="number"
@@ -118,7 +124,14 @@ export function WithdrawModal({ balance, onClose, onBalanceUpdate }: Props) {
               disabled={!canSubmit}
               onClick={submit}
             >
-              {loading ? 'Отправка…' : `Вывести ${Number.isFinite(numericAmount) && numericAmount > 0 ? numericAmount.toLocaleString('ru-RU') : '—'} ★`}
+              {loading
+                ? t.withdraw.sending
+                : tf(t.withdraw.withdrawBtn, {
+                    n:
+                      Number.isFinite(numericAmount) && numericAmount > 0
+                        ? numericAmount.toLocaleString(locale)
+                        : '—',
+                  })}
             </button>
           </div>
         )}

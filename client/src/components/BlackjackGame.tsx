@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../api';
 import type { BlackjackRound } from '../types';
+import { useSettings } from '../settings/SettingsContext';
+import { tf } from '../i18n/tf';
 import { StarIcon } from './StarIcon';
+import type { Dict } from '../i18n/dictionaries';
 
 interface Props {
   onBack: () => void;
@@ -62,14 +65,17 @@ function Score({ v, bust }: { v: number | null; bust?: boolean }) {
 }
 
 /* ── Result info ───────────────────────────────────────────────── */
-function resultInfo(r: BlackjackRound['result']): { label: string; tone: 'win' | 'push' | 'lose' } {
+function resultInfo(
+  r: BlackjackRound['result'],
+  bj: Dict['bj'],
+): { label: string; tone: 'win' | 'push' | 'lose' } {
   switch (r) {
-    case 'blackjack': return { label: '🃏 БЛЭКДЖЕК!', tone: 'win' };
-    case 'win':       return { label: '🏆 ПОБЕДА!',   tone: 'win' };
-    case 'push':      return { label: '🤝 НИЧЬЯ',     tone: 'push' };
-    case 'bust':      return { label: '💥 ПЕРЕБОР',   tone: 'lose' };
-    case 'lose':      return { label: '😞 ПОРАЖЕНИЕ', tone: 'lose' };
-    default:          return { label: '',             tone: 'push' };
+    case 'blackjack': return { label: bj.blackjack, tone: 'win' };
+    case 'win':       return { label: bj.win,       tone: 'win' };
+    case 'push':      return { label: bj.push,      tone: 'push' };
+    case 'bust':      return { label: bj.bust,      tone: 'lose' };
+    case 'lose':      return { label: bj.lose,      tone: 'lose' };
+    default:          return { label: '',           tone: 'push' };
   }
 }
 
@@ -104,6 +110,7 @@ function Confetti() {
    Main component
 ══════════════════════════════════════════════════════════════ */
 export function BlackjackGame({ onBack, onBalanceUpdate }: Props) {
+  const { t, locale } = useSettings();
   const [round,   setRound]   = useState<BlackjackRound | null>(null);
   const [bet,     setBet]     = useState<BetAmount>(25);
   const [busy,    setBusy]    = useState(false);
@@ -156,7 +163,7 @@ export function BlackjackGame({ onBack, onBalanceUpdate }: Props) {
         // finished / null → чистый стол
         setSynced(true);
       })
-      .catch(e => setErr(e instanceof Error ? e.message : 'Ошибка загрузки'));
+      .catch(e => setErr(e instanceof Error ? e.message : t.bj.loadError));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -178,7 +185,7 @@ export function BlackjackGame({ onBack, onBalanceUpdate }: Props) {
       try {
         const pre = await api.getBlackjackState();
         if (pre.round?.phase === 'player') {
-          throw new Error('Сначала завершите текущую раздачу (Ещё или Хватит).');
+          throw new Error(t.bj.finishHandFirst);
         }
         const s = await api.blackjackDeal(bet);
         onBalanceUpdate(s.newBalance);
@@ -194,13 +201,13 @@ export function BlackjackGame({ onBack, onBalanceUpdate }: Props) {
           startDealAnim(0);
         }
       } catch (e) {
-        setErr(e instanceof Error ? e.message : 'Ошибка раздачи');
+        setErr(e instanceof Error ? e.message : t.bj.dealError);
       } finally {
         busyRef.current = false;
         setBusy(false);
       }
     })();
-  }, [bet, clearTimers, onBalanceUpdate, startDealAnim]);
+  }, [bet, clearTimers, onBalanceUpdate, startDealAnim, t.bj.dealError, t.bj.finishHandFirst]);
 
   /* ── Вспомогательный wrapper для HIT / STAND / DOUBLE ─────────── */
   const runAction = useCallback(
@@ -217,13 +224,13 @@ export function BlackjackGame({ onBack, onBalanceUpdate }: Props) {
         setRound(s.round);
         if (s.round?.phase === 'finished') setShowRes(true);
       } catch (e) {
-        setErr(e instanceof Error ? e.message : 'Ошибка');
+        setErr(e instanceof Error ? e.message : t.common.error);
       } finally {
         busyRef.current = false;
         setBusy(false);
       }
     },
-    [clearTimers, onBalanceUpdate],
+    [clearTimers, onBalanceUpdate, t.common.error],
   );
 
   const hit    = useCallback(() => runAction(() => api.blackjackHit()),    [runAction]);
@@ -253,7 +260,7 @@ export function BlackjackGame({ onBack, onBalanceUpdate }: Props) {
     : (round?.dealerCards ?? []).filter((_, i) => shownInDeal > i * 2 + 1);
 
   const { label: resLabel, tone: resTone } =
-    round?.result ? resultInfo(round.result) : { label: '', tone: 'push' as const };
+    round?.result ? resultInfo(round.result, t.bj) : { label: '', tone: 'push' as const };
   const isWin = resTone === 'win';
 
   /* ── Render ────────────────────────────────────────────────────── */
@@ -261,14 +268,14 @@ export function BlackjackGame({ onBack, onBalanceUpdate }: Props) {
     <div className="bj2">
 
       {/* ── Назад ───────────────────────────────────────────── */}
-      <button className="bj2-back" onClick={onBack} aria-label="Назад к играм">
-        ‹ Игры
+      <button className="bj2-back" onClick={onBack} aria-label={t.common.backGames}>
+        {t.bj.back}
       </button>
 
       {/* ── Дилер ───────────────────────────────────────────── */}
-      <section className="bj2-zone bj2-zone--dealer" aria-label="Зона дилера">
+      <section className="bj2-zone bj2-zone--dealer" aria-label={t.bj.dealerZone}>
         <div className="bj2-zone-label">
-          <span>Дилер</span>
+          <span>{t.bj.dealer}</span>
           <Score v={dealerScore} />
         </div>
         <div className="bj2-hand">
@@ -286,7 +293,7 @@ export function BlackjackGame({ onBack, onBalanceUpdate }: Props) {
             <span className="bj2-result__label">{resLabel}</span>
             {round.payout > 0 && (
               <span className="bj2-result__payout num">
-                +{round.payout.toLocaleString('ru-RU')}
+                +{round.payout.toLocaleString(locale)}
                 <StarIcon size={14} animate={false} />
               </span>
             )}
@@ -295,14 +302,14 @@ export function BlackjackGame({ onBack, onBalanceUpdate }: Props) {
       </div>
 
       {/* ── Игрок ───────────────────────────────────────────── */}
-      <section className="bj2-zone bj2-zone--player" aria-label="Зона игрока">
+      <section className="bj2-zone bj2-zone--player" aria-label={t.bj.playerZone}>
         <div className="bj2-hand">
           {visiblePlayer.map((c, i) => (
             <Card key={`p${i}-${c.code}`} code={c.code} />
           ))}
         </div>
         <div className="bj2-zone-label bj2-zone-label--player">
-          <span>Вы</span>
+          <span>{t.bj.you}</span>
           <Score v={round?.playerValue ?? null} bust={playerBust} />
           {round?.bet != null && round.bet > 0 && (
             <span className="bj2-bet-badge num">
@@ -319,7 +326,7 @@ export function BlackjackGame({ onBack, onBalanceUpdate }: Props) {
       <div className="bj2-controls">
 
         {/* Чипы */}
-        <div className="bj2-chips" role="group" aria-label="Размер ставки">
+        <div className="bj2-chips" role="group" aria-label={t.bj.betSize}>
           {BETS.map(b => (
             <button
               key={b}
@@ -336,20 +343,19 @@ export function BlackjackGame({ onBack, onBalanceUpdate }: Props) {
         {/* Ещё / Хватит / ×2 */}
         <div className="bj2-actions">
           <button className="bj2-action bj2-action--hit"    disabled={!canAct}    onClick={hit}>
-            ЕЩЁ
+            {t.bj.hit}
           </button>
           <button className="bj2-action bj2-action--stand"  disabled={!canAct}    onClick={stand}>
-            ХВАТИТ
+            {t.bj.stand}
           </button>
-          <button className="bj2-action bj2-action--double" disabled={!canDouble} onClick={double}
-            title="Удвоить ставку — одна карта, затем дилер">
-            ×2
+          <button className="bj2-action bj2-action--double" disabled={!canDouble} onClick={double}>
+            {t.bj.double}
           </button>
         </div>
 
         {/* Раздать */}
         <button className="bj2-deal" disabled={!canDeal} onClick={deal}>
-          {!synced ? 'Загрузка…' : busy ? '…' : `РАЗДАТЬ  •  ${bet} ★`}
+          {!synced ? t.common.loading : busy ? '…' : tf(t.bj.deal, { bet })}
         </button>
       </div>
     </div>

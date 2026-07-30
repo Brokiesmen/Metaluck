@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../api';
 import type { CoinSide } from '../types';
+import { useSettings } from '../settings/SettingsContext';
+import { tf } from '../i18n/tf';
 import { StarIcon } from './StarIcon';
 import { EagleCrest, WreathCrest } from './coinCrest';
 
@@ -50,6 +52,7 @@ function Confetti() {
 }
 
 export function CoinflipGame({ onBack, onBalanceUpdate }: Props) {
+  const { t, locale } = useSettings();
   const [bet, setBet] = useState<BetAmount>(25);
   const [choice, setChoice] = useState<CoinSide>('heads');
   const [busy, setBusy] = useState(false);
@@ -95,20 +98,20 @@ export function CoinflipGame({ onBack, onBalanceUpdate }: Props) {
           setBusy(false);
         }, FLIP_DURATION_MS);
       } catch (e) {
-        setErr(e instanceof Error ? e.message : 'Ошибка игры');
+        setErr(e instanceof Error ? e.message : t.coin.error);
         setFlipping(false);
         setBusy(false);
       }
     })();
-  }, [bet, choice, busy, onBalanceUpdate]);
+  }, [bet, choice, busy, onBalanceUpdate, t.coin.error]);
 
   const canPlay = !busy;
   const showingTails = !flipping && lastResult?.result === 'tails';
 
   return (
     <div className="cf">
-      <button className="cf-back" onClick={onBack} aria-label="Назад к играм">
-        ‹ Игры
+      <button className="cf-back" onClick={onBack} aria-label={t.common.backGames}>
+        {t.coin.back}
       </button>
 
       <div className="cf-stage">
@@ -146,11 +149,13 @@ export function CoinflipGame({ onBack, onBalanceUpdate }: Props) {
           <div className={`cf-result cf-result--${lastResult.win ? 'win' : 'lose'}`} role="status">
             {lastResult.win && <Confetti />}
             <span className="cf-result__label">
-              {lastResult.result === 'heads' ? 'ОРЁЛ' : 'РЕШКА'} — {lastResult.win ? 'ПОБЕДА!' : 'МИМО'}
+              {lastResult.result === 'heads' ? t.coin.heads : t.coin.tails}
+              {' — '}
+              {lastResult.win ? t.coin.win : t.coin.lose}
             </span>
             {lastResult.payout > 0 && (
               <span className="cf-result__payout num">
-                +{lastResult.payout.toLocaleString('ru-RU')}
+                +{lastResult.payout.toLocaleString(locale)}
                 <StarIcon size={14} animate={false} />
               </span>
             )}
@@ -161,7 +166,7 @@ export function CoinflipGame({ onBack, onBalanceUpdate }: Props) {
       {err && <div className="cf-error" role="alert">{err}</div>}
 
       <div className="cf-controls">
-        <div className="cf-sides" role="group" aria-label="Выбор стороны">
+        <div className="cf-sides" role="group" aria-label={t.coin.pickSide}>
           <button
             type="button"
             className={`cf-side${choice === 'heads' ? ' cf-side--on' : ''}`}
@@ -170,7 +175,7 @@ export function CoinflipGame({ onBack, onBalanceUpdate }: Props) {
             aria-pressed={choice === 'heads'}
           >
             <span className="cf-side-badge" aria-hidden>О</span>
-            Орёл
+            {t.coin.heads}
           </button>
           <button
             type="button"
@@ -180,11 +185,11 @@ export function CoinflipGame({ onBack, onBalanceUpdate }: Props) {
             aria-pressed={choice === 'tails'}
           >
             <span className="cf-side-badge" aria-hidden>Р</span>
-            Решка
+            {t.coin.tails}
           </button>
         </div>
 
-        <div className="cf-chips" role="group" aria-label="Размер ставки">
+        <div className="cf-chips" role="group" aria-label={t.coin.betSize}>
           {BETS.map((b) => (
             <button
               key={b}
@@ -199,7 +204,7 @@ export function CoinflipGame({ onBack, onBalanceUpdate }: Props) {
         </div>
 
         <button className="cf-play" disabled={!canPlay} onClick={play}>
-          {busy ? '…' : `ПОДБРОСИТЬ  •  ${bet} ★`}
+          {busy ? '…' : tf(t.coin.flip, { bet })}
         </button>
       </div>
     </div>

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import type { Case } from '../types';
+import { useSettings } from '../settings/SettingsContext';
 import { StarIcon } from './StarIcon';
 
 interface Props {
@@ -43,9 +44,11 @@ const CASE_GRADIENTS: Record<number, { bg: string; glow: string; badge: string }
 };
 
 export function CaseGrid({ cases, selected, onSelect, disabled }: Props) {
+  const { t, locale } = useSettings();
+
   return (
     <div className="cases-section">
-      <div className="tg-section-title">Выберите кейс</div>
+      <div className="tg-section-title">{t.cases.selectCase}</div>
       <div className="cases-row">
         {cases.map(c => {
           const g = CASE_GRADIENTS[c.id] ?? CASE_GRADIENTS[1];
@@ -70,9 +73,9 @@ export function CaseGrid({ cases, selected, onSelect, disabled }: Props) {
 
               {/* Badge: FREE or tier number */}
               {isFreeNow ? (
-                <span className="case-badge case-badge--free">БЕСПЛАТНО</span>
+                <span className="case-badge case-badge--free">{t.cases.freeBadge}</span>
               ) : c.isFree ? (
-                <span className="case-badge case-badge--paid">ЕЖЕДНЕВНО</span>
+                <span className="case-badge case-badge--paid">{t.cases.dailyBadge}</span>
               ) : null}
 
               {/* Icon */}
@@ -83,12 +86,12 @@ export function CaseGrid({ cases, selected, onSelect, disabled }: Props) {
 
               {/* Price or timer */}
               {isFreeNow ? (
-                <span className="case-card-price case-card-price--free">Бесплатно</span>
+                <span className="case-card-price case-card-price--free">{t.common.free}</span>
               ) : isTimerActive ? (
                 <FreeBadge nextFreeAt={c.nextFreeAt!} />
               ) : (
                 <span className="case-card-price num">
-                  {c.price.toLocaleString('ru-RU')}
+                  {c.price.toLocaleString(locale)}
                   <StarIcon size={13} animate={false} />
                 </span>
               )}

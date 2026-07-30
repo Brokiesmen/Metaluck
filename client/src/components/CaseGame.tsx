@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { api } from '../api';
 import type { Case, Prize } from '../types';
+import { useSettings } from '../settings/SettingsContext';
 import { StripOpener } from './StripOpener';
 import { CaseGrid } from './CaseGrid';
 import { PrizesGrid } from './PrizesGrid';
@@ -35,6 +36,7 @@ export function CaseGame({
   onCasesReload,
   forceSelectFreeSignal,
 }: Props) {
+  const { t } = useSettings();
   const [selectedCase, setSelectedCase] = useState<Case | null>(null);
   const [winner, setWinner] = useState<Prize | null>(null);
   const [resultPrize, setResultPrize] = useState<Prize | null>(null);
@@ -78,10 +80,10 @@ export function CaseGame({
       setWinner(prize);
       onCasesReload();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Ошибка сервера');
+      setError(err instanceof Error ? err.message : t.cases.serverError);
       setIsAnimating(false);
     }
-  }, [isAnimating, onBalanceUpdate, onCasesReload, selectedCase]);
+  }, [isAnimating, onBalanceUpdate, onCasesReload, selectedCase, t.cases.serverError]);
 
   const handleDone = useCallback((prize: Prize) => {
     setIsAnimating(false);
@@ -97,7 +99,7 @@ export function CaseGame({
   return (
     <div className={`case-game${isAnimating ? ' case-game--spinning' : ''}`}>
       <button type="button" className="case-game-back" onClick={onBack}>
-        ← Назад к играм
+        {t.cases.backGames}
       </button>
 
       {error && <div className="error-banner">{error}</div>}
