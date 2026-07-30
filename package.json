@@ -1,8 +1,10 @@
 {
-  "name": "minigames",
+  "name": "metaluck",
   "version": "1.0.0",
   "scripts": {
-    "dev": "concurrently -n server,client -c cyan,magenta \"npm run dev --prefix server\" \"npm run dev --prefix client\"",
+    "dev": "node scripts/print-lan-urls.mjs && concurrently -n server,client -c cyan,magenta \"npm run dev --prefix server\" \"npm run dev --prefix client\"",
+    "dev:lan": "node scripts/print-lan-urls.mjs && npm run dev",
+    "firewall:open": "powershell -ExecutionPolicy Bypass -File scripts/open-firewall.ps1",
     "dev:client": "npm run dev --prefix client",
     "dev:server": "npm run dev --prefix server",
     "build": "npm install --prefix client && npm run build --prefix client && npm install --prefix server && npm run build --prefix server",

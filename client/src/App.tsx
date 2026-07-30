@@ -1,11 +1,14 @@
 import { useState, useEffect, useCallback } from 'react';
 import { api, setInitData } from './api';
 import { useTelegram } from './hooks/useTelegram';
+import { useSettings } from './settings/SettingsContext';
+import { applyTheme } from './settings/applyTheme';
 import { TabBar, type Tab } from './components/TabBar';
 import { Cabinet } from './components/Cabinet';
 import { Leaders } from './components/Leaders';
 import { DailyTab } from './components/DailyTab';
 import { StarIcon } from './components/StarIcon';
+import { SettingsModal } from './components/SettingsModal';
 import type { Case, Prize } from './types';
 import { GamesScreen } from './components/GamesScreen';
 import { CaseGame } from './components/CaseGame';
@@ -18,6 +21,7 @@ type GameView = 'lobby' | 'cases' | 'blackjack' | 'coinflip' | 'minerush' | 'are
 
 export function App() {
   const { tg, user, initData, isDev } = useTelegram();
+  const { t, locale, theme } = useSettings();
   // До первого useEffect дочерних компонентов: иначе /api/blackjack/state уходит без init, а /deal — уже с init (другой user_id → «завершите партию»).
   setInitData(initData);
 
@@ -29,6 +33,7 @@ export function App() {
   const [prizes,       setPrizes]       = useState<Prize[]>([]);
   const [error,        setError]        = useState<string | null>(null);
   const [logs,         setLogs]         = useState<string[]>([]);
+  const [showSettings, setShowSettings] = useState(false);
 
   useEffect(() => {
     // @ts-ignore
@@ -37,17 +42,19 @@ export function App() {
     window.log = (m: string) => setLogs(prev => [...prev.slice(-10), m]);
   }, []);
 
+  // Keep Telegram chrome in sync with app theme
+  useEffect(() => {
+    applyTheme(theme);
+  }, [theme, tg]);
+
   // ── Init and Load data ──────────────────────────────────────────────────────
   useEffect(() => {
-    // 1. Init Telegram
     if (tg) {
       tg.ready();
       tg.expand();
-      tg.setHeaderColor('#17212b');
-      tg.setBackgroundColor('#17212b');
+      applyTheme(theme);
     }
-    
-    // 2. Fetch data (init уже выставлен синхронно в теле App)
+
     Promise.all([api.getBalance(), api.getCases(), api.getPrizes()])
       .then(([bal, c, p]) => {
         setBalance(bal);
@@ -56,11 +63,11 @@ export function App() {
       })
       .catch((err) => {
         console.error('Initial load failed:', err);
-        setError('Сервер недоступен. Попробуйте обновить страницу.');
+        setError(t.common.serverUnavailable);
       });
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- boot once per telegram session
   }, [tg, initData]);
 
-  // ── Open case ─────────────────────────────────────────────────────────────
   const reloadCases = useCallback(() => {
     api.getCases().then(setCases).catch(() => {});
   }, []);
@@ -101,53 +108,56 @@ export function App() {
     if (nextTab === 'games') setGameView('lobby');
   }, []);
 
+  const headerTitle =
+    tab === 'games'
+      ? gameView === 'cases'
+        ? t.header.cases
+        : gameView === 'blackjack'
+          ? t.header.blackjack
+          : gameView === 'coinflip'
+            ? t.header.coinflip
+            : gameView === 'minerush'
+              ? t.header.minerush
+              : gameView === 'arena'
+                ? t.header.arena
+                : t.header.metaluck
+      : tab === 'leaders'
+        ? t.header.leaders
+        : tab === 'daily'
+          ? t.header.daily
+          : t.header.cabinet;
+
   return (
     <div className="app">
 
-      {/* ── Top bar (replaces Telegram's native header in dev mode) ── */}
       <header className="tg-header">
         <div className="tg-header-left">
-          {tab !== 'games' && (
-            <button className="back-btn" onClick={() => setTab('games')}>‹</button>
-          )}
+          {tab === 'cabinet' ? (
+            <button
+              type="button"
+              className="settings-btn"
+              onClick={() => setShowSettings(true)}
+              aria-label={t.settings.ariaOpen}
+            >
+              ⚙️
+            </button>
+          ) : tab !== 'games' ? (
+            <button type="button" className="back-btn" onClick={() => setTab('games')}>‹</button>
+          ) : null}
         </div>
-        <div className="tg-header-title">
-          {tab === 'games' ? (
-            gameView === 'cases' ? (
-              'Кейсы'
-            ) : gameView === 'blackjack' ? (
-              'Блэкджек'
-            ) : gameView === 'coinflip' ? (
-              'Орёл или решка'
-            ) : gameView === 'minerush' ? (
-              'MineRush'
-            ) : gameView === 'arena' ? (
-              'Арена'
-            ) : (
-              'Metaluck'
-            )
-          ) : tab === 'leaders' ? (
-            'Лидеры'
-          ) : tab === 'daily' ? (
-            'Ежедневный подарок'
-          ) : (
-            'Кабинет'
-          )}
-        </div>
+        <div className="tg-header-title">{headerTitle}</div>
         <div className="tg-header-right">
           {tab === 'games' && (
             <span className="header-balance num">
-              {balance.toLocaleString('ru-RU')}
+              {balance.toLocaleString(locale)}
               <StarIcon size={18} />
             </span>
           )}
         </div>
       </header>
 
-      {/* ── Error banner ─────────────────────────────────────────── */}
       {error && <div className="error-banner">{error}</div>}
 
-      {/* ── Pages ─────────────────────────────────────────────────── */}
       <main
         className={`page-content${
           tab === 'games' && gameView === 'blackjack'
@@ -208,10 +218,10 @@ export function App() {
         )}
       </main>
 
-      {/* ── Tab bar ───────────────────────────────────────────────── */}
       <TabBar active={tab} onChange={handleTabChange} />
 
-      {/* ── Debug Logs (shows on error) ────────────────────────── */}
+      {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
+
       {error && (
         <div style={{ padding: 10, fontSize: 10, background: '#000', color: '#0f0', maxHeight: 100, overflow: 'auto' }}>
           {logs.map((l, i) => <div key={i}>{l}</div>)}

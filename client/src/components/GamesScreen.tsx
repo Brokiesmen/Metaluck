@@ -1,3 +1,5 @@
+import { useSettings } from '../settings/SettingsContext';
+
 interface Props {
   onOpenCases: () => void;
   onOpenBlackjack: () => void;
@@ -7,6 +9,8 @@ interface Props {
 }
 
 export function GamesScreen({ onOpenCases, onOpenBlackjack, onOpenCoinflip, onOpenMineRush, onOpenArena }: Props) {
+  const { t } = useSettings();
+
   return (
     <section className="games-lobby">
       <div className="games-lobby-grid">
@@ -16,8 +20,8 @@ export function GamesScreen({ onOpenCases, onOpenBlackjack, onOpenCoinflip, onOp
             🎁
           </div>
           <div className="game-tile-body">
-            <h2 className="game-tile-title">Кейсы</h2>
-            <p className="game-tile-subtitle">Испытай удачу и выиграй призы Fragment</p>
+            <h2 className="game-tile-title">{t.games.casesTitle}</h2>
+            <p className="game-tile-subtitle">{t.games.casesSub}</p>
           </div>
         </button>
 
@@ -27,8 +31,8 @@ export function GamesScreen({ onOpenCases, onOpenBlackjack, onOpenCoinflip, onOp
             <span className="bj-lobby-joker">🃏</span>
           </div>
           <div className="game-tile-body">
-            <h2 className="game-tile-title">Блэкджек</h2>
-            <p className="game-tile-subtitle">Классическая игра против дилера. Удвой свои звёзды!</p>
+            <h2 className="game-tile-title">{t.games.bjTitle}</h2>
+            <p className="game-tile-subtitle">{t.games.bjSub}</p>
           </div>
         </button>
 
@@ -38,8 +42,8 @@ export function GamesScreen({ onOpenCases, onOpenBlackjack, onOpenCoinflip, onOp
             <span className="coin-lobby-spin">🪙</span>
           </div>
           <div className="game-tile-body">
-            <h2 className="game-tile-title">Орёл или решка</h2>
-            <p className="game-tile-subtitle">Угадай сторону монеты и удвой ставку!</p>
+            <h2 className="game-tile-title">{t.games.coinTitle}</h2>
+            <p className="game-tile-subtitle">{t.games.coinSub}</p>
           </div>
         </button>
 
@@ -49,8 +53,8 @@ export function GamesScreen({ onOpenCases, onOpenBlackjack, onOpenCoinflip, onOp
             💣
           </div>
           <div className="game-tile-body">
-            <h2 className="game-tile-title">MineRush</h2>
-            <p className="game-tile-subtitle">Сапёр на звёзды — открой поле и забери выигрыш!</p>
+            <h2 className="game-tile-title">{t.games.mrTitle}</h2>
+            <p className="game-tile-subtitle">{t.games.mrSub}</p>
           </div>
         </button>
 
@@ -60,20 +64,20 @@ export function GamesScreen({ onOpenCases, onOpenBlackjack, onOpenCoinflip, onOp
             🎯
           </div>
           <div className="game-tile-body">
-            <h2 className="game-tile-title">Арена</h2>
-            <p className="game-tile-subtitle">Общий банк: чем больше ставка — тем больше шанс забрать всё!</p>
+            <h2 className="game-tile-title">{t.games.arenaTitle}</h2>
+            <p className="game-tile-subtitle">{t.games.arenaSub}</p>
           </div>
         </button>
       </div>
 
       <div className="game-tile game-tile--soon" aria-disabled="true">
-        <div className="game-tile-soon-title">Скоро...</div>
-        <div className="game-tile-soon-subtitle">PvP турнир и командные челленджи</div>
+        <div className="game-tile-soon-title">{t.games.soon}</div>
+        <div className="game-tile-soon-subtitle">{t.games.soonPvp}</div>
       </div>
 
       <div className="game-tile game-tile--soon" aria-disabled="true">
-        <div className="game-tile-soon-title">Coming Soon</div>
-        <div className="game-tile-soon-subtitle">Аркада и быстрые мини-игры</div>
+        <div className="game-tile-soon-title">{t.games.soonArcadeTitle}</div>
+        <div className="game-tile-soon-subtitle">{t.games.soonArcadeSub}</div>
       </div>
     </section>
   );

@@ -2,6 +2,7 @@ import { TabGamesIcon } from './tab-icons/TabGamesIcon';
 import { TabCabinetIcon } from './tab-icons/TabCabinetIcon';
 import { TabLeadersIcon } from './tab-icons/TabLeadersIcon';
 import { TabDailyIcon } from './tab-icons/TabDailyIcon';
+import { useSettings } from '../settings/SettingsContext';
 
 export type Tab = 'games' | 'cabinet' | 'leaders' | 'daily';
 
@@ -11,6 +12,8 @@ interface Props {
 }
 
 export function TabBar({ active, onChange }: Props) {
+  const { t } = useSettings();
+
   return (
     <nav className="tab-bar">
       <button
@@ -21,7 +24,7 @@ export function TabBar({ active, onChange }: Props) {
         <span className="tab-icon tab-icon--games" aria-hidden>
           <TabGamesIcon />
         </span>
-        <span className="tab-label">Игры</span>
+        <span className="tab-label">{t.tabs.games}</span>
       </button>
       <button
         type="button"
@@ -31,7 +34,7 @@ export function TabBar({ active, onChange }: Props) {
         <span className="tab-icon tab-icon--leaders" aria-hidden>
           <TabLeadersIcon />
         </span>
-        <span className="tab-label">Лидеры</span>
+        <span className="tab-label">{t.tabs.leaders}</span>
       </button>
       <button
         type="button"
@@ -41,7 +44,7 @@ export function TabBar({ active, onChange }: Props) {
         <span className="tab-icon tab-icon--daily" aria-hidden>
           <TabDailyIcon />
         </span>
-        <span className="tab-label">Ежедневно</span>
+        <span className="tab-label">{t.tabs.daily}</span>
       </button>
       <button
         type="button"
@@ -51,7 +54,7 @@ export function TabBar({ active, onChange }: Props) {
         <span className="tab-icon tab-icon--cabinet" aria-hidden>
           <TabCabinetIcon />
         </span>
-        <span className="tab-label">Кабинет</span>
+        <span className="tab-label">{t.tabs.cabinet}</span>
       </button>
     </nav>
   );

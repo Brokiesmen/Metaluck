@@ -95,7 +95,7 @@ export function CaseGame({
   }, []);
 
   return (
-    <div className="case-game">
+    <div className={`case-game${isAnimating ? ' case-game--spinning' : ''}`}>
       <button type="button" className="case-game-back" onClick={onBack}>
         ← Назад к играм
       </button>
@@ -104,7 +104,7 @@ export function CaseGame({
 
       <StripOpener
         selectedCase={selectedCase}
-        prizes={prizes}
+        prizes={topPrizes.length ? topPrizes : prizes}
         winner={winner}
         previewKey={previewKey}
         isAnimating={isAnimating}

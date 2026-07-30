@@ -2,6 +2,14 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import './index.css';
 import { App } from './App';
+import { applyTheme } from './settings/applyTheme';
+import { readSettings } from './settings/storage';
+import { SettingsProvider } from './settings/SettingsContext';
+
+// Apply saved theme before first paint to avoid a flash of the wrong theme.
+const bootSettings = readSettings();
+applyTheme(bootSettings.theme);
+document.documentElement.lang = bootSettings.language;
 
 // dev: react-playing-cards всё ещё на defaultProps — шум в консоли, на работу приложения не влияет
 if (import.meta.env.DEV) {
@@ -17,6 +25,8 @@ if (import.meta.env.DEV) {
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <App />
+    <SettingsProvider>
+      <App />
+    </SettingsProvider>
   </StrictMode>,
 );

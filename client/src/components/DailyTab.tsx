@@ -3,17 +3,18 @@ import confetti from 'canvas-confetti';
 import { api } from '../api';
 import { GIFT_IMAGES, RARITY } from '../data';
 import { ResultModal } from './ResultModal';
+import { useSettings } from '../settings/SettingsContext';
 import type { Case, Prize } from '../types';
 
 // Must mirror server DAILY_REWARDS
 const DAILY_REWARDS = [
-  { day: 1, type: 'stars',  stars: 50,  label: '50★',    color: '#e8c06a' },
-  { day: 2, type: 'stars',  stars: 150, label: '150★',   color: '#e8c06a' },
-  { day: 3, type: 'gift',   rarity: 'blue',   label: 'Подарок', color: '#a8c8f0' },
-  { day: 4, type: 'stars',  stars: 300, label: '300★',   color: '#e8c06a' },
-  { day: 5, type: 'gift',   rarity: 'purple', label: 'Подарок', color: '#b0acf5' },
-  { day: 6, type: 'stars',  stars: 600, label: '600★',   color: '#e8c06a' },
-  { day: 7, type: 'gift',   rarity: 'gold',   label: '🏆 Топ',  color: '#e8c06a' },
+  { day: 1, type: 'stars',  stars: 1, label: '1★',     color: '#e8c06a' },
+  { day: 2, type: 'stars',  stars: 1, label: '1★',     color: '#e8c06a' },
+  { day: 3, type: 'stars',  stars: 1, label: '1★',     color: '#e8c06a' },
+  { day: 4, type: 'stars',  stars: 1, label: '1★',     color: '#e8c06a' },
+  { day: 5, type: 'gift',   rarity: 'blue',   label: 'Подарок', color: '#a8c8f0' },
+  { day: 6, type: 'stars',  stars: 1, label: '1★',     color: '#e8c06a' },
+  { day: 7, type: 'gift',   rarity: 'purple', label: 'Подарок', color: '#b0acf5' },
 ] as const;
 
 function fmtTimer(ms: number) {
@@ -41,6 +42,7 @@ interface Props {
 const ORDER = { gold: 0, purple: 1, blue: 2, gray: 3 } as const;
 
 function PrizesShowcase({ prizes }: { prizes: Prize[] }) {
+  const { t } = useSettings();
   const gifts = prizes
     .filter(p => p.id >= 1 && p.id <= 100)
     .sort((a, b) => ORDER[a.rarity] - ORDER[b.rarity]);
@@ -48,8 +50,8 @@ function PrizesShowcase({ prizes }: { prizes: Prize[] }) {
   return (
     <div className="daily-prizes-section">
       <div className="daily-section-header">
-        <span className="daily-section-title">Что можно выиграть</span>
-        <span className="daily-section-count">{gifts.length} предметов</span>
+        <span className="daily-section-title">{t.daily.canWin}</span>
+        <span className="daily-section-count">{gifts.length} {t.daily.items}</span>
       </div>
       <div className="daily-prizes-grid">
         {gifts.map(p => {
@@ -65,7 +67,7 @@ function PrizesShowcase({ prizes }: { prizes: Prize[] }) {
               </div>
               <div className="daily-prize-overlay">
                 <div className="daily-prize-name">{p.name}</div>
-                <div className="daily-prize-rarity" style={{ color: r.border }}>{r.label}</div>
+                <div className="daily-prize-rarity" style={{ color: r.border }}>{t.rarity[p.rarity]}</div>
               </div>
             </div>
           );

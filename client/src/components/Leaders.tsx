@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '../api';
 import { StarIcon } from './StarIcon';
+import { useSettings } from '../settings/SettingsContext';
 import type { Leader } from '../types';
 
 const LIMIT = 50;
@@ -26,6 +27,7 @@ function rankLabel(i: number) {
 }
 
 export function Leaders() {
+  const { t, locale } = useSettings();
   const [leaders, setLeaders]   = useState<Leader[]>([]);
   const [page, setPage]         = useState(0);
   const [hasMore, setHasMore]   = useState(true);
@@ -43,11 +45,11 @@ export function Leaders() {
       setTotal(res.pagination.total);
       setPage(nextPage);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Ошибка загрузки');
+      setError(e instanceof Error ? e.message : t.leaders.loadError);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t.leaders.loadError]);
 
   useEffect(() => { load(0); }, [load]);
 
@@ -56,17 +58,19 @@ export function Leaders() {
 
       <div className="leaders-hero">
         <div className="leaders-badge" aria-hidden>🏆</div>
-        <h1 className="leaders-title">Лидеры</h1>
-        <p className="leaders-subtitle">Игроки с самым большим балансом звёзд</p>
+        <h1 className="leaders-title">{t.leaders.title}</h1>
+        <p className="leaders-subtitle">{t.leaders.subtitle}</p>
         {total !== null && (
-          <div className="leaders-total num">{total.toLocaleString('ru-RU')} игроков</div>
+          <div className="leaders-total num">
+            {total.toLocaleString(locale)} {t.leaders.players}
+          </div>
         )}
       </div>
 
       {error && <div className="error-banner">{error}</div>}
 
       {leaders.length === 0 && !loading && !error && (
-        <div className="tg-section tg-hint-text">Список пуст</div>
+        <div className="tg-section tg-hint-text">{t.leaders.empty}</div>
       )}
 
       {leaders.length > 0 && (
@@ -84,7 +88,7 @@ export function Leaders() {
               <div className="leader-info">
                 <div className="leader-name">{leader.name}</div>
                 <div className="leader-balance num">
-                  {leader.balance.toLocaleString('ru-RU')}
+                  {leader.balance.toLocaleString(locale)}
                   <StarIcon size={14} animate={false} glow={false} />
                 </div>
               </div>
@@ -96,11 +100,11 @@ export function Leaders() {
         </div>
       )}
 
-      {loading && <div className="loading">Загрузка...</div>}
+      {loading && <div className="loading">{t.common.loading}</div>}
 
       {hasMore && !loading && leaders.length > 0 && (
         <button className="leaders-load-more" onClick={() => load(page + 1)}>
-          Загрузить ещё
+          {t.common.loadMore}
         </button>
       )}
     </div>

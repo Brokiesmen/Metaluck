@@ -1,13 +1,12 @@
 import { useRef, useEffect, useCallback, useMemo, useState } from 'react';
-import { RARITY, GIFT_IMAGES } from '../data';
+import { RARITY } from '../data';
 import { StarIcon } from './StarIcon';
+import { stripConfig } from '../lib/stripPerf';
 import type { Prize, Case } from '../types';
 
 const CARD_WIDTH = 130;
 const CARD_GAP   = 8;
 const CARD_SLOT  = CARD_WIDTH + CARD_GAP; // 138
-const WINNER_IDX = 52;
-const TOTAL      = 65;
 
 interface Props {
   selectedCase: Case | null;
@@ -21,19 +20,10 @@ interface Props {
 
 function makeCard(prize: Prize): HTMLDivElement {
   const r   = RARITY[prize.rarity];
-  const img = GIFT_IMAGES[prize.id];
   const div = document.createElement('div');
-  div.className = 'strip-card';
+  div.className = 'strip-card strip-card--mystery';
   div.style.cssText = `border-color:${r.border}; color:${r.border};`;
-  const mediaHtml = img
-    ? `<img src="${img.image}" alt="${prize.name}" class="card-img" />`
-    : `<div class="card-icon">${prize.icon}</div>`;
-  div.innerHTML = `
-    ${mediaHtml}
-    <div class="card-overlay">
-      <div class="card-name">${prize.name}</div>
-    </div>
-  `;
+  div.innerHTML = `<div class="card-icon card-icon--mystery" aria-hidden="true">?</div>`;
   return div;
 }
 
@@ -54,34 +44,71 @@ export function StripOpener({
 }: Props) {
   const stripRef = useRef<HTMLDivElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
+  const spinTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [nowMs, setNowMs] = useState(() => Date.now());
+  const [isSpinning, setIsSpinning] = useState(false);
 
   const buildStrip = useCallback((w: Prize) => {
     const strip = stripRef.current;
     const track = trackRef.current;
     if (!strip || !track) return;
 
-    const LEFT_CARDS = 4; // cards visible to the left of the indicator
+    const { total: totalCards, winnerIdx } = stripConfig();
+    const LEFT_CARDS = 4;
     const trackW = track.offsetWidth || 480;
     const startX = trackW / 2 - CARD_WIDTH / 2 - LEFT_CARDS * CARD_SLOT;
 
     strip.style.transition = 'none';
-    strip.style.transform  = `translateX(${startX}px)`;
-    strip.innerHTML = '';
-    for (let i = 0; i < TOTAL; i++) {
-      strip.appendChild(makeCard(i === WINNER_IDX ? w : pickAny(prizes)));
+    strip.style.transform  = `translate3d(${startX}px,0,0)`;
+    strip.replaceChildren();
+    const frag = document.createDocumentFragment();
+    for (let i = 0; i < totalCards; i++) {
+      frag.appendChild(makeCard(i === winnerIdx ? w : pickAny(prizes)));
     }
+    strip.appendChild(frag);
   }, [prizes]);
 
   const animateStrip = useCallback((onComplete: () => void) => {
     const strip = stripRef.current;
     const track = trackRef.current;
     if (!strip || !track) return;
-    const finalX = track.offsetWidth / 2 - (WINNER_IDX * CARD_SLOT + CARD_WIDTH / 2);
-    void strip.getBoundingClientRect();
-    strip.style.transition = 'transform 7s cubic-bezier(0.08, 0.82, 0.17, 1)';
-    strip.style.transform  = `translateX(${finalX}px)`;
-    setTimeout(onComplete, 7200);
+
+    const { winnerIdx, durationMs: ms } = stripConfig();
+    const finalX = track.offsetWidth / 2 - (winnerIdx * CARD_SLOT + CARD_WIDTH / 2);
+    const seconds = (ms / 1000).toFixed(2);
+
+    if (spinTimerRef.current) clearTimeout(spinTimerRef.current);
+    setIsSpinning(true);
+    strip.classList.add('strip--spinning');
+
+    const finish = () => {
+      strip.removeEventListener('transitionend', onEnd);
+      if (spinTimerRef.current) {
+        clearTimeout(spinTimerRef.current);
+        spinTimerRef.current = null;
+      }
+      strip.classList.remove('strip--spinning');
+      strip.style.willChange = '';
+      setIsSpinning(false);
+      onComplete();
+    };
+
+    const onEnd = (e: TransitionEvent) => {
+      if (e.target !== strip || e.propertyName !== 'transform') return;
+      finish();
+    };
+
+    strip.addEventListener('transitionend', onEnd);
+    spinTimerRef.current = setTimeout(finish, ms + 250);
+
+    void strip.offsetWidth;
+    strip.style.willChange = 'transform';
+    strip.style.transition = `transform ${seconds}s cubic-bezier(0.08, 0.82, 0.17, 1)`;
+    strip.style.transform  = `translate3d(${finalX}px,0,0)`;
+  }, []);
+
+  useEffect(() => () => {
+    if (spinTimerRef.current) clearTimeout(spinTimerRef.current);
   }, []);
 
   useEffect(() => {
@@ -118,7 +145,7 @@ export function StripOpener({
   return (
     <div className="strip-section">
       {/* Tape */}
-      <div className="strip-wrapper">
+      <div className={`strip-wrapper${isSpinning ? ' strip-wrapper--spinning' : ''}`}>
         <div className="fade fade-left"  />
         <div className="fade fade-right" />
         <div className="ind-arrow ind-top" />

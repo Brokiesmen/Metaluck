@@ -3,8 +3,10 @@ import { api } from '../api';
 import { RARITY, GIFT_IMAGES } from '../data';
 import { StarIcon } from './StarIcon';
 import { TopUpModal } from './TopUpModal';
+import { WithdrawModal } from './WithdrawModal';
 import { ReferralCard } from './ReferralCard';
-import type { TelegramUser, HistoryEntry } from '../types';
+import { useSettings } from '../settings/SettingsContext';
+import type { TelegramUser, HistoryEntry, Rarity } from '../types';
 
 interface Props {
   user: TelegramUser;
@@ -14,13 +16,6 @@ interface Props {
   openInvoice?: (url: string, cb?: (status: 'paid' | 'cancelled' | 'failed' | 'pending') => void) => void;
   isTelegram: boolean;
   tg?: any;
-}
-
-function formatDate(ts: number): string {
-  return new Date(ts).toLocaleString('ru-RU', {
-    day: '2-digit', month: '2-digit',
-    hour: '2-digit', minute: '2-digit',
-  });
 }
 
 function Avatar({ user }: { user: TelegramUser }) {
@@ -35,14 +30,23 @@ function Avatar({ user }: { user: TelegramUser }) {
 interface GiftDetailProps {
   entry: HistoryEntry;
   onClose: () => void;
+  locale: string;
+  rarityLabel: (r: Rarity) => string;
+  labels: { rarity: string; from: string; date: string; close: string };
 }
 
-function GiftDetail({ entry, onClose }: GiftDetailProps) {
+function GiftDetail({ entry, onClose, locale, rarityLabel, labels }: GiftDetailProps) {
   const r   = RARITY[entry.prize.rarity];
   const img = GIFT_IMAGES[entry.prize.id];
 
   const rarityStars: Record<string, number> = { gray: 1, blue: 2, purple: 3, gold: 4 };
   const stars = rarityStars[entry.prize.rarity] ?? 1;
+
+  const formatDate = (ts: number) =>
+    new Date(ts).toLocaleString(locale, {
+      day: '2-digit', month: '2-digit',
+      hour: '2-digit', minute: '2-digit',
+    });
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -58,12 +62,12 @@ function GiftDetail({ entry, onClose }: GiftDetailProps) {
               : <span className="modal-icon">{entry.prize.icon}</span>}
         </div>
 
-        <div className="modal-rarity" style={{ color: r.text }}>{r.label}</div>
+        <div className="modal-rarity" style={{ color: r.text }}>{rarityLabel(entry.prize.rarity)}</div>
         <div className="modal-name">{entry.prize.name}</div>
 
         <div className="gift-detail-stats">
           <div className="gift-stat-row">
-            <span className="gift-stat-label">Редкость</span>
+            <span className="gift-stat-label">{labels.rarity}</span>
             <span className="gift-stat-value num">
               {Array.from({ length: 4 }).map((_, i) => (
                 <span key={i} style={{ opacity: i < stars ? 1 : 0.2 }}>●</span>
@@ -71,16 +75,16 @@ function GiftDetail({ entry, onClose }: GiftDetailProps) {
             </span>
           </div>
           <div className="gift-stat-row">
-            <span className="gift-stat-label">Получен из</span>
+            <span className="gift-stat-label">{labels.from}</span>
             <span className="gift-stat-value">{entry.caseName}</span>
           </div>
           <div className="gift-stat-row">
-            <span className="gift-stat-label">Дата</span>
+            <span className="gift-stat-label">{labels.date}</span>
             <span className="gift-stat-value num">{formatDate(entry.timestamp)}</span>
           </div>
         </div>
 
-        <button className="tg-btn" onClick={onClose}>Закрыть</button>
+        <button className="tg-btn" onClick={onClose}>{labels.close}</button>
       </div>
     </div>
   );
@@ -97,6 +101,7 @@ function writeCache(items: HistoryEntry[]) {
 }
 
 export function Cabinet({ user, balance, isDev, onBalanceUpdate, openInvoice, isTelegram, tg }: Props) {
+  const { t, locale } = useSettings();
   const [history, setHistory]     = useState<HistoryEntry[]>(() => readCache());
   const [historyFresh, setFresh]  = useState(false);
   const [hasMore, setHasMore]     = useState(false);
@@ -104,8 +109,8 @@ export function Cabinet({ user, balance, isDev, onBalanceUpdate, openInvoice, is
   const [page, setPage]           = useState(0);
   const [selected, setSelected]   = useState<HistoryEntry | null>(null);
   const [showTopUp, setShowTopUp] = useState(false);
+  const [showWithdraw, setShowWithdraw] = useState(false);
 
-  // SWR: show cache instantly, refresh in background
   useEffect(() => {
     api.getHistory(0, PAGE_SIZE).then(res => {
       setHistory(res.history);
@@ -135,6 +140,13 @@ export function Cabinet({ user, balance, isDev, onBalanceUpdate, openInvoice, is
   };
 
   const fullName = [user.first_name, user.last_name].filter(Boolean).join(' ');
+  const rarityLabel = (r: Rarity) => t.rarity[r];
+
+  const formatDate = (ts: number) =>
+    new Date(ts).toLocaleString(locale, {
+      day: '2-digit', month: '2-digit',
+      hour: '2-digit', minute: '2-digit',
+    });
 
   const stats = {
     total:  history.length,
@@ -146,74 +158,81 @@ export function Cabinet({ user, balance, isDev, onBalanceUpdate, openInvoice, is
   return (
     <div className="cabinet">
 
-      {/* ── Profile ─────────────────────────────────────────────── */}
       <div className="tg-section">
         <div className="profile-row">
           <Avatar user={user} />
           <div className="profile-info">
             <div className="profile-name">{fullName}</div>
             {user.username && <div className="profile-username">@{user.username}</div>}
-            {isDev && <div className="dev-badge">dev режим</div>}
+            {isDev && <div className="dev-badge">{t.cabinet.devMode}</div>}
           </div>
         </div>
       </div>
 
-      {/* ── Balance ─────────────────────────────────────────────── */}
-      <div className="tg-section-title">Баланс</div>
+      <div className="tg-section-title">{t.cabinet.balance}</div>
       <div className="tg-section">
-        <div className="balance-row">
-          <StarIcon size={32} />
-          <span className="balance-big num" style={{ marginLeft: 8 }}>
-            {balance.toLocaleString('ru-RU')}
-          </span>
-          <span className="balance-unit">звёзд</span>
-          <button className="topup-inline-btn" onClick={() => setShowTopUp(true)}>
-            Пополнить
-          </button>
+        <div className="balance-block">
+          <div className="balance-row">
+            <StarIcon size={32} />
+            <span className="balance-big num">
+              {balance.toLocaleString(locale)}
+            </span>
+            <span className="balance-unit">{t.common.stars}</span>
+          </div>
+          <div className="balance-actions">
+            <button type="button" className="topup-inline-btn" onClick={() => setShowTopUp(true)}>
+              {t.cabinet.topup}
+            </button>
+            <button
+              type="button"
+              className="withdraw-inline-btn"
+              onClick={() => setShowWithdraw(true)}
+              disabled={balance < 50}
+            >
+              {t.cabinet.withdraw}
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* ── Stats ───────────────────────────────────────────────── */}
       {stats.total > 0 && (
         <>
-          <div className="tg-section-title">Статистика</div>
+          <div className="tg-section-title">{t.cabinet.stats}</div>
           <div className="tg-section">
             <div className="cabinet-stats-grid">
               <div className="cabinet-stat">
                 <div className="cabinet-stat-value num">{stats.total}</div>
-                <div className="cabinet-stat-label">Открыто</div>
+                <div className="cabinet-stat-label">{t.cabinet.opened}</div>
               </div>
               <div className="cabinet-stat">
                 <div className="cabinet-stat-value num" style={{ color: '#e8c06a' }}>{stats.gold}</div>
-                <div className="cabinet-stat-label">Легендарных</div>
+                <div className="cabinet-stat-label">{t.cabinet.legendary}</div>
               </div>
               <div className="cabinet-stat">
                 <div className="cabinet-stat-value num" style={{ color: '#b0acf5' }}>{stats.purple}</div>
-                <div className="cabinet-stat-label">Эпических</div>
+                <div className="cabinet-stat-label">{t.cabinet.epic}</div>
               </div>
               <div className="cabinet-stat">
                 <div className="cabinet-stat-value num" style={{ color: '#a8c8f0' }}>{stats.blue}</div>
-                <div className="cabinet-stat-label">Редких</div>
+                <div className="cabinet-stat-label">{t.cabinet.rare}</div>
               </div>
             </div>
           </div>
         </>
       )}
 
-      {/* ── Referral ────────────────────────────────────────────── */}
-      <div className="tg-section-title">Пригласить друга</div>
+      <div className="tg-section-title">{t.cabinet.invite}</div>
       <ReferralCard tg={tg} />
 
-      {/* ── History ─────────────────────────────────────────────── */}
       <div className="tg-section-title">
-        История открытий
+        {t.cabinet.history}
         {history.length > 0 && <span className="history-count num">{history.length}</span>}
       </div>
 
       {history.length === 0 && historyFresh ? (
-        <div className="tg-section tg-hint-text">Откройте первый кейс!</div>
+        <div className="tg-section tg-hint-text">{t.cabinet.emptyHistory}</div>
       ) : history.length === 0 ? (
-        <div className="tg-section tg-hint-text" style={{ color: 'var(--tg-hint)' }}>Загрузка…</div>
+        <div className="tg-section tg-hint-text" style={{ color: 'var(--tg-hint)' }}>{t.common.loading}</div>
       ) : (
         <div className="tg-section history-list">
           {history.map((entry, i) => {
@@ -233,7 +252,7 @@ export function Cabinet({ user, balance, isDev, onBalanceUpdate, openInvoice, is
                 <div className="history-info">
                   <div className="history-name">{entry.prize.name}</div>
                   <div className="history-meta">
-                    <span style={{ color: r.text }}>{r.label}</span>
+                    <span style={{ color: r.text }}>{rarityLabel(entry.prize.rarity)}</span>
                     {' · '}
                     <span style={{ color: 'var(--tg-hint)' }}>{entry.caseName}</span>
                   </div>
@@ -250,11 +269,24 @@ export function Cabinet({ user, balance, isDev, onBalanceUpdate, openInvoice, is
 
       {hasMore && (
         <button className="leaders-load-more" onClick={loadMore} disabled={loadingMore}>
-          {loadingMore ? 'Загрузка…' : 'Загрузить ещё'}
+          {loadingMore ? t.common.loading : t.common.loadMore}
         </button>
       )}
 
-      {selected && <GiftDetail entry={selected} onClose={() => setSelected(null)} />}
+      {selected && (
+        <GiftDetail
+          entry={selected}
+          onClose={() => setSelected(null)}
+          locale={locale}
+          rarityLabel={rarityLabel}
+          labels={{
+            rarity: t.cabinet.rarity,
+            from: t.cabinet.from,
+            date: t.cabinet.date,
+            close: t.common.close,
+          }}
+        />
+      )}
 
       {showTopUp && (
         <TopUpModal
@@ -262,6 +294,14 @@ export function Cabinet({ user, balance, isDev, onBalanceUpdate, openInvoice, is
           onBalanceUpdate={onBalanceUpdate}
           openInvoice={openInvoice}
           isTelegram={isTelegram}
+        />
+      )}
+
+      {showWithdraw && (
+        <WithdrawModal
+          balance={balance}
+          onClose={() => setShowWithdraw(false)}
+          onBalanceUpdate={onBalanceUpdate}
         />
       )}
     </div>
