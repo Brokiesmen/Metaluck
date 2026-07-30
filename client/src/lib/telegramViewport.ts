@@ -69,6 +69,16 @@ export function syncTelegramViewport(): void {
   if (vh && Number.isFinite(vh) && vh > 0) {
     root.style.setProperty('--app-vh', px(vh));
   }
+
+  // Platform hint for CSS (iOS games lobby becomes a list).
+  const ua = navigator.userAgent || '';
+  const fromTg = (tg?.platform || '').toLowerCase();
+  const isIos =
+    fromTg === 'ios' ||
+    /iPhone|iPad|iPod/i.test(ua) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const isAndroid = fromTg === 'android' || /Android/i.test(ua);
+  root.dataset.platform = isIos ? 'ios' : isAndroid ? 'android' : fromTg || 'web';
 }
 
 /** Call once after Telegram SDK is ready; returns cleanup. */

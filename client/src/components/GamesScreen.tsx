@@ -68,16 +68,20 @@ export function GamesScreen({ onOpenCases, onOpenBlackjack, onOpenCoinflip, onOp
             <p className="game-tile-subtitle">{t.games.arenaSub}</p>
           </div>
         </button>
-      </div>
 
-      <div className="game-tile game-tile--soon" aria-disabled="true">
-        <div className="game-tile-soon-title">{t.games.soon}</div>
-        <div className="game-tile-soon-subtitle">{t.games.soonPvp}</div>
-      </div>
+        <div className="game-tile game-tile--soon" aria-disabled="true">
+          <div className="game-tile-body">
+            <div className="game-tile-soon-title">{t.games.soon}</div>
+            <div className="game-tile-soon-subtitle">{t.games.soonPvp}</div>
+          </div>
+        </div>
 
-      <div className="game-tile game-tile--soon" aria-disabled="true">
-        <div className="game-tile-soon-title">{t.games.soonArcadeTitle}</div>
-        <div className="game-tile-soon-subtitle">{t.games.soonArcadeSub}</div>
+        <div className="game-tile game-tile--soon" aria-disabled="true">
+          <div className="game-tile-body">
+            <div className="game-tile-soon-title">{t.games.soonArcadeTitle}</div>
+            <div className="game-tile-soon-subtitle">{t.games.soonArcadeSub}</div>
+          </div>
+        </div>
       </div>
     </section>
   );

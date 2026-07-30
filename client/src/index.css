@@ -886,12 +886,111 @@ body {
   font-size: 17px;
   font-weight: 700;
   color: #c5ceda;
+  line-height: 1.2;
 }
 
 .game-tile-soon-subtitle {
   margin-top: 4px;
   color: rgba(197, 206, 218, 0.76);
   font-size: 13px;
+  line-height: 1.35;
+}
+
+/* ── iPhone: games as a vertical list with aligned labels ───── */
+html[data-platform="ios"] .games-lobby {
+  gap: 0;
+  padding: 10px 12px 18px;
+}
+
+html[data-platform="ios"] .games-lobby-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
+
+html[data-platform="ios"] .games-lobby-grid .game-tile,
+html[data-platform="ios"] .game-tile--cases,
+html[data-platform="ios"] .game-tile--bj,
+html[data-platform="ios"] .game-tile--coin,
+html[data-platform="ios"] .game-tile--minerush,
+html[data-platform="ios"] .game-tile--arena,
+html[data-platform="ios"] .game-tile--soon {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 14px;
+  width: 100%;
+  min-height: 84px;
+  height: auto;
+  padding: 12px 14px;
+  box-sizing: border-box;
+  text-align: left;
+}
+
+html[data-platform="ios"] .game-tile-icon,
+html[data-platform="ios"] .game-tile-icon--bj,
+html[data-platform="ios"] .game-tile-icon--coin,
+html[data-platform="ios"] .game-tile-icon--mr,
+html[data-platform="ios"] .game-tile-icon--arena {
+  width: 56px;
+  height: 56px;
+  min-width: 56px;
+  border-radius: 16px;
+  font-size: 28px;
+  flex-shrink: 0;
+}
+
+html[data-platform="ios"] .bj-lobby-joker,
+html[data-platform="ios"] .coin-lobby-spin {
+  font-size: 28px;
+}
+
+html[data-platform="ios"] .game-tile-body {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 4px;
+  min-width: 0;
+  flex: 1;
+  max-width: none;
+  text-align: left;
+}
+
+html[data-platform="ios"] .game-tile-title,
+html[data-platform="ios"] .game-tile-soon-title {
+  margin: 0;
+  width: 100%;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+html[data-platform="ios"] .game-tile-subtitle,
+html[data-platform="ios"] .game-tile-soon-subtitle {
+  margin: 0;
+  width: 100%;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.3;
+  text-align: left;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  opacity: 0.88;
+}
+
+html[data-platform="ios"] .game-tile--soon {
+  min-height: 72px;
+  opacity: 0.9;
 }
 
 /* ── Cases game screen ───────────────────────────────────────── */
