@@ -19,6 +19,13 @@ interface TelegramThemeParams {
   secondary_bg_color?: string;
 }
 
+interface TelegramSafeAreaInset {
+  top: number;
+  bottom: number;
+  left: number;
+  right: number;
+}
+
 interface TelegramWebApp {
   initData: string;
   initDataUnsafe: {
@@ -32,11 +39,16 @@ interface TelegramWebApp {
   themeParams: TelegramThemeParams;
   isExpanded: boolean;
   viewportHeight: number;
+  viewportStableHeight: number;
+  safeAreaInset?: TelegramSafeAreaInset;
+  contentSafeAreaInset?: TelegramSafeAreaInset;
   expand(): void;
   close(): void;
   ready(): void;
   setHeaderColor(color: string): void;
   setBackgroundColor(color: string): void;
+  onEvent?(eventType: string, callback: (...args: unknown[]) => void): void;
+  offEvent?(eventType: string, callback: (...args: unknown[]) => void): void;
   openInvoice(
     url: string,
     callback?: (status: 'paid' | 'cancelled' | 'failed' | 'pending') => void,

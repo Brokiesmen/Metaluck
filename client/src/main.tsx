@@ -5,11 +5,13 @@ import { App } from './App';
 import { applyTheme } from './settings/applyTheme';
 import { readSettings } from './settings/storage';
 import { SettingsProvider } from './settings/SettingsContext';
+import { syncTelegramViewport } from './lib/telegramViewport';
 
-// Apply saved theme before first paint to avoid a flash of the wrong theme.
+// Apply saved theme + viewport insets before first paint (critical for iOS Telegram).
 const bootSettings = readSettings();
 applyTheme(bootSettings.theme);
 document.documentElement.lang = bootSettings.language;
+syncTelegramViewport();
 
 // dev: react-playing-cards всё ещё на defaultProps — шум в консоли, на работу приложения не влияет
 if (import.meta.env.DEV) {

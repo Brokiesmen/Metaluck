@@ -3,6 +3,7 @@ import { api, setInitData } from './api';
 import { useTelegram } from './hooks/useTelegram';
 import { useSettings } from './settings/SettingsContext';
 import { applyTheme } from './settings/applyTheme';
+import { startTelegramViewportSync } from './lib/telegramViewport';
 import { TabBar, type Tab } from './components/TabBar';
 import { Cabinet } from './components/Cabinet';
 import { Leaders } from './components/Leaders';
@@ -46,6 +47,9 @@ export function App() {
   useEffect(() => {
     applyTheme(theme);
   }, [theme, tg]);
+
+  // iOS Telegram: keep viewport / safe-area CSS vars live
+  useEffect(() => startTelegramViewportSync(), []);
 
   // ── Init and Load data ──────────────────────────────────────────────────────
   useEffect(() => {
