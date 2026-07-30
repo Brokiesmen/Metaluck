@@ -1,5 +1,4 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-import type BetterSqlite3 from 'better-sqlite3';
 import crypto from 'crypto';
 import {
   type CardType,
@@ -7,6 +6,7 @@ import {
   XP_WIN, XP_DRAW, XP_LOSE, RATING_WIN, RATING_LOSE,
   BOT_ID, ROUND_DURATION_MS, QUEUE_BOT_TIMEOUT_MS, ROUNDS_TOTAL, ROUNDS_TO_WIN,
 } from './pvpEngine.js';
+import { getSupabase, parseJsonField } from './supabaseStore.js';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -34,10 +34,13 @@ interface StoredMatch {
   p2RatingChange: number;
 }
 
-interface QueueRow { user_id: number; queued_at: number; }
-interface MatchRow  { match_id: string; player1: number; player2: number; state_json: string; }
+interface MatchRow  { match_id: string; player1: number; player2: number; state_json: unknown; }
 interface StatsRow  { user_id: number; level: number; xp: number; rating: number; wins: number; losses: number; draws: number; }
-interface ProfileRow { name: string; photo_url: string | null; }
+interface QueueRow { user_id: number; queued_at: number; }
+
+function throwSb(error: { message?: string } | null, context: string): never {
+  throw new Error(`${context}: ${error?.message ?? 'unknown Supabase error'}`);
+}
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -135,48 +138,175 @@ function buildView(matchId: string, state: StoredMatch, userId: number, opponent
 export function registerPvpRoutes(
   app: FastifyInstance,
   deps: {
-    db: InstanceType<typeof BetterSqlite3>;
-    getUserId: (req: FastifyRequest) => number;
+    getUserId: (req: FastifyRequest) => Promise<number>;
   },
 ) {
-  const { db, getUserId } = deps;
+  const { getUserId } = deps;
 
-  // ── Prepared statements ────────────────────────────────────────────────────
-
-  const queueGet    = db.prepare<[number], QueueRow>('SELECT user_id, queued_at FROM pvp_queue WHERE user_id = ?');
-  const queueInsert = db.prepare('INSERT OR REPLACE INTO pvp_queue(user_id, queued_at) VALUES(?,?)');
-  const queueDelete = db.prepare('DELETE FROM pvp_queue WHERE user_id = ?');
-  const queueAny    = db.prepare<[number], QueueRow>('SELECT user_id, queued_at FROM pvp_queue WHERE user_id != ? ORDER BY queued_at ASC LIMIT 1');
-
-  const matchInsert = db.prepare('INSERT INTO pvp_matches(match_id, player1, player2, state_json, created_at, updated_at) VALUES(?,?,?,?,?,?)');
-  const matchUpdate = db.prepare('UPDATE pvp_matches SET state_json = ?, updated_at = ? WHERE match_id = ?');
-  const matchGet    = db.prepare<[string], MatchRow>('SELECT match_id, player1, player2, state_json FROM pvp_matches WHERE match_id = ?');
-  const matchActive = db.prepare<[number, number], MatchRow>(
-    `SELECT match_id, player1, player2, state_json FROM pvp_matches
-     WHERE (player1 = ? OR player2 = ?)
-       AND json_extract(state_json, '$.phase') = 'choosing'
-     ORDER BY created_at DESC LIMIT 1`,
-  );
-
-  const statsGet    = db.prepare<[number], StatsRow>('SELECT * FROM pvp_stats WHERE user_id = ?');
-  const statsUpsert = db.prepare(`
-    INSERT INTO pvp_stats(user_id) VALUES(?)
-    ON CONFLICT(user_id) DO NOTHING
-  `);
-  const statsUpdate = db.prepare(`
-    UPDATE pvp_stats SET level=?, xp=?, rating=?, wins=?, losses=?, draws=? WHERE user_id=?
-  `);
-  const profileGet  = db.prepare<[number], ProfileRow>('SELECT name, photo_url FROM user_profiles WHERE user_id = ?');
-
-  // ── Helpers ────────────────────────────────────────────────────────────────
-
-  function ensureStats(userId: number): StatsRow {
-    statsUpsert.run(userId);
-    return statsGet.get(userId)!;
+  async function queueGet(userId: number): Promise<QueueRow | null> {
+    const sb = getSupabase();
+    const { data, error } = await sb
+      .from('pvp_queue')
+      .select('user_id, queued_at')
+      .eq('user_id', userId)
+      .maybeSingle();
+    if (error) throwSb(error, 'pvp queueGet');
+    if (!data) return null;
+    return { user_id: Number(data.user_id), queued_at: Number(data.queued_at) };
   }
 
-  function awardXpRating(userId: number, result: 'win' | 'lose' | 'draw'): { xp: number; rating: number } {
-    const stats = ensureStats(userId);
+  async function queueInsert(userId: number, queuedAt: number) {
+    const sb = getSupabase();
+    const { error } = await sb.from('pvp_queue').upsert(
+      { user_id: userId, queued_at: queuedAt },
+      { onConflict: 'user_id' },
+    );
+    if (error) throwSb(error, 'pvp queueInsert');
+  }
+
+  async function queueDelete(userId: number) {
+    const sb = getSupabase();
+    const { error } = await sb.from('pvp_queue').delete().eq('user_id', userId);
+    if (error) throwSb(error, 'pvp queueDelete');
+  }
+
+  async function queueAny(excludeUserId: number): Promise<QueueRow | null> {
+    const sb = getSupabase();
+    const { data, error } = await sb
+      .from('pvp_queue')
+      .select('user_id, queued_at')
+      .neq('user_id', excludeUserId)
+      .order('queued_at', { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    if (error) throwSb(error, 'pvp queueAny');
+    if (!data) return null;
+    return { user_id: Number(data.user_id), queued_at: Number(data.queued_at) };
+  }
+
+  async function matchInsert(matchId: string, p1: number, p2: number, state: StoredMatch, now: number) {
+    const sb = getSupabase();
+    const { error } = await sb.from('pvp_matches').insert({
+      match_id: matchId,
+      player1: p1,
+      player2: p2,
+      state_json: state,
+      created_at: now,
+      updated_at: now,
+    });
+    if (error) throwSb(error, 'pvp matchInsert');
+  }
+
+  async function matchUpdate(matchId: string, state: StoredMatch) {
+    const sb = getSupabase();
+    const { error } = await sb
+      .from('pvp_matches')
+      .update({ state_json: state, updated_at: Date.now() })
+      .eq('match_id', matchId);
+    if (error) throwSb(error, 'pvp matchUpdate');
+  }
+
+  async function matchGet(matchId: string): Promise<MatchRow | null> {
+    const sb = getSupabase();
+    const { data, error } = await sb
+      .from('pvp_matches')
+      .select('match_id, player1, player2, state_json')
+      .eq('match_id', matchId)
+      .maybeSingle();
+    if (error) throwSb(error, 'pvp matchGet');
+    if (!data) return null;
+    return {
+      match_id: data.match_id as string,
+      player1: Number(data.player1),
+      player2: Number(data.player2),
+      state_json: data.state_json,
+    };
+  }
+
+  async function matchActive(userId: number): Promise<MatchRow | null> {
+    const sb = getSupabase();
+    const { data, error } = await sb
+      .from('pvp_matches')
+      .select('match_id, player1, player2, state_json, created_at')
+      .or(`player1.eq.${userId},player2.eq.${userId}`)
+      .order('created_at', { ascending: false })
+      .limit(20);
+    if (error) throwSb(error, 'pvp matchActive');
+    for (const row of data ?? []) {
+      const state = parseJsonField<StoredMatch | null>(row.state_json, null);
+      if (state?.phase === 'choosing') {
+        return {
+          match_id: row.match_id as string,
+          player1: Number(row.player1),
+          player2: Number(row.player2),
+          state_json: row.state_json,
+        };
+      }
+    }
+    return null;
+  }
+
+  async function statsGet(userId: number): Promise<StatsRow | null> {
+    const sb = getSupabase();
+    const { data, error } = await sb.from('pvp_stats').select('*').eq('user_id', userId).maybeSingle();
+    if (error) throwSb(error, 'pvp statsGet');
+    if (!data) return null;
+    return {
+      user_id: Number(data.user_id),
+      level: Number(data.level),
+      xp: Number(data.xp),
+      rating: Number(data.rating),
+      wins: Number(data.wins),
+      losses: Number(data.losses),
+      draws: Number(data.draws),
+    };
+  }
+
+  async function ensureStats(userId: number): Promise<StatsRow> {
+    const existing = await statsGet(userId);
+    if (existing) return existing;
+    const sb = getSupabase();
+    const { error } = await sb.from('pvp_stats').upsert(
+      { user_id: userId },
+      { onConflict: 'user_id', ignoreDuplicates: true },
+    );
+    if (error) throwSb(error, 'pvp ensureStats');
+    const row = await statsGet(userId);
+    if (!row) {
+      return { user_id: userId, level: 1, xp: 0, rating: 1000, wins: 0, losses: 0, draws: 0 };
+    }
+    return row;
+  }
+
+  async function statsUpdate(row: StatsRow) {
+    const sb = getSupabase();
+    const { error } = await sb
+      .from('pvp_stats')
+      .update({
+        level: row.level,
+        xp: row.xp,
+        rating: row.rating,
+        wins: row.wins,
+        losses: row.losses,
+        draws: row.draws,
+      })
+      .eq('user_id', row.user_id);
+    if (error) throwSb(error, 'pvp statsUpdate');
+  }
+
+  async function profileName(userId: number): Promise<string | null> {
+    const sb = getSupabase();
+    const { data, error } = await sb
+      .from('user_profiles')
+      .select('name')
+      .eq('user_id', userId)
+      .maybeSingle();
+    if (error) throwSb(error, 'pvp profileName');
+    return (data?.name as string) ?? null;
+  }
+
+  async function awardXpRating(userId: number, result: 'win' | 'lose' | 'draw'): Promise<{ xp: number; rating: number }> {
+    const stats = await ensureStats(userId);
     const xpGain = result === 'win' ? XP_WIN : result === 'draw' ? XP_DRAW : XP_LOSE;
     const ratChange = result === 'win' ? RATING_WIN : result === 'lose' ? RATING_LOSE : 0;
 
@@ -189,11 +319,11 @@ export function registerPvpRoutes(
     const losses = stats.losses + (result === 'lose' ? 1 : 0);
     const draws  = stats.draws  + (result === 'draw' ? 1 : 0);
 
-    statsUpdate.run(level, xp, rating, wins, losses, draws, userId);
+    await statsUpdate({ user_id: userId, level, xp, rating, wins, losses, draws });
     return { xp: xpGain, rating: ratChange };
   }
 
-  function awardMatch(matchId: string, state: StoredMatch): void {
+  async function awardMatch(matchId: string, state: StoredMatch): Promise<void> {
     if (state.xpAwarded || state.phase !== 'finished' || !state.matchResult) return;
 
     const p1Result: 'win' | 'lose' | 'draw' =
@@ -201,39 +331,40 @@ export function registerPvpRoutes(
     const p2Result: 'win' | 'lose' | 'draw' =
       state.matchResult === 'p2' ? 'win' : state.matchResult === 'draw' ? 'draw' : 'lose';
 
-    const p1Award = awardXpRating(state.player1, p1Result);
+    const p1Award = await awardXpRating(state.player1, p1Result);
     state.p1XpGained    = p1Award.xp;
     state.p1RatingChange = p1Award.rating;
 
     if (state.player2 !== BOT_ID) {
-      const p2Award = awardXpRating(state.player2, p2Result);
+      const p2Award = await awardXpRating(state.player2, p2Result);
       state.p2XpGained    = p2Award.xp;
       state.p2RatingChange = p2Award.rating;
     }
 
     state.xpAwarded = true;
-    matchUpdate.run(JSON.stringify(state), Date.now(), matchId);
+    await matchUpdate(matchId, state);
   }
 
-  function readMatch(matchId: string): { row: MatchRow; state: StoredMatch } | null {
-    const row = matchGet.get(matchId);
+  async function readMatch(matchId: string): Promise<{ row: MatchRow; state: StoredMatch } | null> {
+    const row = await matchGet(matchId);
     if (!row) return null;
-    const state = JSON.parse(row.state_json) as StoredMatch;
+    const state = parseJsonField<StoredMatch>(row.state_json, null as unknown as StoredMatch);
+    if (!state || typeof state !== 'object') return null;
     return { row, state };
   }
 
-  function opponentName(state: StoredMatch, userId: number): string {
+  async function opponentName(state: StoredMatch, userId: number): Promise<string> {
     const opponentId = state.player1 === userId ? state.player2 : state.player1;
     if (opponentId === BOT_ID) return '🤖 Бот';
-    const p = profileGet.get(opponentId);
-    return p?.name ?? `Игрок #${opponentId}`;
+    const name = await profileName(opponentId);
+    return name ?? `Игрок #${opponentId}`;
   }
 
-  function processAndSave(matchId: string, state: StoredMatch): void {
+  async function processAndSave(matchId: string, state: StoredMatch): Promise<void> {
     const changed = advance(state);
-    if (state.phase === 'finished' && !state.xpAwarded) awardMatch(matchId, state);
+    if (state.phase === 'finished' && !state.xpAwarded) await awardMatch(matchId, state);
     if (changed || (state.phase === 'finished' && state.xpAwarded)) {
-      matchUpdate.run(JSON.stringify(state), Date.now(), matchId);
+      await matchUpdate(matchId, state);
     }
   }
 
@@ -244,8 +375,8 @@ export function registerPvpRoutes(
   // ── GET /api/pvp/stats ────────────────────────────────────────────────────
 
   app.get('/api/pvp/stats', async req => {
-    const userId = getUserId(req);
-    const stats  = ensureStats(userId);
+    const userId = await getUserId(req);
+    const stats  = await ensureStats(userId);
     return {
       level:          stats.level,
       xp:             stats.xp,
@@ -260,52 +391,46 @@ export function registerPvpRoutes(
   // ── POST /api/pvp/find — join queue or get matched ───────────────────────
 
   app.post('/api/pvp/find', async (req, reply) => {
-    const userId = getUserId(req);
+    const userId = await getUserId(req);
     const now    = Date.now();
 
-    // Already in an active match?
-    const active = matchActive.get(userId, userId);
+    const active = await matchActive(userId);
     if (active) {
-      const state = JSON.parse(active.state_json) as StoredMatch;
-      processAndSave(active.match_id, state);
+      const state = parseJsonField<StoredMatch>(active.state_json, null as unknown as StoredMatch);
+      if (state) await processAndSave(active.match_id, state);
       return { status: 'matched', matchId: active.match_id };
     }
 
-    // Look for another waiting player
-    const other = queueAny.get(userId) as QueueRow | undefined;
+    const other = await queueAny(userId);
     if (other) {
-      // Create real match
-      queueDelete.run(userId);
-      queueDelete.run(other.user_id);
+      await queueDelete(userId);
+      await queueDelete(other.user_id);
       const matchId = crypto.randomUUID();
       const state   = newMatch(userId, other.user_id);
-      matchInsert.run(matchId, userId, other.user_id, JSON.stringify(state), now, now);
+      await matchInsert(matchId, userId, other.user_id, state, now);
       return { status: 'matched', matchId };
     }
 
-    // Check if already in queue
-    const inQueue = queueGet.get(userId) as QueueRow | undefined;
+    const inQueue = await queueGet(userId);
     const queuedAt = inQueue?.queued_at ?? now;
 
-    // Bot timeout?
     if (inQueue && now - queuedAt >= QUEUE_BOT_TIMEOUT_MS) {
-      queueDelete.run(userId);
+      await queueDelete(userId);
       const matchId = crypto.randomUUID();
       const state   = newMatch(userId, BOT_ID);
-      matchInsert.run(matchId, userId, BOT_ID, JSON.stringify(state), now, now);
+      await matchInsert(matchId, userId, BOT_ID, state, now);
       return { status: 'matched', matchId };
     }
 
-    // Enter / stay in queue
-    if (!inQueue) queueInsert.run(userId, now);
+    if (!inQueue) await queueInsert(userId, now);
     return { status: 'queuing', queuedAt: inQueue ? queuedAt : now };
   });
 
   // ── DELETE /api/pvp/queue ─────────────────────────────────────────────────
 
   app.delete('/api/pvp/queue', async req => {
-    const userId = getUserId(req);
-    queueDelete.run(userId);
+    const userId = await getUserId(req);
+    await queueDelete(userId);
     return { ok: true };
   });
 
@@ -314,16 +439,16 @@ export function registerPvpRoutes(
   app.get<{ Params: { matchId: string } }>(
     '/api/pvp/match/:matchId',
     async (req, reply) => {
-      const userId = getUserId(req);
+      const userId = await getUserId(req);
       const { matchId } = req.params;
 
-      const m = readMatch(matchId);
+      const m = await readMatch(matchId);
       if (!m) return jsonError(reply, 404, 'Матч не найден');
       if (m.state.player1 !== userId && m.state.player2 !== userId)
         return jsonError(reply, 403, 'Нет доступа к этому матчу');
 
-      processAndSave(matchId, m.state);
-      return buildView(matchId, m.state, userId, opponentName(m.state, userId));
+      await processAndSave(matchId, m.state);
+      return buildView(matchId, m.state, userId, await opponentName(m.state, userId));
     },
   );
 
@@ -341,11 +466,11 @@ export function registerPvpRoutes(
       },
     },
     async (req, reply) => {
-      const userId  = getUserId(req);
+      const userId  = await getUserId(req);
       const { matchId } = req.params;
       const card    = req.body?.card as CardType;
 
-      const m = readMatch(matchId);
+      const m = await readMatch(matchId);
       if (!m) return jsonError(reply, 404, 'Матч не найден');
 
       const { state } = m;
@@ -356,7 +481,6 @@ export function registerPvpRoutes(
 
       const isP1 = state.player1 === userId;
 
-      // Can only choose if hasn't chosen yet this round
       if (isP1 && state.p1Choice !== null)
         return jsonError(reply, 400, 'Вы уже выбрали карту в этом раунде');
       if (!isP1 && state.p2Choice !== null)
@@ -365,8 +489,8 @@ export function registerPvpRoutes(
       if (isP1) state.p1Choice = card;
       else      state.p2Choice = card;
 
-      processAndSave(matchId, state);
-      return buildView(matchId, state, userId, opponentName(state, userId));
+      await processAndSave(matchId, state);
+      return buildView(matchId, state, userId, await opponentName(state, userId));
     },
   );
 }

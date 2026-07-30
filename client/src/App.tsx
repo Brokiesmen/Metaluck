@@ -10,8 +10,11 @@ import type { Case, Prize } from './types';
 import { GamesScreen } from './components/GamesScreen';
 import { CaseGame } from './components/CaseGame';
 import { BlackjackGame } from './components/BlackjackGame';
+import { CoinflipGame } from './components/CoinflipGame';
+import { MineRushGame } from './components/MineRushGame';
+import { ArenaGame } from './components/ArenaGame';
 
-type GameView = 'lobby' | 'cases' | 'blackjack';
+type GameView = 'lobby' | 'cases' | 'blackjack' | 'coinflip' | 'minerush' | 'arena';
 
 export function App() {
   const { tg, user, initData, isDev } = useTelegram();
@@ -72,6 +75,21 @@ export function App() {
     setTab('games');
   }, []);
 
+  const openCoinflipGame = useCallback(() => {
+    setGameView('coinflip');
+    setTab('games');
+  }, []);
+
+  const openMineRushGame = useCallback(() => {
+    setGameView('minerush');
+    setTab('games');
+  }, []);
+
+  const openArenaGame = useCallback(() => {
+    setGameView('arena');
+    setTab('games');
+  }, []);
+
   const goToFreeCase = useCallback(() => {
     setTab('games');
     setGameView('cases');
@@ -99,8 +117,14 @@ export function App() {
               'Кейсы'
             ) : gameView === 'blackjack' ? (
               'Блэкджек'
+            ) : gameView === 'coinflip' ? (
+              'Орёл или решка'
+            ) : gameView === 'minerush' ? (
+              'MineRush'
+            ) : gameView === 'arena' ? (
+              'Арена'
             ) : (
-              'Игры'
+              'Metaluck'
             )
           ) : tab === 'leaders' ? (
             'Лидеры'
@@ -125,7 +149,15 @@ export function App() {
 
       {/* ── Pages ─────────────────────────────────────────────────── */}
       <main
-        className={`page-content${tab === 'games' && gameView === 'blackjack' ? ' page-content--blackjack' : ''}`}
+        className={`page-content${
+          tab === 'games' && gameView === 'blackjack'
+            ? ' page-content--blackjack'
+            : tab === 'games' && gameView === 'coinflip'
+              ? ' page-content--coinflip'
+              : tab === 'games' && gameView === 'minerush'
+                ? ' page-content--minerush'
+                : ''
+        }`}
       >
         {tab === 'games' ? (
           gameView === 'cases' ? (
@@ -139,8 +171,20 @@ export function App() {
             />
           ) : gameView === 'blackjack' ? (
             <BlackjackGame onBack={() => setGameView('lobby')} onBalanceUpdate={setBalance} />
+          ) : gameView === 'coinflip' ? (
+            <CoinflipGame onBack={() => setGameView('lobby')} onBalanceUpdate={setBalance} />
+          ) : gameView === 'minerush' ? (
+            <MineRushGame onBack={() => setGameView('lobby')} onBalanceUpdate={setBalance} />
+          ) : gameView === 'arena' ? (
+            <ArenaGame onBack={() => setGameView('lobby')} onBalanceUpdate={setBalance} />
           ) : (
-            <GamesScreen onOpenCases={openCasesGame} onOpenBlackjack={openBlackjackGame} />
+            <GamesScreen
+              onOpenCases={openCasesGame}
+              onOpenBlackjack={openBlackjackGame}
+              onOpenCoinflip={openCoinflipGame}
+              onOpenMineRush={openMineRushGame}
+              onOpenArena={openArenaGame}
+            />
           )
         ) : tab === 'leaders' ? (
           <Leaders />

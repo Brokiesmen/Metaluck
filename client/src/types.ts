@@ -97,3 +97,80 @@ export interface BlackjackStateResponse {
   newBalance: number;
   round: BlackjackRound | null;
 }
+
+export type CoinSide = 'heads' | 'tails';
+
+export interface CoinflipResult {
+  newBalance: number;
+  bet: number;
+  choice: CoinSide;
+  result: CoinSide;
+  win: boolean;
+  payout: number;
+}
+
+export type MineRushDifficulty = 'easy' | 'medium' | 'hard';
+export type MineRushStatus = 'active' | 'lost' | 'won' | 'cashed';
+
+export interface MineRushCell {
+  key: string;
+  state: 'hidden' | 'number' | 'mine';
+  value?: number;
+}
+
+export interface MineRushGameView {
+  gameId: string;
+  bet: number;
+  difficulty: MineRushDifficulty;
+  status: MineRushStatus;
+  score: number;
+  balance: number;
+  mineCount: number;
+  gridSize: number;
+  flags: string[];
+  cells: MineRushCell[];
+  startedAt: number;
+}
+
+export interface MineRushRevealResult extends MineRushGameView {
+  exploded?: string | null;
+}
+
+export interface MineRushCashoutResult extends MineRushGameView {
+  payout: number;
+}
+
+// ── Arena (общий джекпот) ────────────────────────────────────────
+
+export type ArenaPhase = 'betting' | 'spinning' | 'finished';
+
+export interface ArenaPlayerView {
+  userId: number;
+  name: string;
+  bet: number;
+  color: string;
+  share: number;
+  startDeg: number;
+  endDeg: number;
+  isBot: boolean;
+  isMe: boolean;
+}
+
+export interface ArenaRoundView {
+  roundId: string;
+  phase: ArenaPhase;
+  pot: number;
+  bettingEndsAt: number;
+  spinEndsAt: number;
+  players: ArenaPlayerView[];
+  myBet: number;
+  winnerAngleDeg: number | null;
+  winner: { userId: number; name: string; color: string; isMe: boolean } | null;
+  payout: number;
+}
+
+export interface ArenaStateResponse {
+  round: ArenaRoundView | null;
+  balance: number;
+  now: number;
+}

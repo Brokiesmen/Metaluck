@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════
-   Telegram Mini App — Case Opening
+   Telegram Mini App — Metaluck
    Design tokens follow Telegram's CSS variable convention.
    Fallbacks = Telegram dark theme colors.
    ═══════════════════════════════════════════════════════════ */
@@ -116,7 +116,8 @@ body {
 }
 
 /* Блэкджек: без вертикального скролла main — стол и кнопки в одном экране */
-.page-content--blackjack {
+.page-content--blackjack,
+.page-content--coinflip {
   overflow: hidden;
   min-height: 0;
 }
@@ -186,14 +187,74 @@ body {
 .ind-bot { bottom: 0; border-left: 9px solid transparent; border-right: 9px solid transparent; border-bottom: 13px solid var(--red); }
 
 /* Strip track */
-.strip-track { height: 100%; overflow: hidden; }
-.strip { display: flex; align-items: center; height: 100%; gap: 8px; will-change: transform; }
+.strip-track {
+  height: 100%;
+  overflow: hidden;
+  contain: layout paint;
+  transform: translateZ(0);
+}
+.strip {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  gap: 8px;
+  backface-visibility: hidden;
+}
+.strip--spinning {
+  will-change: transform;
+}
+.strip-wrapper--spinning .fade {
+  opacity: 0.85;
+}
+/* Во время прокрута гасим всё дорогое ВНЕ ленты: backdrop-blur пересчитывается
+   композитором каждый кадр, а бесконечные анимации иконок дёргают растеризацию.
+   Класс вешается на .case-game (карточки кейсов — соседи ленты, не дети). */
+.case-game--spinning .case-card,
+.case-game--spinning .case-game-back {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+.case-game--spinning .case-card {
+  box-shadow: none;
+  transition: none;
+}
+.case-game--spinning .case-card-icon {
+  animation-play-state: paused;
+}
+@media (pointer: coarse) {
+  .strip-card .card-img {
+    image-rendering: auto;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .strip--spinning {
+    transition-duration: 4.5s !important;
+  }
+}
 
 .strip-card {
   flex-shrink: 0; width: 130px; height: 164px;
   border-radius: 12px; border: 1.5px solid;
   background: #1a1a2e;
   position: relative; overflow: hidden;
+  /* Изолируем растеризацию карточки — дешевле тайлить длинную ленту при прокруте */
+  contain: layout paint;
+}
+.strip-card--mystery {
+  background: linear-gradient(165deg, #1e1e32 0%, #141424 55%, #0f0f1a 100%);
+}
+.strip-card--mystery .card-icon--mystery {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 58px;
+  font-weight: 800;
+  line-height: 1;
+  /* Без text-shadow: блюр-тень дорого растеризуется на каждой из ~30-50 карточек ленты */
+  color: rgba(255, 255, 255, 0.24);
+  z-index: 1;
+  user-select: none;
 }
 .strip-card::before {
   content: ''; position: absolute;
@@ -1670,12 +1731,25 @@ body {
   padding: 2px 8px; border-radius: 20px;
 }
 
-.balance-row {
-  display: flex; align-items: baseline; gap: 8px;
+.balance-block {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
   padding: 16px;
 }
-.balance-big { font-size: 36px; font-weight: 700; color: var(--tg-text); }
+.balance-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.balance-big { font-size: 36px; font-weight: 700; color: var(--tg-text); line-height: 1; }
 .balance-unit { font-size: 16px; color: var(--tg-hint); }
+.balance-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  width: 100%;
+}
 
 .history-count {
   margin-left: auto;
@@ -2087,21 +2161,71 @@ body {
   box-shadow: 0 0 40px -8px rgba(232,192,106,0.6);
 }
 
-/* ── Top-up inline button ────────────────────────────────── */
-.topup-inline-btn {
-  margin-left: auto;
-  padding: 6px 14px;
-  background: rgba(36,129,204,0.15);
-  border: 1.5px solid rgba(36,129,204,0.4);
-  border-radius: 20px;
-  color: #5eaee6;
+/* ── Top-up / withdraw balance buttons ───────────────────── */
+.topup-inline-btn,
+.withdraw-inline-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 40px;
+  margin: 0;
+  padding: 0 12px;
+  border-radius: 12px;
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.18s, border-color 0.18s;
   white-space: nowrap;
+  box-sizing: border-box;
+  transition: background 0.18s, border-color 0.18s, opacity 0.18s;
+}
+.topup-inline-btn {
+  background: rgba(36,129,204,0.15);
+  border: 1.5px solid rgba(36,129,204,0.4);
+  color: #5eaee6;
 }
 .topup-inline-btn:active { background: rgba(36,129,204,0.28); }
+
+.withdraw-inline-btn {
+  background: rgba(232, 192, 106, 0.12);
+  border: 1.5px solid rgba(232, 192, 106, 0.4);
+  color: #e8c06a;
+}
+.withdraw-inline-btn:active { background: rgba(232, 192, 106, 0.22); }
+.withdraw-inline-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.withdraw-custom {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--tg-hint);
+}
+.withdraw-input {
+  width: 100%;
+  box-sizing: border-box;
+  height: 48px;
+  padding: 0 14px;
+  border-radius: 12px;
+  border: 1.5px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.04);
+  color: var(--tg-text);
+  font-size: 18px;
+  font-weight: 700;
+}
+.withdraw-input:focus {
+  outline: none;
+  border-color: rgba(232, 192, 106, 0.55);
+}
+.withdraw-submit {
+  width: 100%;
+}
+.withdraw-submit:disabled { opacity: 0.45; }
 
 /* ── Top-up modal sheet ──────────────────────────────────── */
 .topup-sheet {
@@ -2355,3 +2479,1321 @@ body {
 }
 .daily-prize-name   { font-size: 8px; font-weight: 700; text-transform: uppercase; color: #fff; line-height: 1.3; }
 .daily-prize-rarity { font-size: 7.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 1px; }
+
+/* ── Coinflip lobby tile ──────────────────────────────────────── */
+.game-tile--coin {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  background:
+    radial-gradient(circle at 80% 20%, rgba(255, 205, 90, 0.38), transparent 55%),
+    radial-gradient(circle at 12% 88%, rgba(150, 110, 20, 0.4), transparent 52%),
+    linear-gradient(135deg, rgba(46, 36, 12, 0.95) 0%, rgba(28, 22, 8, 0.98) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 10px 26px rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+}
+
+.game-tile--coin:active {
+  transform: translateY(1px);
+}
+
+.game-tile-glow--coin {
+  background: radial-gradient(circle, rgba(255, 210, 90, 0.4), transparent 65%);
+}
+
+.game-tile-icon--coin {
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.24), rgba(255, 255, 255, 0.06));
+}
+
+.coin-lobby-spin {
+  display: inline-block;
+  font-size: 40px;
+  line-height: 1;
+  animation: coin-lobby-spin 2.6s linear infinite;
+  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.35));
+}
+
+@keyframes coin-lobby-spin {
+  0%   { transform: rotateY(0deg); }
+  100% { transform: rotateY(360deg); }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   COINFLIP — «Орёл или решка»
+══════════════════════════════════════════════════════════════ */
+
+.cf {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: linear-gradient(180deg, #1a1408 0%, #241c0c 55%, #140f06 100%);
+  animation: games-fade-in 200ms ease;
+}
+
+.cf-back {
+  flex-shrink: 0;
+  align-self: flex-start;
+  margin: 8px 12px 0;
+  padding: 6px 12px;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 10px;
+  color: rgba(240, 220, 180, 0.8);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.cf-back:active { background: rgba(255, 255, 255, 0.13); }
+
+/* ── Сцена с монетой ─────────────────────────────────────────── */
+.cf-stage {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  padding: 12px;
+}
+
+.cf-coin-wrap {
+  position: relative;
+  perspective: 700px;
+  width: 140px;
+  height: 140px;
+}
+
+.cf-coin {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+  will-change: transform;
+}
+
+/* Подброс: монета взлетает по дуге (translateY), приближается к камере (scale),
+   крутится вокруг Y с естественным замедлением (быстро в начале — медленно в конце),
+   слегка покачивается по Z, а при приземлении проскакивает цель и возвращается. */
+.cf-coin--flipping {
+  animation: cf-flip var(--flip-duration, 1250ms) cubic-bezier(0.33, 0, 0.2, 1) both;
+}
+
+@keyframes cf-flip {
+  0% {
+    transform: translateY(0) scale(1) rotateZ(0deg) rotateY(0deg);
+  }
+  10% {
+    transform: translateY(-18%) scale(1.03) rotateZ(-3deg) rotateY(calc(var(--end-rot, 1800deg) * 0.2));
+  }
+  30% {
+    transform: translateY(-46%) scale(1.1) rotateZ(3deg) rotateY(calc(var(--end-rot, 1800deg) * 0.5));
+  }
+  50% {
+    transform: translateY(-58%) scale(1.14) rotateZ(-2deg) rotateY(calc(var(--end-rot, 1800deg) * 0.71));
+  }
+  70% {
+    transform: translateY(-38%) scale(1.08) rotateZ(2.5deg) rotateY(calc(var(--end-rot, 1800deg) * 0.87));
+  }
+  88% {
+    transform: translateY(-5%) scale(1.01) rotateZ(-1deg) rotateY(calc(var(--end-rot, 1800deg) * 0.975));
+  }
+  93% {
+    transform: translateY(2.5%) scale(1) rotateZ(0.5deg) rotateY(calc(var(--end-rot, 1800deg) + 8deg));
+  }
+  97% {
+    transform: translateY(-0.8%) scale(1) rotateZ(0deg) rotateY(calc(var(--end-rot, 1800deg) - 3deg));
+  }
+  100% {
+    transform: translateY(0) scale(1) rotateZ(0deg) rotateY(var(--end-rot, 1800deg));
+  }
+}
+
+/* Гурт — стопка тонких дисков между лицевыми сторонами даёт монете толщину,
+   а вертикальные полоски имитируют насечку ребра. */
+.cf-coin-edge {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background:
+    repeating-linear-gradient(
+      90deg,
+      #7a5308 0px,
+      #7a5308 2px,
+      #c4890f 2px,
+      #e0aa25 3px,
+      #c4890f 4px
+    );
+  box-shadow: inset 0 0 10px rgba(80, 50, 4, 0.55);
+}
+
+/* Тень под монетой — сжимается и бледнеет в верхней точке полёта, возвращается при падении */
+.cf-coin-shadow {
+  position: absolute;
+  left: 50%;
+  bottom: -12px;
+  width: 96px;
+  height: 20px;
+  margin-left: -48px;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.5), transparent 72%);
+  pointer-events: none;
+}
+
+.cf-coin-shadow--flipping {
+  animation: cf-shadow var(--flip-duration, 1050ms) cubic-bezier(0.33, 0, 0.2, 1) both;
+}
+
+@keyframes cf-shadow {
+  0%   { transform: scale(1);    opacity: 0.85; }
+  50%  { transform: scale(0.52); opacity: 0.3; }
+  100% { transform: scale(1);    opacity: 0.85; }
+}
+
+.cf-coin-face {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  backface-visibility: hidden;
+  background:
+    radial-gradient(circle at 32% 26%, rgba(255, 250, 225, 0.95), transparent 42%),
+    radial-gradient(circle at 70% 78%, rgba(120, 78, 8, 0.35), transparent 55%),
+    linear-gradient(155deg, #ffe793 0%, #eab629 38%, #c4890f 70%, #8f6208 100%);
+  box-shadow:
+    /* чеканный ободок — несколько концентричных колец */
+    0 0 0 3px #a9760f inset,
+    0 0 0 5px #ffedb0 inset,
+    0 0 0 6.5px #9a6b0c inset,
+    /* объём самой монеты; падающую тень рисует .cf-coin-shadow на "земле" */
+    inset 0 3px 7px rgba(255, 255, 255, 0.55),
+    inset 0 -10px 18px rgba(105, 66, 5, 0.55);
+}
+
+/* Ориентация лиц по Z задаётся inline (translateZ зависит от числа слоёв гурта) */
+
+/* Внутреннее гравированное кольцо */
+.cf-coin-ring {
+  position: absolute;
+  inset: 13px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(105, 66, 5, 0.45);
+  box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.4);
+  pointer-events: none;
+}
+
+/* Герб (орёл / венок) — гравировка на металле, чистый SVG без картинок */
+.cf-crest {
+  position: relative;
+  width: 64%;
+  height: 64%;
+  fill: #7a5308;
+  filter:
+    drop-shadow(0 -1px 0 rgba(255, 250, 225, 0.6))
+    drop-shadow(0 2px 2px rgba(55, 34, 2, 0.5));
+}
+
+/* ── Результат ───────────────────────────────────────────────── */
+.cf-result {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 22px;
+  border-radius: 14px;
+  animation: bj2-res-in 0.38s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.cf-result--win {
+  background: rgba(60, 200, 100, 0.14);
+  border: 1px solid rgba(90, 220, 130, 0.4);
+}
+
+.cf-result--lose {
+  background: rgba(200, 60, 60, 0.12);
+  border: 1px solid rgba(220, 90, 90, 0.35);
+}
+
+.cf-result__label {
+  font-size: 16px;
+  font-weight: 900;
+  letter-spacing: 0.03em;
+  color: #f0e6d0;
+}
+
+.cf-result--win .cf-result__label { color: #ffe566; text-shadow: 0 0 18px rgba(255, 210, 60, 0.5); }
+.cf-result--lose .cf-result__label { color: #ff7070; }
+
+.cf-result__payout {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 15px;
+  font-weight: 800;
+  color: #ffe566;
+}
+
+/* ── Confetti (лёгкая, переиспользует тайминги bj2) ───────────── */
+.cf-confetti {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.cf-confetti-piece {
+  position: absolute;
+  top: -10px;
+  width: 7px;
+  height: 12px;
+  border-radius: 2px;
+  animation: bj2-confetti-fall 1.0s ease-out forwards;
+}
+
+/* ── Ошибка ──────────────────────────────────────────────────── */
+.cf-error {
+  flex-shrink: 0;
+  margin: 0 12px 8px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: rgba(220, 60, 60, 0.16);
+  border: 1px solid rgba(220, 90, 90, 0.35);
+  color: #ffb3b3;
+  font-size: 13px;
+  text-align: center;
+}
+
+/* ── Панель управления ───────────────────────────────────────── */
+.cf-controls {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+  background: rgba(14, 10, 4, 0.97);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 -6px 20px rgba(0, 0, 0, 0.4);
+}
+
+.cf-sides {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.cf-side {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  height: 42px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(240, 225, 195, 0.85);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.1s, border-color 0.14s, color 0.14s, box-shadow 0.14s, background 0.14s;
+}
+
+.cf-side-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 12px;
+  font-weight: 700;
+  color: #6b4a06;
+  background: linear-gradient(155deg, #ffe793 0%, #d9a520 100%);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+  flex-shrink: 0;
+}
+
+.cf-side:disabled { opacity: 0.4; cursor: default; }
+
+.cf-side--on {
+  border-color: #ffe566;
+  color: #ffe566;
+  background: rgba(255, 210, 60, 0.12);
+  box-shadow: 0 0 14px rgba(255, 210, 60, 0.3);
+}
+
+.cf-side:not(:disabled):active { transform: scale(0.97); }
+
+.cf-chips {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+}
+
+.cf-chip {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  background: radial-gradient(circle at 38% 32%, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.04));
+  color: rgba(240, 230, 210, 0.88);
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: transform 0.14s, border-color 0.14s, color 0.14s, box-shadow 0.14s;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  line-height: 1;
+}
+
+.cf-chip:disabled { opacity: 0.35; cursor: default; }
+
+.cf-chip--on {
+  border-color: #ffe566;
+  color: #ffe566;
+  box-shadow: 0 0 14px rgba(255, 210, 60, 0.45), 0 2px 8px rgba(0, 0, 0, 0.4);
+  transform: scale(1.1);
+}
+
+.cf-chip:not(:disabled):not(.cf-chip--on):active { transform: scale(0.93); }
+
+.cf-play {
+  height: 52px;
+  width: 100%;
+  border-radius: 14px;
+  border: none;
+  background: linear-gradient(160deg, #d9a520, #8a6410);
+  color: #241a04;
+  font-size: 15px;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  box-shadow: 0 4px 18px rgba(180, 130, 20, 0.42);
+  transition: opacity 0.14s, transform 0.1s;
+}
+
+.cf-play:disabled { opacity: 0.38; cursor: default; }
+.cf-play:not(:disabled):active { transform: scale(0.98); }
+
+/* ═══════════════════════════════════════════════════════════════
+   MineRush — Minesweeper mini-game
+   ═══════════════════════════════════════════════════════════════ */
+
+.page-content--minerush {
+  padding: 0;
+  overflow: hidden;
+}
+
+.mr-root {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  background:
+    radial-gradient(ellipse 120% 80% at 50% -20%, rgba(40, 120, 220, 0.18), transparent 55%),
+    radial-gradient(ellipse 80% 50% at 100% 100%, rgba(200, 160, 40, 0.08), transparent 50%),
+    linear-gradient(180deg, #0d1117 0%, #121820 45%, #0a0e14 100%);
+}
+
+.mr-back {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 5;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(220, 235, 255, 0.9);
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.mr-chest {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 5;
+  width: 42px;
+  height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mr-chest-icon {
+  position: relative;
+  z-index: 1;
+  font-size: 22px;
+  filter: drop-shadow(0 0 8px rgba(255, 200, 60, 0.6));
+}
+
+.mr-chest-glow {
+  position: absolute;
+  inset: 4px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 200, 60, 0.35), transparent 70%);
+  animation: mr-pulse 2.4s ease-in-out infinite;
+}
+
+@keyframes mr-pulse {
+  0%, 100% { opacity: 0.5; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.15); }
+}
+
+.mr-status {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  padding: 48px 12px 8px;
+  flex-shrink: 0;
+}
+
+.mr-stat {
+  flex: 1;
+  max-width: 110px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(80, 160, 255, 0.2);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.mr-stat--timer { border-color: rgba(100, 180, 255, 0.35); }
+.mr-stat--balance { border-color: rgba(255, 200, 60, 0.3); }
+
+.mr-stat-label {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(140, 180, 220, 0.75);
+}
+
+.mr-stat-value {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 15px;
+  font-weight: 800;
+  color: #e8f4ff;
+}
+
+.mr-stat--balance .mr-stat-value { color: #ffd45e; }
+
+.mr-logo {
+  text-align: center;
+  padding: 4px 0 10px;
+  flex-shrink: 0;
+}
+
+.mr-logo-text {
+  display: block;
+  font-size: 22px;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  background: linear-gradient(135deg, #5ec8ff 0%, #a8e0ff 40%, #ffd45e 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  text-shadow: none;
+  filter: drop-shadow(0 0 20px rgba(94, 200, 255, 0.35));
+}
+
+.mr-logo-sub {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: rgba(120, 160, 200, 0.55);
+}
+
+.mr-error {
+  margin: 0 12px 8px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: rgba(220, 60, 60, 0.14);
+  border: 1px solid rgba(220, 90, 90, 0.35);
+  color: #ffb3b3;
+  font-size: 13px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.mr-board-wrap {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 12px;
+  min-height: 0;
+  transition: opacity 0.25s, filter 0.25s;
+}
+
+.mr-board-wrap--finished {
+  opacity: 0.55;
+  filter: saturate(0.7);
+  pointer-events: none;
+}
+
+.mr-board {
+  display: grid;
+  gap: 3px;
+  width: min(100%, 340px);
+  aspect-ratio: 1;
+  padding: 8px;
+  border-radius: 16px;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(80, 160, 255, 0.15);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 0 40px rgba(40, 120, 220, 0.08);
+}
+
+.mr-cell {
+  position: relative;
+  aspect-ratio: 1;
+  border: none;
+  border-radius: 6px;
+  padding: 0;
+  cursor: pointer;
+  font-family: inherit;
+  transition: transform 0.08s, box-shadow 0.12s;
+}
+
+.mr-cell:active:not(:disabled) { transform: scale(0.92); }
+.mr-cell:disabled { cursor: default; }
+
+.mr-cell--hidden {
+  background: linear-gradient(145deg, #1e2a3a 0%, #141c28 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 2px 4px rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(60, 120, 200, 0.2);
+}
+
+.mr-cell--hidden:not(:disabled):hover {
+  border-color: rgba(94, 200, 255, 0.45);
+  box-shadow: 0 0 10px rgba(94, 200, 255, 0.2);
+}
+
+.mr-cell--revealed {
+  background: rgba(20, 30, 45, 0.9);
+  border: 1px solid rgba(60, 100, 150, 0.25);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.mr-cell--flagged {
+  background: linear-gradient(145deg, #2a1e28 0%, #1a1218 100%);
+  border-color: rgba(255, 80, 80, 0.35);
+}
+
+.mr-flag {
+  font-size: clamp(10px, 3.2vw, 16px);
+  line-height: 1;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5));
+}
+
+.mr-num {
+  font-size: clamp(11px, 3.5vw, 18px);
+  font-weight: 900;
+  line-height: 1;
+}
+
+.mr-cell--n1 .mr-num { color: #5ec8ff; text-shadow: 0 0 8px rgba(94, 200, 255, 0.6); }
+.mr-cell--n2 .mr-num { color: #5ee89a; text-shadow: 0 0 8px rgba(94, 232, 154, 0.5); }
+.mr-cell--n3 .mr-num { color: #ffd45e; text-shadow: 0 0 8px rgba(255, 212, 94, 0.55); }
+.mr-cell--n4 .mr-num { color: #ff8a6b; }
+.mr-cell--n5 .mr-num { color: #c77dff; }
+.mr-cell--n6 .mr-num { color: #ff6b9d; }
+.mr-cell--n7 .mr-num { color: #7ef0ff; }
+.mr-cell--n8 .mr-num { color: #ffb347; }
+
+.mr-cell--mine {
+  background: radial-gradient(circle at 50% 40%, #3a2808, #1a1204);
+  border-color: rgba(255, 200, 60, 0.5);
+}
+
+.mr-mine {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
+.mr-mine-core {
+  font-size: clamp(12px, 4vw, 20px);
+  z-index: 1;
+  filter: drop-shadow(0 0 6px rgba(255, 200, 60, 0.8));
+}
+
+.mr-cell--exploded .mr-blast {
+  position: absolute;
+  inset: -20%;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 220, 80, 0.9) 0%, rgba(255, 100, 40, 0.5) 40%, transparent 70%);
+  animation: mr-blast 0.6s ease-out forwards;
+  pointer-events: none;
+}
+
+@keyframes mr-blast {
+  0% { transform: scale(0.3); opacity: 1; }
+  100% { transform: scale(1.8); opacity: 0; }
+}
+
+.mr-preview {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+  min-height: 0;
+}
+
+.mr-preview-grid {
+  display: grid;
+  grid-template-columns: repeat(10, 1fr);
+  gap: 3px;
+  width: min(100%, 280px);
+  aspect-ratio: 1;
+  padding: 8px;
+  border-radius: 16px;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(80, 160, 255, 0.12);
+  opacity: 0.7;
+}
+
+.mr-preview-cell {
+  border-radius: 4px;
+  background: linear-gradient(145deg, #1e2a3a, #141c28);
+  border: 1px solid rgba(60, 120, 200, 0.15);
+}
+
+.mr-preview-cell--num {
+  background: rgba(20, 30, 45, 0.9);
+  box-shadow: inset 0 0 0 1px rgba(94, 200, 255, 0.2);
+}
+
+.mr-preview-cell--flag {
+  background: linear-gradient(145deg, #2a1e28, #1a1218);
+}
+
+.mr-preview-cell--mine {
+  background: radial-gradient(circle, rgba(255, 200, 60, 0.4), #1a1204);
+  box-shadow: 0 0 12px rgba(255, 200, 60, 0.5);
+}
+
+.mr-panel {
+  position: relative;
+  z-index: 10;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+  background: rgba(8, 12, 18, 0.97);
+  border-top: 1px solid rgba(80, 160, 255, 0.12);
+  box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.45);
+}
+
+.mr-result-sheet {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  animation: mr-sheet-in 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes mr-sheet-in {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.mr-result-sheet--won {
+  background: rgba(60, 200, 120, 0.16);
+  border: 1px solid rgba(90, 220, 140, 0.45);
+  box-shadow: 0 0 24px rgba(94, 232, 154, 0.15);
+}
+
+.mr-result-sheet--lost {
+  background: rgba(200, 60, 60, 0.16);
+  border: 1px solid rgba(220, 90, 90, 0.4);
+  box-shadow: 0 0 24px rgba(255, 80, 80, 0.12);
+}
+
+.mr-result-sheet--cashed {
+  background: rgba(255, 200, 60, 0.14);
+  border: 1px solid rgba(255, 210, 80, 0.45);
+  box-shadow: 0 0 24px rgba(255, 212, 94, 0.18);
+}
+
+.mr-result-sheet-icon {
+  font-size: 36px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.mr-result-sheet-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.mr-result-sheet-title {
+  font-size: 18px;
+  font-weight: 900;
+  color: #e8f4ff;
+  line-height: 1.2;
+}
+
+.mr-result-sheet--won .mr-result-sheet-title { color: #5ee89a; }
+.mr-result-sheet--lost .mr-result-sheet-title { color: #ff9090; }
+.mr-result-sheet--cashed .mr-result-sheet-title { color: #ffd45e; }
+
+.mr-result-sheet-meta {
+  display: flex;
+  gap: 12px;
+  margin-top: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(160, 190, 220, 0.75);
+}
+
+.mr-result-sheet-payout {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 6px;
+  font-size: 20px;
+  font-weight: 900;
+  color: #ffd45e;
+}
+
+.mr-result-sheet-payout--lose {
+  font-size: 13px;
+  font-weight: 700;
+  color: rgba(255, 140, 140, 0.9);
+}
+
+.mr-cashout-hint {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: rgba(255, 212, 94, 0.08);
+  border: 1px solid rgba(255, 212, 94, 0.28);
+}
+
+.mr-cashout-hint-label {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgba(200, 220, 245, 0.75);
+}
+
+.mr-cashout-hint-value {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 20px;
+  font-weight: 900;
+  color: #ffd45e;
+  text-shadow: 0 0 12px rgba(255, 212, 94, 0.35);
+}
+
+.mr-diff-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.mr-diff {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 10px 6px;
+  border-radius: 12px;
+  border: 1px solid rgba(80, 160, 255, 0.2);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(180, 210, 240, 0.85);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: border-color 0.14s, box-shadow 0.14s, color 0.14s;
+}
+
+.mr-diff-mines {
+  font-size: 10px;
+  opacity: 0.7;
+}
+
+.mr-diff--on {
+  border-color: #5ec8ff;
+  color: #5ec8ff;
+  background: rgba(94, 200, 255, 0.1);
+  box-shadow: 0 0 16px rgba(94, 200, 255, 0.25);
+}
+
+.mr-diff:disabled { opacity: 0.4; cursor: default; }
+
+.mr-bets {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+}
+
+.mr-bet {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 2px solid rgba(80, 160, 255, 0.25);
+  background: radial-gradient(circle at 38% 32%, rgba(94, 200, 255, 0.12), rgba(0, 0, 0, 0.2));
+  color: rgba(200, 225, 255, 0.9);
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: transform 0.12s, border-color 0.14s, box-shadow 0.14s;
+}
+
+.mr-bet--on {
+  border-color: #ffd45e;
+  color: #ffd45e;
+  box-shadow: 0 0 14px rgba(255, 212, 94, 0.4);
+  transform: scale(1.08);
+}
+
+.mr-start {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 50px;
+  width: 100%;
+  border: none;
+  border-radius: 14px;
+  background: linear-gradient(160deg, #3a9ee8 0%, #1a5a9a 50%, #ffd45e 120%);
+  color: #0a0e14;
+  font-size: 15px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  box-shadow: 0 4px 20px rgba(58, 158, 232, 0.35);
+}
+
+.mr-start:disabled { opacity: 0.4; cursor: default; }
+
+.mr-actions {
+  display: grid;
+  grid-template-columns: 1fr 1.4fr;
+  gap: 8px;
+}
+
+.mr-flag-btn,
+.mr-cashout {
+  height: 44px;
+  border-radius: 12px;
+  border: 1px solid rgba(80, 160, 255, 0.25);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.1s, box-shadow 0.14s;
+}
+
+.mr-flag-btn {
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(200, 220, 245, 0.9);
+}
+
+.mr-flag-btn--on {
+  border-color: rgba(255, 80, 80, 0.5);
+  background: rgba(255, 80, 80, 0.12);
+  color: #ff9090;
+  box-shadow: 0 0 12px rgba(255, 80, 80, 0.25);
+}
+
+.mr-cashout {
+  border: none;
+  background: linear-gradient(160deg, #ffd45e, #c9a020);
+  color: #1a1204;
+  box-shadow: 0 4px 16px rgba(255, 212, 94, 0.35);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  line-height: 1.1;
+}
+
+.mr-cashout-amount {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 13px;
+  font-weight: 900;
+  opacity: 0.9;
+}
+
+.mr-cashout:disabled,
+.mr-flag-btn:disabled { opacity: 0.38; cursor: default; }
+
+.mr-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(140, 170, 200, 0.75);
+}
+
+.mr-meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+/* ── MineRush lobby tile ─────────────────────────────────────── */
+.game-tile--minerush {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  background:
+    radial-gradient(circle at 75% 25%, rgba(94, 200, 255, 0.35), transparent 55%),
+    radial-gradient(circle at 15% 85%, rgba(255, 212, 94, 0.25), transparent 50%),
+    linear-gradient(135deg, rgba(12, 22, 38, 0.98) 0%, rgba(8, 14, 24, 0.99) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 10px 26px rgba(0, 0, 0, 0.4);
+  cursor: pointer;
+}
+
+.game-tile--minerush:active { transform: translateY(1px); }
+
+.game-tile-glow--mr {
+  background: radial-gradient(circle at 50% 50%, rgba(94, 200, 255, 0.25), transparent 70%);
+}
+
+.game-tile-icon--mr {
+  font-size: 36px;
+  filter: drop-shadow(0 0 12px rgba(94, 200, 255, 0.5));
+}
+
+
+/* ══════════════════════════════════════════════════════════════
+   ARENA — общий джекпот с шариком
+══════════════════════════════════════════════════════════════ */
+
+.ar {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-height: 100%;
+  background: linear-gradient(180deg, #120a1e 0%, #1c1030 55%, #0e0818 100%);
+  animation: games-fade-in 200ms ease;
+}
+
+.ar-back {
+  flex-shrink: 0;
+  align-self: flex-start;
+  margin: 8px 12px 0;
+  padding: 6px 12px;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 10px;
+  color: rgba(220, 205, 245, 0.8);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.ar-back:active { background: rgba(255, 255, 255, 0.13); }
+
+.ar-stage {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 12px;
+}
+
+/* ── Колесо ──────────────────────────────────────────────────── */
+.ar-wheel-wrap {
+  position: relative;
+  width: min(72vw, 280px);
+  aspect-ratio: 1;
+}
+
+.ar-wheel {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* Шарик: контейнер вращается вокруг центра (GPU, только transform) */
+.ar-ball-rotator {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  will-change: transform;
+}
+
+.ar-ball {
+  position: absolute;
+  top: 5.5%;
+  left: 50%;
+  width: 13px;
+  height: 13px;
+  margin-left: -6.5px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #ffffff, #cfd6e4 60%, #8b94a6);
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.65), 0 2px 5px rgba(0, 0, 0, 0.5);
+}
+
+.ar-center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  pointer-events: none;
+  text-align: center;
+  padding: 0 18%;
+}
+
+.ar-center-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(220, 205, 245, 0.55);
+}
+
+.ar-center-value {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 24px;
+  font-weight: 900;
+  color: #f2ecff;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ar-center-payout {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 15px;
+  font-weight: 800;
+  color: #ffe566;
+}
+
+.ar-center-timer {
+  font-size: 13px;
+  font-weight: 700;
+  color: #b9a7e8;
+}
+
+/* ── Участники ───────────────────────────────────────────────── */
+.ar-players {
+  width: 100%;
+  max-width: 420px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ar-empty {
+  padding: 14px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px dashed rgba(255, 255, 255, 0.16);
+  color: rgba(220, 205, 245, 0.65);
+  font-size: 13px;
+  text-align: center;
+  line-height: 1.4;
+}
+
+.ar-player {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.ar-player--me {
+  border-color: rgba(167, 139, 250, 0.5);
+  background: rgba(139, 92, 246, 0.12);
+}
+
+.ar-player-dot {
+  flex-shrink: 0;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.ar-player-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+  font-weight: 600;
+  color: #ece5fb;
+}
+
+.ar-player-share {
+  font-size: 12px;
+  font-weight: 700;
+  color: rgba(220, 205, 245, 0.6);
+}
+
+.ar-player-bet {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 14px;
+  font-weight: 800;
+  color: #ffe566;
+}
+
+/* ── Ошибка ──────────────────────────────────────────────────── */
+.ar-error {
+  flex-shrink: 0;
+  margin: 0 12px 8px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: rgba(220, 60, 60, 0.16);
+  border: 1px solid rgba(220, 90, 90, 0.35);
+  color: #ffb3b3;
+  font-size: 13px;
+  text-align: center;
+}
+
+/* ── Панель ставок ───────────────────────────────────────────── */
+.ar-controls {
+  position: sticky;
+  bottom: 0;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+  background: rgba(12, 7, 22, 0.97);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 -6px 20px rgba(0, 0, 0, 0.4);
+}
+
+.ar-chips {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+}
+
+.ar-chip {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  background: radial-gradient(circle at 38% 32%, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.04));
+  color: rgba(228, 218, 248, 0.88);
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: transform 0.14s, border-color 0.14s, color 0.14s, box-shadow 0.14s;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  line-height: 1;
+}
+
+.ar-chip:disabled { opacity: 0.35; cursor: default; }
+
+.ar-chip--on {
+  border-color: #a78bfa;
+  color: #cbb7ff;
+  box-shadow: 0 0 14px rgba(139, 92, 246, 0.5), 0 2px 8px rgba(0, 0, 0, 0.4);
+  transform: scale(1.1);
+}
+
+.ar-chip:not(:disabled):not(.ar-chip--on):active { transform: scale(0.93); }
+
+.ar-bet-btn {
+  height: 52px;
+  width: 100%;
+  border-radius: 14px;
+  border: none;
+  background: linear-gradient(160deg, #7c4dd4, #4c2a8f);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  box-shadow: 0 4px 18px rgba(110, 60, 200, 0.42);
+  transition: opacity 0.14s, transform 0.1s;
+}
+
+.ar-bet-btn:disabled { opacity: 0.38; cursor: default; }
+.ar-bet-btn:not(:disabled):active { transform: scale(0.98); }
+
+/* ── Плитка в лобби ──────────────────────────────────────────── */
+.game-tile--arena {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  background:
+    radial-gradient(circle at 80% 20%, rgba(167, 110, 255, 0.4), transparent 55%),
+    radial-gradient(circle at 12% 88%, rgba(90, 40, 160, 0.45), transparent 52%),
+    linear-gradient(135deg, rgba(30, 16, 52, 0.95) 0%, rgba(18, 10, 32, 0.98) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 10px 26px rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+}
+
+.game-tile--arena:active { transform: translateY(1px); }
+
+.game-tile-glow--arena {
+  background: radial-gradient(circle, rgba(170, 110, 255, 0.42), transparent 65%);
+}
+
+.game-tile-icon--arena {
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.24), rgba(255, 255, 255, 0.06));
+  font-size: 36px;
+}

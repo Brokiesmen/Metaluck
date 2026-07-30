@@ -1,0 +1,207 @@
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { api } from '../api';
+import type { CoinSide } from '../types';
+import { StarIcon } from './StarIcon';
+import { EagleCrest, WreathCrest } from './coinCrest';
+
+interface Props {
+  onBack: () => void;
+  onBalanceUpdate: (balance: number) => void;
+}
+
+const BETS = [5, 10, 25, 50, 100] as const;
+type BetAmount = (typeof BETS)[number];
+
+/** Длительность CSS-анимации переворота монеты (мс) — держим в синхронизации с keyframe в index.css */
+const FLIP_DURATION_MS = 1250;
+/** Сколько полных оборотов делает монета перед остановкой — чисто визуальный эффект */
+const FLIP_TURNS = 5;
+
+/** Слои "гурта" — дают монете толщину при виде с ребра. Статичные transform'ы,
+ *  считаются один раз и не влияют на плавность анимации. */
+const EDGE_LAYERS = 9;
+const EDGE_STEP_PX = 1.2;
+const EDGE_OFFSETS = Array.from(
+  { length: EDGE_LAYERS },
+  (_, i) => (i - (EDGE_LAYERS - 1) / 2) * EDGE_STEP_PX,
+);
+/** Лицевые стороны чуть снаружи крайних слоёв гурта */
+const FACE_Z_PX = ((EDGE_LAYERS - 1) / 2) * EDGE_STEP_PX + 0.4;
+
+/* ── Confetti (лёгкая, без внешних ассетов) ──────────────────────── */
+function Confetti() {
+  const pieces = Array.from({ length: 14 }, (_, i) => ({
+    id: i,
+    left: `${(i * 71) % 100}%`,
+    delay: `${(i % 5) * 0.06}s`,
+    hue: 42 + (i % 4) * 22,
+  }));
+  return (
+    <div className="cf-confetti" aria-hidden>
+      {pieces.map((p) => (
+        <span
+          key={p.id}
+          className="cf-confetti-piece"
+          style={{ left: p.left, animationDelay: p.delay, background: `hsl(${p.hue} 90% 58%)` }}
+        />
+      ))}
+    </div>
+  );
+}
+
+export function CoinflipGame({ onBack, onBalanceUpdate }: Props) {
+  const [bet, setBet] = useState<BetAmount>(25);
+  const [choice, setChoice] = useState<CoinSide>('heads');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  /** endRotDeg / spinId управляют CSS-анимацией; spinId меняется на каждый бросок, чтобы React
+   *  пересоздал узел монеты (key) и анимация гарантированно проигралась заново с нуля. */
+  const [endRotDeg, setEndRotDeg] = useState(0);
+  const [spinId, setSpinId] = useState(0);
+  const [flipping, setFlipping] = useState(false);
+  const [lastResult, setLastResult] = useState<{ result: CoinSide; win: boolean; payout: number; bet: number } | null>(null);
+  const [showRes, setShowRes] = useState(false);
+
+  const resultTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => () => {
+    if (resultTimer.current) clearTimeout(resultTimer.current);
+  }, []);
+
+  const play = useCallback(() => {
+    if (busy) return;
+    setBusy(true);
+    setFlipping(true);
+    setShowRes(false);
+    setErr(null);
+    if (resultTimer.current) clearTimeout(resultTimer.current);
+
+    (async () => {
+      try {
+        const res = await api.coinflipPlay(bet, choice);
+        onBalanceUpdate(res.newBalance);
+
+        // Узел монеты пересоздаётся (key=spinId), поэтому анимация всегда стартует с 0deg —
+        // достаточно рассчитать конечный угол для этого броска.
+        const extraHalfTurn = res.result === 'tails' ? 180 : 0;
+        setEndRotDeg(FLIP_TURNS * 360 + extraHalfTurn);
+        setSpinId((n) => n + 1);
+
+        resultTimer.current = setTimeout(() => {
+          setLastResult({ result: res.result, win: res.win, payout: res.payout, bet: res.bet });
+          setShowRes(true);
+          setFlipping(false);
+          setBusy(false);
+        }, FLIP_DURATION_MS);
+      } catch (e) {
+        setErr(e instanceof Error ? e.message : 'Ошибка игры');
+        setFlipping(false);
+        setBusy(false);
+      }
+    })();
+  }, [bet, choice, busy, onBalanceUpdate]);
+
+  const canPlay = !busy;
+  const showingTails = !flipping && lastResult?.result === 'tails';
+
+  return (
+    <div className="cf">
+      <button className="cf-back" onClick={onBack} aria-label="Назад к играм">
+        ‹ Игры
+      </button>
+
+      <div className="cf-stage">
+        <div className="cf-coin-wrap">
+          <div
+            key={spinId}
+            className={`cf-coin${flipping ? ' cf-coin--flipping' : ''}`}
+            style={{
+              ['--end-rot' as string]: `${endRotDeg}deg`,
+              ['--flip-duration' as string]: `${FLIP_DURATION_MS}ms`,
+              transform: !flipping && showingTails ? 'rotateY(180deg)' : undefined,
+            }}
+          >
+            {EDGE_OFFSETS.map((z) => (
+              <div key={`e${z}`} className="cf-coin-edge" style={{ transform: `translateZ(${z}px)` }} aria-hidden />
+            ))}
+            <div className="cf-coin-face cf-coin-face--heads" style={{ transform: `translateZ(${FACE_Z_PX}px)` }}>
+              <span className="cf-coin-ring" aria-hidden />
+              <EagleCrest />
+            </div>
+            <div className="cf-coin-face cf-coin-face--tails" style={{ transform: `rotateY(180deg) translateZ(${FACE_Z_PX}px)` }}>
+              <span className="cf-coin-ring" aria-hidden />
+              <WreathCrest />
+            </div>
+          </div>
+          <div
+            key={`shadow${spinId}`}
+            className={`cf-coin-shadow${flipping ? ' cf-coin-shadow--flipping' : ''}`}
+            style={{ ['--flip-duration' as string]: `${FLIP_DURATION_MS}ms` }}
+            aria-hidden
+          />
+        </div>
+
+        {showRes && lastResult && (
+          <div className={`cf-result cf-result--${lastResult.win ? 'win' : 'lose'}`} role="status">
+            {lastResult.win && <Confetti />}
+            <span className="cf-result__label">
+              {lastResult.result === 'heads' ? 'ОРЁЛ' : 'РЕШКА'} — {lastResult.win ? 'ПОБЕДА!' : 'МИМО'}
+            </span>
+            {lastResult.payout > 0 && (
+              <span className="cf-result__payout num">
+                +{lastResult.payout.toLocaleString('ru-RU')}
+                <StarIcon size={14} animate={false} />
+              </span>
+            )}
+          </div>
+        )}
+      </div>
+
+      {err && <div className="cf-error" role="alert">{err}</div>}
+
+      <div className="cf-controls">
+        <div className="cf-sides" role="group" aria-label="Выбор стороны">
+          <button
+            type="button"
+            className={`cf-side${choice === 'heads' ? ' cf-side--on' : ''}`}
+            disabled={!canPlay}
+            onClick={() => setChoice('heads')}
+            aria-pressed={choice === 'heads'}
+          >
+            <span className="cf-side-badge" aria-hidden>О</span>
+            Орёл
+          </button>
+          <button
+            type="button"
+            className={`cf-side${choice === 'tails' ? ' cf-side--on' : ''}`}
+            disabled={!canPlay}
+            onClick={() => setChoice('tails')}
+            aria-pressed={choice === 'tails'}
+          >
+            <span className="cf-side-badge" aria-hidden>Р</span>
+            Решка
+          </button>
+        </div>
+
+        <div className="cf-chips" role="group" aria-label="Размер ставки">
+          {BETS.map((b) => (
+            <button
+              key={b}
+              className={`cf-chip num${bet === b ? ' cf-chip--on' : ''}`}
+              disabled={!canPlay}
+              onClick={() => setBet(b)}
+              aria-pressed={bet === b}
+            >
+              {b}
+            </button>
+          ))}
+        </div>
+
+        <button className="cf-play" disabled={!canPlay} onClick={play}>
+          {busy ? '…' : `ПОДБРОСИТЬ  •  ${bet} ★`}
+        </button>
+      </div>
+    </div>
+  );
+}

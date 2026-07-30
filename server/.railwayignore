@@ -1,0 +1,7 @@
+node_modules
+dist
+game.db
+game.db-*
+*.log
+.env
+.claude

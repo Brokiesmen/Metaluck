@@ -1,7 +1,6 @@
 import Fastify, { type FastifyRequest } from 'fastify';
 import cors from '@fastify/cors';
 import staticFiles from '@fastify/static';
-import Database from 'better-sqlite3';
 import crypto from 'crypto';
 import dotenv from 'dotenv';
 import path from 'path';
@@ -9,161 +8,54 @@ import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.resolve(__dirname, '../../.env') });
+
 import { PRIZES, PRIZES_CASE1, PRIZES_CASE2, PRIZES_CASE3, CASES, FREE_CASE_INTERVAL_MS } from './data.js';
+import { HOUSE_EDGE, applyHouseEdgeStars } from './houseEdge.js';
 import { pickPrize } from './random.js';
 import { validateInitData } from './auth.js';
 import { registerBlackjackRoutes } from './blackjack.js';
 import { registerPvpRoutes } from './pvp.js';
+import { registerCoinflipRoutes } from './coinflip.js';
+import { registerMineRushRoutes } from './minerush.js';
+import { registerArenaRoutes } from './arena.js';
 import type { Prize } from './types.js';
+import {
+  requireSupabase,
+  getBalance,
+  setBalance,
+  addBalance,
+  addHistory,
+  getHistoryPage,
+  getLeadersPage,
+  getProfile,
+  setProfile,
+  upsertUserMeta,
+  getUserMeta,
+  getDailyState,
+  setDailyState,
+  getLastFreeCaseAt,
+  setLastFreeCaseAt,
+  ensureReferral,
+  resolveReferrerByCode,
+  updateReferralReferrer,
+  setReferredBy,
+  addReferralEarned,
+  insertTopupOrder,
+  failTopupOrder,
+  getTopupOrderForUser,
+  getTopupOrderForCheckout,
+  getTopupOrderByPayload,
+  claimTopupPaid,
+  getReferral,
+  parseJsonField,
+  tryDeductBalance,
+  createWithdrawOrder,
+  listWithdrawOrders,
+  type ReferralRow,
+} from './supabaseStore.js';
 
-// ── SQLite database ────────────────────────────────────────────────────────────
-const DB_PATH = path.join(__dirname, '../game.db');
-const db = new Database(DB_PATH);
-db.pragma('journal_mode = WAL');
-db.pragma('foreign_keys = ON');
+requireSupabase();
 
-db.exec(`
-  CREATE TABLE IF NOT EXISTS balances (
-    user_id   INTEGER PRIMARY KEY,
-    balance   INTEGER NOT NULL DEFAULT 15000
-  );
-  CREATE TABLE IF NOT EXISTS user_profiles (
-    user_id   INTEGER PRIMARY KEY,
-    name      TEXT NOT NULL,
-    photo_url TEXT
-  );
-  CREATE TABLE IF NOT EXISTS histories (
-    id        INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id   INTEGER NOT NULL,
-    case_id   INTEGER NOT NULL,
-    case_name TEXT NOT NULL,
-    prize     TEXT NOT NULL,
-    ts        INTEGER NOT NULL
-  );
-  CREATE INDEX IF NOT EXISTS histories_user ON histories(user_id, ts DESC);
-  CREATE INDEX IF NOT EXISTS idx_balances_rank ON balances(balance DESC, user_id ASC);
-  CREATE TABLE IF NOT EXISTS daily_states (
-    user_id    INTEGER PRIMARY KEY,
-    claimed_day INTEGER NOT NULL DEFAULT 0,
-    last_claim_at INTEGER NOT NULL DEFAULT 0,
-    last_free_case_at INTEGER NOT NULL DEFAULT 0
-  );
-  CREATE TABLE IF NOT EXISTS referrals (
-    user_id        INTEGER PRIMARY KEY,
-    code           TEXT NOT NULL UNIQUE,
-    referred_by    INTEGER,
-    referred_users TEXT NOT NULL DEFAULT '[]',
-    total_earned   INTEGER NOT NULL DEFAULT 0
-  );
-  CREATE TABLE IF NOT EXISTS user_meta (
-    user_id        INTEGER PRIMARY KEY,
-    first_seen_at  INTEGER NOT NULL,
-    is_premium     INTEGER NOT NULL DEFAULT 0
-  );
-  CREATE TABLE IF NOT EXISTS topup_orders (
-    payload                     TEXT PRIMARY KEY,
-    user_id                     INTEGER NOT NULL,
-    package_id                  TEXT NOT NULL,
-    xtr_amount                  INTEGER NOT NULL,
-    balance_amount              INTEGER NOT NULL,
-    status                      TEXT NOT NULL DEFAULT 'pending',
-    telegram_payment_charge_id  TEXT UNIQUE,
-    provider_payment_charge_id  TEXT,
-    error_message               TEXT,
-    created_at                  INTEGER NOT NULL,
-    updated_at                  INTEGER NOT NULL
-  );
-  CREATE INDEX IF NOT EXISTS topup_orders_user_created ON topup_orders(user_id, created_at DESC);
-  CREATE TABLE IF NOT EXISTS blackjack_games (
-    user_id    INTEGER PRIMARY KEY,
-    state_json TEXT NOT NULL,
-    updated_at INTEGER NOT NULL
-  );
-  CREATE TABLE IF NOT EXISTS pvp_queue (
-    user_id   INTEGER PRIMARY KEY,
-    queued_at INTEGER NOT NULL
-  );
-  CREATE TABLE IF NOT EXISTS pvp_matches (
-    match_id   TEXT PRIMARY KEY,
-    player1    INTEGER NOT NULL,
-    player2    INTEGER NOT NULL,
-    state_json TEXT NOT NULL,
-    created_at INTEGER NOT NULL,
-    updated_at INTEGER NOT NULL
-  );
-  CREATE INDEX IF NOT EXISTS pvp_matches_p1 ON pvp_matches(player1);
-  CREATE INDEX IF NOT EXISTS pvp_matches_p2 ON pvp_matches(player2);
-  CREATE TABLE IF NOT EXISTS pvp_stats (
-    user_id INTEGER PRIMARY KEY,
-    level   INTEGER NOT NULL DEFAULT 1,
-    xp      INTEGER NOT NULL DEFAULT 0,
-    rating  INTEGER NOT NULL DEFAULT 1000,
-    wins    INTEGER NOT NULL DEFAULT 0,
-    losses  INTEGER NOT NULL DEFAULT 0,
-    draws   INTEGER NOT NULL DEFAULT 0
-  );
-`);
-
-try {
-  db.prepare('ALTER TABLE daily_states ADD COLUMN last_free_case_at INTEGER NOT NULL DEFAULT 0').run();
-} catch {
-  // Column already exists on most databases; keep startup idempotent.
-}
-
-// ── Sprint-5 migration: add last_free_case_at column ──────────────────────────
-try {
-  db.exec('ALTER TABLE daily_states ADD COLUMN last_free_case_at INTEGER NOT NULL DEFAULT 0');
-} catch {
-  // Column already exists — ignore
-}
-
-// ── Migrate from db.json if it exists ─────────────────────────────────────────
-import fs from 'fs';
-const JSON_PATH = path.join(__dirname, '../db.json');
-if (fs.existsSync(JSON_PATH)) {
-  try {
-    const parsed = JSON.parse(fs.readFileSync(JSON_PATH, 'utf-8'));
-    const migrate = db.transaction(() => {
-      if (parsed.balances) {
-        for (const [userId, balance] of parsed.balances) {
-          db.prepare('INSERT OR IGNORE INTO balances(user_id, balance) VALUES(?,?)').run(userId, balance);
-        }
-      }
-      if (parsed.userProfiles) {
-        for (const [userId, p] of parsed.userProfiles) {
-          db.prepare('INSERT OR IGNORE INTO user_profiles(user_id, name, photo_url) VALUES(?,?,?)').run(userId, p.name, p.photoUrl ?? null);
-        }
-      }
-      if (parsed.histories) {
-        for (const [userId, entries] of parsed.histories) {
-          for (const e of entries) {
-            db.prepare('INSERT OR IGNORE INTO histories(user_id, case_id, case_name, prize, ts) VALUES(?,?,?,?,?)')
-              .run(userId, e.caseId, e.caseName, JSON.stringify(e.prize), e.timestamp);
-          }
-        }
-      }
-      if (parsed.dailyStates) {
-        for (const [userId, s] of parsed.dailyStates) {
-          db.prepare('INSERT OR IGNORE INTO daily_states(user_id, claimed_day, last_claim_at) VALUES(?,?,?)').run(userId, s.claimedDay, s.lastClaimAt);
-        }
-      }
-      if (parsed.referrals) {
-        for (const [userId, r] of parsed.referrals) {
-          db.prepare('INSERT OR IGNORE INTO referrals(user_id, code, referred_by, referred_users, total_earned) VALUES(?,?,?,?,?)')
-            .run(userId, r.code, r.referredBy ?? null, JSON.stringify(r.referredUsers), r.totalEarned);
-        }
-      }
-    });
-    migrate();
-    fs.renameSync(JSON_PATH, JSON_PATH + '.migrated');
-    console.log('✅ Migrated db.json → game.db');
-  } catch (err) {
-    console.error('Migration failed:', err);
-  }
-}
-
-// ── DB helpers ─────────────────────────────────────────────────────────────────
-const DEFAULT_BALANCE = 500;
 const TOPUP_PACKAGES = [
   { id: 'xtr_25', xtrAmount: 25, balanceAmount: 25, label: '25 звёзд', popular: false },
   { id: 'xtr_50', xtrAmount: 50, balanceAmount: 50, label: '50 звёзд', popular: true },
@@ -175,47 +67,6 @@ const PRE_CHECKOUT_DEADLINE_MS = Math.min(
   Math.max(2500, Number(process.env.PRE_CHECKOUT_DEADLINE_MS ?? 9000)),
 );
 const TELEGRAM_WEBHOOK_SECRET_TOKEN = String(process.env.TELEGRAM_WEBHOOK_SECRET_TOKEN ?? '').trim();
-
-function getBalance(userId: number): number {
-  db.prepare('INSERT OR IGNORE INTO balances(user_id, balance) VALUES(?,?)').run(userId, DEFAULT_BALANCE);
-  const row = db.prepare('SELECT balance FROM balances WHERE user_id = ?').get(userId) as { balance: number };
-  return row.balance;
-}
-
-function setBalance(userId: number, balance: number) {
-  db.prepare('INSERT INTO balances(user_id, balance) VALUES(?,?) ON CONFLICT(user_id) DO UPDATE SET balance=excluded.balance').run(userId, balance);
-}
-
-function addHistory(userId: number, entry: HistoryEntry) {
-  db.prepare('INSERT INTO histories(user_id, case_id, case_name, prize, ts) VALUES(?,?,?,?,?)').run(userId, entry.caseId, entry.caseName, JSON.stringify(entry.prize), entry.timestamp);
-}
-
-function getProfile(userId: number) {
-  return db.prepare('SELECT name, photo_url FROM user_profiles WHERE user_id = ?').get(userId) as { name: string; photo_url?: string } | undefined;
-}
-
-function setProfile(userId: number, name: string, photoUrl?: string) {
-  db.prepare('INSERT INTO user_profiles(user_id, name, photo_url) VALUES(?,?,?) ON CONFLICT(user_id) DO UPDATE SET name=excluded.name, photo_url=excluded.photo_url').run(userId, name, photoUrl ?? null);
-}
-
-function upsertUserMeta(userId: number, isPremium: boolean) {
-  const now = Date.now();
-  db.prepare(
-    `INSERT INTO user_meta(user_id, first_seen_at, is_premium)
-     VALUES(?, ?, ?)
-     ON CONFLICT(user_id) DO UPDATE SET
-       is_premium = CASE
-         WHEN excluded.is_premium = 1 THEN 1
-         ELSE user_meta.is_premium
-       END`,
-  ).run(userId, now, isPremium ? 1 : 0);
-}
-
-function getUserMeta(userId: number) {
-  return db
-    .prepare('SELECT first_seen_at, is_premium FROM user_meta WHERE user_id = ?')
-    .get(userId) as { first_seen_at: number; is_premium: number } | undefined;
-}
 
 function getTopupPackageById(packageId: string) {
   return TOPUP_PACKAGES.find((p) => p.id === packageId) ?? null;
@@ -301,55 +152,10 @@ async function answerPreCheckoutQuery(
   );
 }
 
-function getDailyState(userId: number) {
-  return db.prepare('SELECT claimed_day, last_claim_at FROM daily_states WHERE user_id = ?').get(userId) as { claimed_day: number; last_claim_at: number } | undefined;
-}
-
-function setDailyState(userId: number, claimedDay: number, lastClaimAt: number) {
-  db.prepare('INSERT INTO daily_states(user_id, claimed_day, last_claim_at) VALUES(?,?,?) ON CONFLICT(user_id) DO UPDATE SET claimed_day=excluded.claimed_day, last_claim_at=excluded.last_claim_at').run(userId, claimedDay, lastClaimAt);
-}
-
-function getLastFreeCaseAt(userId: number): number {
-  const row = db
-    .prepare('SELECT last_free_case_at FROM daily_states WHERE user_id = ?')
-    .get(userId) as { last_free_case_at: number } | undefined;
-  return Number(row?.last_free_case_at ?? 0);
-}
-
-function setLastFreeCaseAt(userId: number, ts: number) {
-  db.prepare(
-    `INSERT INTO daily_states(user_id, claimed_day, last_claim_at, last_free_case_at)
-     VALUES(?, 0, 0, ?)
-     ON CONFLICT(user_id) DO UPDATE SET last_free_case_at=excluded.last_free_case_at`,
-  ).run(userId, ts);
-}
-
-function getReferral(userId: number) {
-  return db.prepare('SELECT * FROM referrals WHERE user_id = ?').get(userId) as { user_id: number; code: string; referred_by: number | null; referred_users: string; total_earned: number } | undefined;
-}
-
-function ensureReferral(userId: number) {
-  const code = userId === 0 ? 'refdev' : `ref${userId}`;
-  db.prepare('INSERT OR IGNORE INTO referrals(user_id, code, referred_users, total_earned) VALUES(?,?,?,?)').run(userId, code, '[]', 0);
-  return getReferral(userId)!;
-}
-
-interface ReferralRow {
-  user_id: number;
-  code: string;
-  referred_by: number | null;
-  referred_users: string;
-  total_earned: number;
-}
-
 function parseRefCode(raw: unknown): string | null {
   const code = String(raw ?? '').trim().toLowerCase();
   if (!/^ref(?:dev|\d{1,20})$/.test(code)) return null;
   return code;
-}
-
-function resolveReferrerByCode(code: string): ReferralRow | undefined {
-  return db.prepare('SELECT * FROM referrals WHERE code = ?').get(code) as ReferralRow | undefined;
 }
 
 function uniqueNumbers(values: unknown[]): number[] {
@@ -371,66 +177,68 @@ function buildReferralLink(code: string): string | null {
   return `https://t.me/${username}/${pathPart}?startapp=${encodeURIComponent(code)}`;
 }
 
-function isReferralSignupBonusEligible(userId: number): boolean {
-  const meta = getUserMeta(userId);
+async function isReferralSignupBonusEligible(userId: number): Promise<boolean> {
+  const meta = await getUserMeta(userId);
   if (!meta) return false;
   if (Number(meta.is_premium) === 1) return true;
   const MONTH_MS = 30 * 24 * 60 * 60 * 1000;
   return Date.now() - Number(meta.first_seen_at) >= MONTH_MS;
 }
 
-function activateReferralCode(userId: number, rawCode: unknown): { activated: boolean; rewardGranted?: number; message?: string } {
+async function activateReferralCode(
+  userId: number,
+  rawCode: unknown,
+): Promise<{ activated: boolean; rewardGranted?: number; message?: string }> {
   const code = parseRefCode(rawCode);
   if (!code) return { activated: false, message: 'Неверный код' };
   if (userId <= 0) return { activated: false, message: 'Недоступно в dev режиме' };
 
-  const tx = db.transaction(() => {
-    const myData = ensureReferral(userId) as ReferralRow;
-    if (myData.referred_by !== null) {
-      return { activated: false, message: 'Уже активировано' };
-    }
+  const myData = (await ensureReferral(userId)) as ReferralRow;
+  if (myData.referred_by !== null) {
+    return { activated: false, message: 'Уже активировано' };
+  }
 
-    const refData = resolveReferrerByCode(code);
-    if (!refData) {
-      return { activated: false, message: 'Код не найден' };
-    }
-    if (refData.user_id === userId) {
-      return { activated: false, message: 'Нельзя использовать свой код' };
-    }
+  const refData = await resolveReferrerByCode(code);
+  if (!refData) {
+    return { activated: false, message: 'Код не найден' };
+  }
+  if (refData.user_id === userId) {
+    return { activated: false, message: 'Нельзя использовать свой код' };
+  }
 
-    const referredUsersRaw = JSON.parse(refData.referred_users || '[]') as unknown[];
-    const referredUsers = uniqueNumbers(referredUsersRaw);
-    if (!referredUsers.includes(userId)) {
-      referredUsers.push(userId);
-    }
+  const referredUsersRaw = parseJsonField<unknown[]>(refData.referred_users, []);
+  const referredUsers = uniqueNumbers(referredUsersRaw);
+  if (!referredUsers.includes(userId)) {
+    referredUsers.push(userId);
+  }
 
-    const bonus = isReferralSignupBonusEligible(userId) ? REFERRAL_REWARD : 0;
-    db.prepare(
-      'UPDATE referrals SET referred_users=?, total_earned=total_earned+? WHERE user_id=?',
-    ).run(JSON.stringify(referredUsers), bonus, refData.user_id);
-    if (bonus > 0) {
-      setBalance(refData.user_id, getBalance(refData.user_id) + bonus);
-    }
-    db.prepare('UPDATE referrals SET referred_by=? WHERE user_id=?').run(refData.user_id, userId);
-    return { activated: true, rewardGranted: bonus };
-  });
-
-  return tx();
+  const bonus = (await isReferralSignupBonusEligible(userId)) ? REFERRAL_REWARD : 0;
+  await updateReferralReferrer(refData.user_id, referredUsers, bonus);
+  if (bonus > 0) {
+    await addBalance(refData.user_id, bonus);
+  }
+  await setReferredBy(userId, refData.user_id);
+  return { activated: true, rewardGranted: bonus };
 }
 
 // ── App ────────────────────────────────────────────────────────────────────────
 const isProd = process.env.NODE_ENV === 'production';
 const app = Fastify({ logger: { level: 'info' } });
 
-// CORS: без CORS_ORIGIN — разрешён любой Origin (origin: true, как у Telegram Mini App).
-// Для явного списка (прод): CORS_ORIGIN=https://web.telegram.org,https://ваш-домен.com
 const corsOrigins = String(process.env.CORS_ORIGIN ?? '')
   .split(/[,\s]+/)
   .map((s) => s.trim())
   .filter(Boolean);
 
 await app.register(cors, {
-  origin: corsOrigins.length > 0 ? corsOrigins : true,
+  origin: (origin, cb) => {
+    if (corsOrigins.length > 0) {
+      cb(null, !origin || corsOrigins.includes(origin));
+      return;
+    }
+    // Allow Telegram WebView, Vercel previews, and same-origin (no Origin header)
+    cb(null, true);
+  },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   allowedHeaders: [
     'Content-Type',
@@ -444,10 +252,6 @@ await app.register(cors, {
   strictPreflight: false,
 });
 
-// Не подключаем @fastify/compress глобально: в связке Fastify 4 + compress 6.x малые JSON-ответы
-// при Accept-Encoding: gzip могут зависать (onSend вызывает next() без payload). Сжатие — на nginx/CDN.
-
-/** Без БД и авторизации — чтобы проверить, что процесс слушает порт (curl / браузер). */
 app.get('/api/health', async () => ({ ok: true as const, ts: Date.now() }));
 
 function isApiPath(url: string): boolean {
@@ -455,7 +259,6 @@ function isApiPath(url: string): boolean {
   return p === '/api' || p.startsWith('/api/');
 }
 
-// Любая ошибка на /api/* — только JSON (никогда HTML)
 app.setErrorHandler((error: Error & { statusCode?: number; validation?: unknown }, request, reply) => {
   if (!isApiPath(request.url)) {
     reply.send(error);
@@ -476,9 +279,6 @@ app.setErrorHandler((error: Error & { statusCode?: number; validation?: unknown 
     .send(payload);
 });
 
-// Не использовать preSerialization + reply.type() для /api/* — в Fastify 4 это приводило к зависанию ответа (incoming request без completed).
-
-// Security + cache headers. onSend через done(): async onSend + payload-stream в Fastify 4 иногда не завершает ответ.
 app.addHook('onSend', (request, reply, payload, done) => {
   try {
     reply.header('X-Content-Type-Options', 'nosniff');
@@ -500,15 +300,14 @@ app.addHook('onSend', (request, reply, payload, done) => {
   }
 });
 
-// ── Daily reward config ───────────────────────────────────────────────────────
 const DAILY_REWARDS = [
   { day: 1, type: 'stars' as const, stars: 1 },
   { day: 2, type: 'stars' as const, stars: 1 },
-  { day: 3, type: 'stars' as const, stars: 2 },
+  { day: 3, type: 'stars' as const, stars: 1 },
   { day: 4, type: 'stars' as const, stars: 1 },
-  { day: 5, type: 'stars' as const, stars: 2 },
-  { day: 6, type: 'stars' as const, stars: 3 },
-  { day: 7, type: 'gift_case' as const },
+  { day: 5, type: 'gift' as const, rarity: 'blue' as const },
+  { day: 6, type: 'stars' as const, stars: 1 },
+  { day: 7, type: 'gift' as const, rarity: 'purple' as const },
 ];
 
 const REFERRAL_REWARD = 3;
@@ -525,7 +324,7 @@ function httpError(statusCode: number, message: string): Error & { statusCode: n
   return Object.assign(new Error(message), { statusCode });
 }
 
-function getUserId(req: FastifyRequest): number {
+async function getUserId(req: FastifyRequest): Promise<number> {
   const raw = req.headers['x-telegram-init-data'] as string | undefined;
   const result = validateInitData(raw);
   if (!result.valid) throw httpError(401, 'Unauthorized');
@@ -536,22 +335,21 @@ function getUserId(req: FastifyRequest): number {
     const name = `${fn} ${ln}`.trim();
     const photoUrl = (result.user.photo_url as string) || undefined;
     const isPremium = Boolean(result.user.is_premium);
-    upsertUserMeta(result.userId, isPremium);
+    await upsertUserMeta(result.userId, isPremium);
     if (name) {
-      const existing = getProfile(result.userId);
+      const existing = await getProfile(result.userId);
       if (!existing || existing.name !== name || existing.photo_url !== photoUrl) {
-        setProfile(result.userId, name, photoUrl);
+        await setProfile(result.userId, name, photoUrl);
       }
     }
-  } else if (result.userId === 0 && !getProfile(0)) {
-    setProfile(0, 'Dev User');
+  } else if (result.userId === 0 && !(await getProfile(0))) {
+    await setProfile(0, 'Dev User');
   }
 
   if (result.userId > 0) {
-    ensureReferral(result.userId);
+    await ensureReferral(result.userId);
     if (result.startParam) {
-      // Auto-activate only once; idempotency is guaranteed by activateReferralCode.
-      activateReferralCode(result.userId, result.startParam);
+      await activateReferralCode(result.userId, result.startParam);
     }
   }
 
@@ -560,81 +358,65 @@ function getUserId(req: FastifyRequest): number {
 
 // ── Routes ────────────────────────────────────────────────────────────────────
 
-app.get('/api/balance', async req => {
-  const userId = getUserId(req);
-  return { balance: getBalance(userId) };
+app.get('/api/balance', async (req) => {
+  const userId = await getUserId(req);
+  return { balance: await getBalance(userId) };
 });
 
 app.get('/api/prizes', async () => ({
   prizes: PRIZES.map(({ weight: _w, ...p }) => p),
 }));
 
-app.get('/api/cases', async req => {
-  const userId = getUserId(req);
+app.get('/api/cases', async (req) => {
+  const userId = await getUserId(req);
   const now = Date.now();
-  const lastFree = getLastFreeCaseAt(userId);
-  const freeAvailable = (now - lastFree) >= FREE_CASE_INTERVAL_MS;
+  const lastFree = await getLastFreeCaseAt(userId);
+  const freeAvailable = now - lastFree >= FREE_CASE_INTERVAL_MS;
   const nextFreeAt = freeAvailable ? null : lastFree + FREE_CASE_INTERVAL_MS;
 
   return {
-    cases: CASES.map(c => ({
+    cases: CASES.map((c) => ({
       ...c,
       ...(c.isFree ? { freeAvailable, nextFreeAt } : {}),
     })),
   };
 });
 
-app.get<{ Querystring: { page?: string; limit?: string } }>('/api/history', async req => {
-  const userId = getUserId(req);
-  const page  = Math.max(0, parseInt(req.query.page  ?? '0',  10) || 0);
-  const limit = Math.min(50, Math.max(5,  parseInt(req.query.limit ?? '20', 10) || 20));
+app.get<{ Querystring: { page?: string; limit?: string } }>('/api/history', async (req) => {
+  const userId = await getUserId(req);
+  const page = Math.max(0, parseInt(req.query.page ?? '0', 10) || 0);
+  const limit = Math.min(50, Math.max(5, parseInt(req.query.limit ?? '20', 10) || 20));
   const offset = page * limit;
 
-  const { total } = db.prepare('SELECT COUNT(*) as total FROM histories WHERE user_id = ?').get(userId) as { total: number };
-  const rows = db.prepare(
-    'SELECT case_id, case_name, prize, ts FROM histories WHERE user_id = ? ORDER BY ts DESC LIMIT ? OFFSET ?'
-  ).all(userId, limit, offset) as any[];
+  const { total, rows } = await getHistoryPage(userId, limit, offset);
 
   return {
-    history: rows.map(r => ({ caseId: r.case_id, caseName: r.case_name, prize: JSON.parse(r.prize), timestamp: r.ts })),
+    history: rows,
     pagination: { page, limit, total, hasMore: offset + limit < total },
   };
 });
 
 app.get<{ Querystring: { page?: string; limit?: string } }>('/api/leaders', async (req) => {
-  const page  = Math.max(0, parseInt(req.query.page  ?? '0',  10) || 0);
+  const page = Math.max(0, parseInt(req.query.page ?? '0', 10) || 0);
   const limit = Math.min(100, Math.max(10, parseInt(req.query.limit ?? '50', 10) || 50));
   const offset = page * limit;
 
-  const { total } = db.prepare('SELECT COUNT(*) as total FROM balances').get() as { total: number };
-
-  const rows = db.prepare(`
-    SELECT b.user_id, b.balance, p.name, p.photo_url
-    FROM balances b
-    LEFT JOIN user_profiles p ON b.user_id = p.user_id
-    ORDER BY b.balance DESC, b.user_id ASC
-    LIMIT ? OFFSET ?
-  `).all(limit, offset) as any[];
+  const { total, leaders } = await getLeadersPage(limit, offset);
 
   return {
-    leaders: rows.map(r => ({
-      userId:   r.user_id,
-      name:     r.name || 'Аноним',
-      photoUrl: r.photo_url ?? undefined,
-      balance:  r.balance,
-    })),
+    leaders,
     pagination: { page, limit, total, hasMore: offset + limit < total },
   };
 });
 
 // ── Daily reward ──────────────────────────────────────────────────────────────
 
-app.get('/api/daily/status', async req => {
-  const userId = getUserId(req);
-  const state   = getDailyState(userId) ?? { claimed_day: 0, last_claim_at: 0 };
-  const now     = Date.now();
-  const ms24    = 24 * 60 * 60 * 1000;
-  const ms48    = 48 * 60 * 60 * 1000;
+app.get('/api/daily/status', async (req) => {
+  const userId = await getUserId(req);
+  const state = (await getDailyState(userId)) ?? { claimed_day: 0, last_claim_at: 0 };
+  const now = Date.now();
+  const ms24 = 24 * 60 * 60 * 1000;
+  const ms48 = 48 * 60 * 60 * 1000;
   const elapsed = now - state.last_claim_at;
 
   let currentDay: number;
@@ -642,9 +424,11 @@ app.get('/api/daily/status', async req => {
   let nextClaimAt = 0;
 
   if (!state.last_claim_at) {
-    currentDay = 1; canClaim = true;
+    currentDay = 1;
+    canClaim = true;
   } else if (elapsed >= ms48) {
-    currentDay = 1; canClaim = true;
+    currentDay = 1;
+    canClaim = true;
   } else if (elapsed >= ms24) {
     currentDay = state.claimed_day >= 7 ? 1 : state.claimed_day + 1;
     canClaim = true;
@@ -655,19 +439,20 @@ app.get('/api/daily/status', async req => {
   }
 
   const streakBroken = state.last_claim_at > 0 && elapsed >= ms48;
-  const claimedDays  = Array.from({ length: 7 }, (_, i) =>
-    !streakBroken && state.claimed_day > 0 && i < state.claimed_day
+  const claimedDays = Array.from(
+    { length: 7 },
+    (_, i) => !streakBroken && state.claimed_day > 0 && i < state.claimed_day,
   );
 
   return { currentDay, canClaim, nextClaimAt, claimedDays };
 });
 
 app.post('/api/daily/claim', { schema: { body: { type: 'object' } } }, async (req, reply) => {
-  const userId  = getUserId(req);
-  const state   = getDailyState(userId) ?? { claimed_day: 0, last_claim_at: 0 };
-  const now     = Date.now();
-  const ms24    = 24 * 60 * 60 * 1000;
-  const ms48    = 48 * 60 * 60 * 1000;
+  const userId = await getUserId(req);
+  const state = (await getDailyState(userId)) ?? { claimed_day: 0, last_claim_at: 0 };
+  const now = Date.now();
+  const ms24 = 24 * 60 * 60 * 1000;
+  const ms48 = 48 * 60 * 60 * 1000;
   const elapsed = now - state.last_claim_at;
 
   if (state.last_claim_at && elapsed < ms24) {
@@ -683,29 +468,38 @@ app.post('/api/daily/claim', { schema: { body: { type: 'object' } } }, async (re
 
   const reward = DAILY_REWARDS[dayToClaim - 1];
   let prize: Prize;
-  let newBalance = getBalance(userId);
+  let newBalance = await getBalance(userId);
 
   if (reward.type === 'stars') {
     const stars = reward.stars!;
     newBalance += stars;
-    setBalance(userId, newBalance);
+    await setBalance(userId, newBalance);
     prize = { id: 900 + dayToClaim, name: `${stars} звёзд`, rarity: 'gold', icon: '⭐', stars };
   } else {
-    const giftPool = PRIZES.filter((p) => !p.stars && !p.isPremium);
+    const rarity = reward.rarity;
+    let giftPool = PRIZES.filter((p) => !p.stars && !p.isPremium && p.rarity === rarity);
+    if (giftPool.length === 0) {
+      giftPool = PRIZES.filter((p) => !p.stars && !p.isPremium);
+    }
     prize = giftPool[Math.floor(Math.random() * giftPool.length)];
-    addHistory(userId, { caseId: 1, caseName: 'Ежедневный кейс (день 7)', prize, timestamp: now });
+    await addHistory(userId, {
+      caseId: 1,
+      caseName: `Ежедневный подарок (день ${dayToClaim})`,
+      prize,
+      timestamp: now,
+    } satisfies HistoryEntry);
   }
 
-  setDailyState(userId, dayToClaim, now);
+  await setDailyState(userId, dayToClaim, now);
   return { prize, newBalance, day: dayToClaim };
 });
 
 // ── Referral ──────────────────────────────────────────────────────────────────
 
-app.get('/api/referral/status', async req => {
-  const userId = getUserId(req);
-  const data   = ensureReferral(userId);
-  const refs   = uniqueNumbers(JSON.parse(data.referred_users || '[]') as unknown[]);
+app.get('/api/referral/status', async (req) => {
+  const userId = await getUserId(req);
+  const data = await ensureReferral(userId);
+  const refs = uniqueNumbers(parseJsonField<unknown[]>(data.referred_users, []));
   return {
     code: data.code,
     link: buildReferralLink(data.code),
@@ -717,18 +511,26 @@ app.get('/api/referral/status', async req => {
   };
 });
 
-interface ActivateBody { code: string }
+interface ActivateBody {
+  code: string;
+}
 
-app.post<{ Body: ActivateBody }>('/api/referral/activate', {
-  schema: { body: { type: 'object', required: ['code'], properties: { code: { type: 'string' } } } },
-}, async (req, reply) => {
-  const userId = getUserId(req);
-  const result = activateReferralCode(userId, req.body.code);
-  if (!result.activated) {
-    return reply.status(400).send({ message: result.message ?? 'Не удалось активировать код' });
-  }
-  return { success: true, reward: result.rewardGranted ?? 0 };
-});
+app.post<{ Body: ActivateBody }>(
+  '/api/referral/activate',
+  {
+    schema: {
+      body: { type: 'object', required: ['code'], properties: { code: { type: 'string' } } },
+    },
+  },
+  async (req, reply) => {
+    const userId = await getUserId(req);
+    const result = await activateReferralCode(userId, req.body.code);
+    if (!result.activated) {
+      return reply.status(400).send({ message: result.message ?? 'Не удалось активировать код' });
+    }
+    return { success: true, reward: result.rewardGranted ?? 0 };
+  },
+);
 
 // ── Top-up ────────────────────────────────────────────────────────────────────
 
@@ -736,55 +538,60 @@ app.get('/api/topup/packages', async () => ({
   packages: TOPUP_PACKAGES,
 }));
 
-interface CreateInvoiceBody { packageId: string }
+interface CreateInvoiceBody {
+  packageId: string;
+}
 
-app.post<{ Body: CreateInvoiceBody }>('/api/topup/create-invoice', {
-  schema: {
-    body: {
-      type: 'object',
-      required: ['packageId'],
-      properties: { packageId: { type: 'string' } },
+app.post<{ Body: CreateInvoiceBody }>(
+  '/api/topup/create-invoice',
+  {
+    schema: {
+      body: {
+        type: 'object',
+        required: ['packageId'],
+        properties: { packageId: { type: 'string' } },
+      },
     },
   },
-}, async (req, reply) => {
-  const userId = getUserId(req);
-  if (userId <= 0) {
-    return reply.status(400).send({ message: 'Оплата доступна только внутри Telegram Mini App.' });
-  }
+  async (req, reply) => {
+    const userId = await getUserId(req);
+    if (userId <= 0) {
+      return reply.status(400).send({ message: 'Оплата доступна только внутри Telegram Mini App.' });
+    }
 
-  const pkg = getTopupPackageById(req.body.packageId);
-  if (!pkg) {
-    return reply.status(400).send({ message: 'Неизвестный пакет пополнения.' });
-  }
+    const pkg = getTopupPackageById(req.body.packageId);
+    if (!pkg) {
+      return reply.status(400).send({ message: 'Неизвестный пакет пополнения.' });
+    }
 
-  const payload = buildTopupPayload(userId, pkg.id);
-  const now = Date.now();
-  db.prepare(
-    `INSERT INTO topup_orders (
-      payload, user_id, package_id, xtr_amount, balance_amount, status, created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, 'pending', ?, ?)`,
-  ).run(payload, userId, pkg.id, pkg.xtrAmount, pkg.balanceAmount, now, now);
-
-  try {
-    const invoiceLink = await createTopupInvoiceLink(userId, pkg, payload);
-    return { invoiceLink, payload };
-  } catch (err) {
-    db.prepare(`UPDATE topup_orders SET status='failed', error_message=?, updated_at=? WHERE payload=?`).run(
-      err instanceof Error ? err.message : 'INVOICE_CREATE_FAILED',
-      Date.now(),
+    const payload = buildTopupPayload(userId, pkg.id);
+    const now = Date.now();
+    await insertTopupOrder({
       payload,
-    );
-    return reply.status(500).send({ message: 'Не удалось создать счёт. Попробуйте ещё раз.' });
-  }
-});
+      user_id: userId,
+      package_id: pkg.id,
+      xtr_amount: pkg.xtrAmount,
+      balance_amount: pkg.balanceAmount,
+      created_at: now,
+      updated_at: now,
+    });
+
+    try {
+      const invoiceLink = await createTopupInvoiceLink(userId, pkg, payload);
+      return { invoiceLink, payload };
+    } catch (err) {
+      await failTopupOrder(
+        payload,
+        err instanceof Error ? err.message : 'INVOICE_CREATE_FAILED',
+      );
+      return reply.status(500).send({ message: 'Не удалось создать счёт. Попробуйте ещё раз.' });
+    }
+  },
+);
 
 app.get<{ Params: { payload: string } }>('/api/topup/status/:payload', async (req, reply) => {
-  const userId = getUserId(req);
-  const row = db.prepare(
-    `SELECT status, balance_amount
-     FROM topup_orders
-     WHERE payload = ? AND user_id = ?`,
-  ).get(req.params.payload, userId) as { status: string; balance_amount: number } | undefined;
+  const userId = await getUserId(req);
+  const row = await getTopupOrderForUser(req.params.payload, userId);
 
   if (!row) {
     return reply.status(404).send({ message: 'Платёж не найден' });
@@ -793,56 +600,160 @@ app.get<{ Params: { payload: string } }>('/api/topup/status/:payload', async (re
   return {
     status: row.status,
     balanceAmount: row.balance_amount,
-    newBalance: row.status === 'paid' ? getBalance(userId) : null,
+    newBalance: row.status === 'paid' ? await getBalance(userId) : null,
   };
 });
 
-// ── Case open ─────────────────────────────────────────────────────────────────
+// ── Withdraw ──────────────────────────────────────────────────────────────────
 
-interface OpenBody { caseId: number }
+const MIN_WITHDRAW = 50;
+const WITHDRAW_PRESETS = [50, 100, 250, 500, 1000, 5000] as const;
 
-app.post<{ Body: OpenBody }>('/api/case/open', {
-  schema: { body: { type: 'object', required: ['caseId'], properties: { caseId: { type: 'number' } } } },
-}, async (req, reply) => {
-  const userId    = getUserId(req);
-  const { caseId } = req.body;
-  const gameCase  = CASES.find(c => c.id === caseId);
-  if (!gameCase) return reply.status(404).send({ message: 'Кейс не найден' });
-
-  const now = Date.now();
-  const isFreeCaseLocked = Boolean(
-    gameCase.isFree && (now - getLastFreeCaseAt(userId)) < FREE_CASE_INTERVAL_MS,
-  );
-  if (isFreeCaseLocked) {
-    return reply.status(400).send({ message: 'Ежедневный кейс можно открыть только раз в 24 часа' });
-  }
-
-  const cost = gameCase.price;
-
-  const balance = getBalance(userId);
-  if (balance < cost) return reply.status(400).send({ message: 'Недостаточно звёзд' });
-
-  let newBalance = balance - cost;
-
-  // Pick from the appropriate prize pool
-  const pool = caseId === 3 ? PRIZES_CASE3 : caseId === 2 ? PRIZES_CASE2 : PRIZES_CASE1;
-  const prize = pickPrize(pool);
-
-  if (prize.stars) newBalance += prize.stars;
-  setBalance(userId, newBalance);
-  if (gameCase.isFree) {
-    setLastFreeCaseAt(userId, now);
-  }
-
-  if (!prize.stars) {
-    addHistory(userId, { caseId, caseName: gameCase.name, prize, timestamp: now });
-  }
-
-  return { prize, newBalance };
+app.get('/api/withdraw/info', async (req) => {
+  const userId = await getUserId(req);
+  const balance = await getBalance(userId);
+  const recent = userId > 0 ? await listWithdrawOrders(userId, 5) : [];
+  return {
+    balance,
+    minAmount: MIN_WITHDRAW,
+    presets: WITHDRAW_PRESETS,
+    recent,
+  };
 });
 
-registerBlackjackRoutes(app, { db, getUserId, getBalance, setBalance });
-registerPvpRoutes(app, { db, getUserId });
+app.post<{ Body: { amount?: number } }>(
+  '/api/withdraw/create',
+  {
+    schema: {
+      body: {
+        type: 'object',
+        required: ['amount'],
+        properties: { amount: { type: 'number' } },
+      },
+    },
+  },
+  async (req, reply) => {
+    const userId = await getUserId(req);
+    if (userId <= 0) {
+      return reply.status(400).send({ message: 'Вывод доступен только внутри Telegram Mini App.' });
+    }
+
+    const amount = Math.floor(Number(req.body?.amount));
+    if (!Number.isFinite(amount) || amount < MIN_WITHDRAW) {
+      return reply.status(400).send({ message: `Минимальная сумма вывода — ${MIN_WITHDRAW} ★` });
+    }
+
+    const newBalance = await tryDeductBalance(userId, amount);
+    if (newBalance === null) {
+      return reply.status(400).send({ message: 'Недостаточно звёзд на балансе' });
+    }
+
+    const profile = await getProfile(userId);
+    const rawInit = req.headers['x-telegram-init-data'] as string | undefined;
+    const validated = validateInitData(rawInit);
+    const username =
+      validated.valid && validated.user?.username
+        ? String(validated.user.username)
+        : null;
+
+    let order;
+    try {
+      order = await createWithdrawOrder({
+        user_id: userId,
+        amount,
+        username,
+        display_name: profile?.name ?? null,
+      });
+    } catch (err) {
+      await addBalance(userId, amount);
+      throw err;
+    }
+
+    const adminChat = String(process.env.TELEGRAM_ADMIN_CHAT_ID ?? '').trim();
+    if (adminChat) {
+      const who = username ? `@${username}` : (profile?.name ?? `id ${userId}`);
+      telegramJsonMethod('sendMessage', {
+        chat_id: adminChat,
+        text: `💸 Заявка на вывод #${order.id}\n${who}\nСумма: ${amount} ★\nuser_id: ${userId}`,
+      }).catch(() => {});
+    }
+
+    return {
+      ok: true,
+      orderId: order.id,
+      amount: order.amount,
+      status: order.status,
+      newBalance,
+    };
+  },
+);
+
+// ── Case open ─────────────────────────────────────────────────────────────────
+
+interface OpenBody {
+  caseId: number;
+}
+
+app.post<{ Body: OpenBody }>(
+  '/api/case/open',
+  {
+    schema: {
+      body: { type: 'object', required: ['caseId'], properties: { caseId: { type: 'number' } } },
+    },
+  },
+  async (req, reply) => {
+    const userId = await getUserId(req);
+    const { caseId } = req.body;
+    const gameCase = CASES.find((c) => c.id === caseId);
+    if (!gameCase) return reply.status(404).send({ message: 'Кейс не найден' });
+
+    const now = Date.now();
+    const isFreeCaseLocked = Boolean(
+      gameCase.isFree && now - (await getLastFreeCaseAt(userId)) < FREE_CASE_INTERVAL_MS,
+    );
+    if (isFreeCaseLocked) {
+      return reply.status(400).send({ message: 'Ежедневный кейс можно открыть только раз в 24 часа' });
+    }
+
+    const cost = gameCase.price;
+
+    const balance = await getBalance(userId);
+    if (balance < cost) return reply.status(400).send({ message: 'Недостаточно звёзд' });
+
+    let newBalance = balance - cost;
+
+    const pool = caseId === 3 ? PRIZES_CASE3 : caseId === 2 ? PRIZES_CASE2 : PRIZES_CASE1;
+    let prize = pickPrize(pool);
+
+    // 25% house edge on gift rolls: bias toward cheaper outcomes
+    if (!prize.stars && Math.random() < HOUSE_EDGE) {
+      const cheap = pool.filter((p) => p.rarity === 'gray' || Boolean(p.stars));
+      if (cheap.length > 0) prize = pickPrize(cheap);
+    }
+
+    if (prize.stars) {
+      const credited = applyHouseEdgeStars(prize.stars);
+      newBalance += credited;
+      prize = { ...prize, stars: credited, name: `${credited} звёзд` };
+    }
+    await setBalance(userId, newBalance);
+    if (gameCase.isFree) {
+      await setLastFreeCaseAt(userId, now);
+    }
+
+    if (!prize.stars) {
+      await addHistory(userId, { caseId, caseName: gameCase.name, prize, timestamp: now });
+    }
+
+    return { prize, newBalance };
+  },
+);
+
+registerBlackjackRoutes(app, { getUserId, getBalance, setBalance });
+registerPvpRoutes(app, { getUserId });
+registerCoinflipRoutes(app, { getUserId, getBalance, setBalance });
+registerMineRushRoutes(app, { getUserId, getBalance, setBalance });
+registerArenaRoutes(app, { getUserId, getBalance });
 
 // ── Telegram webhook for Stars payments ───────────────────────────────────────
 function verifyWebhookSecret(req: FastifyRequest): boolean {
@@ -875,11 +786,7 @@ async function evaluatePreCheckoutQuery(q: any) {
     return { ok: false as const, error_message: 'Счёт выписан для другого пользователя.' };
   }
 
-  const row = db.prepare(
-    `SELECT package_id, xtr_amount, status
-     FROM topup_orders
-     WHERE payload = ? AND user_id = ?`,
-  ).get(payload, fromId) as { package_id: string; xtr_amount: number; status: string } | undefined;
+  const row = await getTopupOrderForCheckout(payload, fromId);
 
   if (!row || row.status !== 'pending') {
     return { ok: false as const, error_message: 'Счёт не найден или уже обработан.' };
@@ -913,17 +820,21 @@ async function handlePreCheckoutQuery(q: any) {
     return;
   }
   if (winner.kind === 'error') {
-    await answerPreCheckoutQuery(qid, false, { error_message: 'Ошибка проверки заказа.' }).catch(() => undefined);
+    await answerPreCheckoutQuery(qid, false, { error_message: 'Ошибка проверки заказа.' }).catch(
+      () => undefined,
+    );
     return;
   }
   if (!winner.evaluation.ok) {
-    await answerPreCheckoutQuery(qid, false, { error_message: winner.evaluation.error_message }).catch(() => undefined);
+    await answerPreCheckoutQuery(qid, false, {
+      error_message: winner.evaluation.error_message,
+    }).catch(() => undefined);
     return;
   }
   await answerPreCheckoutQuery(qid, true).catch(() => undefined);
 }
 
-function applySuccessfulPayment(sp: any, payerTelegramId: number) {
+async function applySuccessfulPayment(sp: any, payerTelegramId: number) {
   const payload = String(sp?.invoice_payload ?? '');
   const chargeId = String(sp?.telegram_payment_charge_id ?? '');
   const providerChargeId = sp?.provider_payment_charge_id ? String(sp.provider_payment_charge_id) : null;
@@ -943,44 +854,26 @@ function applySuccessfulPayment(sp: any, payerTelegramId: number) {
     return;
   }
 
-  const tx = db.transaction(() => {
-    const order = db.prepare(
-      `SELECT user_id, package_id, xtr_amount, balance_amount, status
-       FROM topup_orders
-       WHERE payload = ?`,
-    ).get(payload) as
-      | { user_id: number; package_id: string; xtr_amount: number; balance_amount: number; status: string }
-      | undefined;
-    if (!order) return;
-    if (order.status === 'paid') return;
-    if (order.user_id !== payerTelegramId) return;
-    if (order.package_id !== parsed.packageId || order.xtr_amount !== totalAmount) return;
+  const order = await getTopupOrderByPayload(payload);
+  if (!order) return;
+  if (order.status === 'paid') return;
+  if (order.user_id !== payerTelegramId) return;
+  if (order.package_id !== parsed.packageId || order.xtr_amount !== totalAmount) return;
 
-    db.prepare('INSERT OR IGNORE INTO balances(user_id, balance) VALUES(?, ?)').run(order.user_id, DEFAULT_BALANCE);
-    db.prepare('UPDATE balances SET balance = balance + ? WHERE user_id = ?').run(order.balance_amount, order.user_id);
+  // Claim first so concurrent webhooks cannot double-credit.
+  const claimed = await claimTopupPaid(payload, chargeId, providerChargeId);
+  if (!claimed) return;
 
-    const referral = db
-      .prepare('SELECT referred_by FROM referrals WHERE user_id = ?')
-      .get(order.user_id) as { referred_by: number | null } | undefined;
-    const inviterId = Number(referral?.referred_by ?? 0);
-    const cashback = inviterId > 0 ? Math.floor((order.balance_amount * REFERRAL_CASHBACK_PERCENT) / 100) : 0;
-    if (cashback > 0) {
-      ensureReferral(inviterId);
-      db.prepare('INSERT OR IGNORE INTO balances(user_id, balance) VALUES(?, ?)').run(inviterId, DEFAULT_BALANCE);
-      db.prepare('UPDATE balances SET balance = balance + ? WHERE user_id = ?').run(cashback, inviterId);
-      db.prepare('UPDATE referrals SET total_earned = total_earned + ? WHERE user_id = ?').run(cashback, inviterId);
-    }
+  await addBalance(claimed.user_id, claimed.balance_amount);
 
-    db.prepare(
-      `UPDATE topup_orders
-       SET status='paid',
-           telegram_payment_charge_id=?,
-           provider_payment_charge_id=?,
-           updated_at=?
-       WHERE payload=?`,
-    ).run(chargeId, providerChargeId, Date.now(), payload);
-  });
-  tx();
+  const referral = await getReferral(claimed.user_id);
+  const inviterId = Number(referral?.referred_by ?? 0);
+  const cashback = inviterId > 0 ? Math.floor((claimed.balance_amount * REFERRAL_CASHBACK_PERCENT) / 100) : 0;
+  if (cashback > 0) {
+    await ensureReferral(inviterId);
+    await addBalance(inviterId, cashback);
+    await addReferralEarned(inviterId, cashback);
+  }
 }
 
 app.get('/api/telegram/webhook', async () => ({
@@ -1001,38 +894,32 @@ app.post('/api/telegram/webhook', async (req, reply) => {
   if (update.message?.successful_payment) {
     const payerId = Number(update.message?.from?.id);
     if (Number.isFinite(payerId) && payerId > 0) {
-      applySuccessfulPayment(update.message.successful_payment, payerId);
+      await applySuccessfulPayment(update.message.successful_payment, payerId);
     }
     return reply.send({ ok: true });
   }
   return reply.send({ ok: true });
 });
 
-// Статика клиента — только ПОСЛЕ регистрации всех /api/* маршрутов.
-// Иначе @fastify/static с prefix '/' может перехватывать запросы раньше API и отдавать index.html → «Unexpected token <».
-if (isProd) {
+if (isProd && process.env.SERVE_CLIENT === '1') {
   const clientDist = path.join(__dirname, '../../client/dist');
   await app.register(staticFiles, { root: clientDist, prefix: '/' });
 }
 
-// ── 404 / SPA fallback ─────────────────────────────────────────────────────────
-// ВАЖНО: маршруты /api/* никогда не должны отдавать index.html — иначе фронт ловит
-// "Unexpected token <" при парсинге JSON.
 app.setNotFoundHandler((request, reply) => {
   if (isApiPath(request.url)) {
     return reply.status(404).type('application/json; charset=utf-8').send({ message: 'Not Found' });
   }
-  if (isProd) {
+  if (isProd && process.env.SERVE_CLIENT === '1') {
     return reply.sendFile('index.html');
   }
   return reply.status(404).type('application/json; charset=utf-8').send({ message: 'Not Found' });
 });
 
-// ── Start ─────────────────────────────────────────────────────────────────────
 const PORT = Number(process.env.PORT) || 3001;
 try {
   await app.listen({ port: PORT, host: '0.0.0.0' });
-  console.log(`🚀  http://localhost:${PORT}`);
+  console.log(`🚀  http://localhost:${PORT} (Supabase persistence)`);
 } catch (err) {
   app.log.error(err);
   process.exit(1);

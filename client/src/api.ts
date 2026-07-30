@@ -5,6 +5,13 @@ import type {
   LeaderPage,
   HistoryPage,
   BlackjackStateResponse,
+  CoinflipResult,
+  CoinSide,
+  MineRushDifficulty,
+  MineRushGameView,
+  MineRushRevealResult,
+  MineRushCashoutResult,
+  ArenaStateResponse,
 } from './types';
 
 let _initData = '';
@@ -154,6 +161,20 @@ export const api = {
       `/api/topup/status/${encodeURIComponent(payload)}`
     ),
 
+  getWithdrawInfo: () =>
+    request<{
+      balance: number;
+      minAmount: number;
+      presets: number[];
+      recent: { id: number; amount: number; status: string; createdAt: number }[];
+    }>('/api/withdraw/info'),
+
+  createWithdraw: (amount: number) =>
+    request<{ ok: boolean; orderId: number; amount: number; status: string; newBalance: number }>(
+      '/api/withdraw/create',
+      { method: 'POST', body: JSON.stringify({ amount }) },
+    ),
+
   openCase: (caseId: number) =>
     request<{ prize: Prize; newBalance: number }>('/api/case/open', {
       method: 'POST',
@@ -184,6 +205,53 @@ export const api = {
     request<BlackjackStateResponse>('/api/blackjack/double', {
       method: 'POST',
       body: '{}',
+    }),
+
+  // ── Coinflip ─────────────────────────────────────────────────────────────
+
+  coinflipPlay: (bet: number, choice: CoinSide) =>
+    request<CoinflipResult>('/api/coinflip/play', {
+      method: 'POST',
+      body: JSON.stringify({ bet, choice }),
+    }),
+
+  // ── MineRush ─────────────────────────────────────────────────────────────
+
+  mineRushState: () =>
+    request<{ game: MineRushGameView | null; balance: number }>('/api/minerush/state'),
+
+  mineRushStart: (difficulty: MineRushDifficulty, bet: number) =>
+    request<MineRushGameView>('/api/minerush/start', {
+      method: 'POST',
+      body: JSON.stringify({ difficulty, bet }),
+    }),
+
+  mineRushReveal: (gameId: string, x: number, y: number) =>
+    request<MineRushRevealResult>('/api/minerush/reveal', {
+      method: 'POST',
+      body: JSON.stringify({ gameId, x, y }),
+    }),
+
+  mineRushFlag: (gameId: string, x: number, y: number) =>
+    request<MineRushGameView>('/api/minerush/flag', {
+      method: 'POST',
+      body: JSON.stringify({ gameId, x, y }),
+    }),
+
+  mineRushCashout: (gameId: string) =>
+    request<MineRushCashoutResult>('/api/minerush/cashout', {
+      method: 'POST',
+      body: JSON.stringify({ gameId }),
+    }),
+
+  // ── Arena ────────────────────────────────────────────────────────────────
+
+  arenaState: () => request<ArenaStateResponse>('/api/arena/state'),
+
+  arenaBet: (bet: number) =>
+    request<ArenaStateResponse>('/api/arena/bet', {
+      method: 'POST',
+      body: JSON.stringify({ bet }),
     }),
 
   // ── PvP ──────────────────────────────────────────────────────────────────

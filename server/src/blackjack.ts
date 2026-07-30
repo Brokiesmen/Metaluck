@@ -1,5 +1,4 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
-import BetterSqlite3 from 'better-sqlite3';
 import crypto from 'crypto';
 import {
   codesToRanks,
@@ -7,6 +6,8 @@ import {
   handValueFromCodes,
   isNaturalBlackjack,
 } from './blackjackEngine.js';
+import { getSupabase, parseJsonField } from './supabaseStore.js';
+import { applyHouseEdge } from './houseEdge.js';
 
 const ALLOWED_BETS = [5, 10, 25, 50, 100] as const;
 
@@ -116,11 +117,11 @@ function popCard(deck: string[]): string {
 }
 
 function payoutForWin(bet: number): number {
-  return bet * 2;
+  return applyHouseEdge(bet * 2);
 }
 
 function payoutForBlackjack(bet: number): number {
-  return Math.floor((bet * 25) / 10);
+  return applyHouseEdge(Math.floor((bet * 25) / 10));
 }
 
 function dealerShouldHit(codes: string[]): boolean {
@@ -208,36 +209,39 @@ function rowToResponse(state: BjRowState, newBalance: number) {
 export function registerBlackjackRoutes(
   app: FastifyInstance,
   deps: {
-    db: InstanceType<typeof BetterSqlite3>;
-    getUserId: (req: FastifyRequest) => number;
-    getBalance: (userId: number) => number;
-    setBalance: (userId: number, balance: number) => void;
+    getUserId: (req: FastifyRequest) => Promise<number>;
+    getBalance: (userId: number) => Promise<number>;
+    setBalance: (userId: number, balance: number) => Promise<void>;
   },
 ) {
-  const { db, getUserId, getBalance, setBalance } = deps;
+  const { getUserId, getBalance, setBalance } = deps;
 
-  const selectRow = db.prepare('SELECT state_json, updated_at FROM blackjack_games WHERE user_id = ?');
-  const upsert = db.prepare(
-    `INSERT INTO blackjack_games(user_id, state_json, updated_at) VALUES(?,?,?)
-     ON CONFLICT(user_id) DO UPDATE SET state_json=excluded.state_json, updated_at=excluded.updated_at`,
-  );
-  function readState(userId: number): BjRowState | null {
-    const row = selectRow.get(userId) as { state_json: string } | undefined;
-    if (!row) return null;
-    try {
-      const parsed = JSON.parse(row.state_json) as unknown;
-      return parseStoredState(parsed);
-    } catch {
-      return null;
-    }
+  async function readState(userId: number): Promise<BjRowState | null> {
+    const sb = getSupabase();
+    const { data, error } = await sb
+      .from('blackjack_games')
+      .select('state_json')
+      .eq('user_id', userId)
+      .maybeSingle();
+    if (error) throw new Error(`blackjack readState: ${error.message}`);
+    if (!data) return null;
+    const parsed = parseJsonField<unknown>(data.state_json, null);
+    return parseStoredState(parsed);
   }
 
-  function clearState(userId: number) {
-    db.prepare('DELETE FROM blackjack_games WHERE user_id = ?').run(userId);
+  async function clearState(userId: number) {
+    const sb = getSupabase();
+    const { error } = await sb.from('blackjack_games').delete().eq('user_id', userId);
+    if (error) throw new Error(`blackjack clearState: ${error.message}`);
   }
 
-  function writeState(userId: number, s: BjRowState) {
-    upsert.run(userId, JSON.stringify(s), Date.now());
+  async function writeState(userId: number, s: BjRowState) {
+    const sb = getSupabase();
+    const { error } = await sb.from('blackjack_games').upsert(
+      { user_id: userId, state_json: s, updated_at: Date.now() },
+      { onConflict: 'user_id' },
+    );
+    if (error) throw new Error(`blackjack writeState: ${error.message}`);
   }
 
   function jsonError(reply: FastifyReply, statusCode: number, message: string) {
@@ -245,15 +249,15 @@ export function registerBlackjackRoutes(
   }
 
   app.get('/api/blackjack/state', async (req) => {
-    const userId = getUserId(req);
-    const s = readState(userId);
-    const bal = getBalance(userId);
+    const userId = await getUserId(req);
+    const s = await readState(userId);
+    const bal = await getBalance(userId);
     if (!s) return { newBalance: bal, round: null };
     try {
       return rowToResponse(s, bal);
     } catch (err) {
       req.log.warn({ err, userId }, 'blackjack rowToResponse failed, clearing saved game');
-      clearState(userId);
+      await clearState(userId);
       return { newBalance: bal, round: null };
     }
   });
@@ -270,19 +274,19 @@ export function registerBlackjackRoutes(
       },
     },
     async (req, reply) => {
-      const userId = getUserId(req);
+      const userId = await getUserId(req);
       try {
         const bet = Number(req.body?.bet);
         if (!ALLOWED_BETS.includes(bet as (typeof ALLOWED_BETS)[number])) {
           return jsonError(reply, 400, 'Ставка должна быть 2, 10 или 20 звёзд');
         }
 
-        const existing = readState(userId);
+        const existing = await readState(userId);
         if (existing && existing.phase === 'player') {
           return jsonError(reply, 400, 'Сначала завершите текущую партию');
         }
 
-        const balance = getBalance(userId);
+        const balance = await getBalance(userId);
         if (balance < bet) {
           return jsonError(reply, 400, 'Недостаточно звёзд');
         }
@@ -292,7 +296,7 @@ export function registerBlackjackRoutes(
         const dealer: string[] = [popCard(deck), popCard(deck)];
 
         const stakeTaken = balance - bet;
-        setBalance(userId, stakeTaken);
+        await setBalance(userId, stakeTaken);
 
         let state: BjRowState = {
           bet,
@@ -306,7 +310,7 @@ export function registerBlackjackRoutes(
         if (isNaturalBlackjack(player)) {
           state.dealerHoleHidden = false;
           if (isNaturalBlackjack(dealer)) {
-            setBalance(userId, stakeTaken + bet);
+            await setBalance(userId, stakeTaken + bet);
             state = {
               ...state,
               phase: 'finished',
@@ -315,7 +319,7 @@ export function registerBlackjackRoutes(
             };
           } else {
             const win = payoutForBlackjack(bet);
-            setBalance(userId, stakeTaken + win);
+            await setBalance(userId, stakeTaken + win);
             state = {
               ...state,
               phase: 'finished',
@@ -323,12 +327,12 @@ export function registerBlackjackRoutes(
               payout: win,
             };
           }
-          writeState(userId, state);
-          return rowToResponse(state, getBalance(userId));
+          await writeState(userId, state);
+          return rowToResponse(state, await getBalance(userId));
         }
 
-        writeState(userId, state);
-        return rowToResponse(state, getBalance(userId));
+        await writeState(userId, state);
+        return rowToResponse(state, await getBalance(userId));
       } catch (err) {
         req.log.error(err);
         const msg = err instanceof Error ? err.message : String(err);
@@ -338,9 +342,9 @@ export function registerBlackjackRoutes(
   );
 
   app.post('/api/blackjack/hit', async (req, reply) => {
-    const userId = getUserId(req);
+    const userId = await getUserId(req);
     try {
-      const state = readState(userId);
+      const state = await readState(userId);
       if (!state) {
         return jsonError(reply, 404, 'Игра не найдена. Нажмите «Раздать».');
       }
@@ -350,7 +354,7 @@ export function registerBlackjackRoutes(
 
       let { deck, player, dealer } = state;
       if (deck.length < 1) {
-        clearState(userId);
+        await clearState(userId);
         return jsonError(reply, 409, 'Колода повреждена. Нажмите «Раздать» снова.');
       }
 
@@ -368,8 +372,8 @@ export function registerBlackjackRoutes(
           result: 'bust',
           payout: 0,
         };
-        writeState(userId, finished);
-        return rowToResponse(finished, getBalance(userId));
+        await writeState(userId, finished);
+        return rowToResponse(finished, await getBalance(userId));
       }
 
       if (pv === 21) {
@@ -387,7 +391,7 @@ export function registerBlackjackRoutes(
         dk = played.deck;
         dl = played.dealer;
         const { result, payout } = settleRound(state.bet, player, dl);
-        setBalance(userId, getBalance(userId) + payout);
+        await setBalance(userId, (await getBalance(userId)) + payout);
         const done: BjRowState = {
           ...revealed,
           deck: dk,
@@ -397,13 +401,13 @@ export function registerBlackjackRoutes(
           result,
           payout,
         };
-        writeState(userId, done);
-        return rowToResponse(done, getBalance(userId));
+        await writeState(userId, done);
+        return rowToResponse(done, await getBalance(userId));
       }
 
       const next: BjRowState = { ...state, deck, player };
-      writeState(userId, next);
-      return rowToResponse(next, getBalance(userId));
+      await writeState(userId, next);
+      return rowToResponse(next, await getBalance(userId));
     } catch (err) {
       req.log.error(err);
       const msg = err instanceof Error ? err.message : String(err);
@@ -415,9 +419,9 @@ export function registerBlackjackRoutes(
   });
 
   app.post('/api/blackjack/stand', async (req, reply) => {
-    const userId = getUserId(req);
+    const userId = await getUserId(req);
     try {
-      const state = readState(userId);
+      const state = await readState(userId);
       if (!state) {
         return jsonError(reply, 404, 'Игра не найдена. Нажмите «Раздать».');
       }
@@ -438,7 +442,7 @@ export function registerBlackjackRoutes(
       deck = played.deck;
       dealer = played.dealer;
       const { result, payout } = settleRound(state.bet, player, dealer);
-      setBalance(userId, getBalance(userId) + payout);
+      await setBalance(userId, (await getBalance(userId)) + payout);
       const done: BjRowState = {
         ...revealed,
         deck,
@@ -448,8 +452,8 @@ export function registerBlackjackRoutes(
         result,
         payout,
       };
-      writeState(userId, done);
-      return rowToResponse(done, getBalance(userId));
+      await writeState(userId, done);
+      return rowToResponse(done, await getBalance(userId));
     } catch (err) {
       req.log.error(err);
       const msg = err instanceof Error ? err.message : String(err);
@@ -460,23 +464,20 @@ export function registerBlackjackRoutes(
     }
   });
 
-  // ── Double Down ────────────────────────────────────────────────────────────────
   app.post('/api/blackjack/double', async (req, reply) => {
-    const userId = getUserId(req);
+    const userId = await getUserId(req);
     try {
-      const state = readState(userId);
+      const state = await readState(userId);
       if (!state) return jsonError(reply, 404, 'Игра не найдена. Нажмите «Раздать».');
       if (state.phase !== 'player') return jsonError(reply, 400, 'Нет активного хода.');
       if (state.player.length !== 2) return jsonError(reply, 400, 'Удвоение доступно только с двумя картами.');
 
-      const balance = getBalance(userId);
+      const balance = await getBalance(userId);
       if (balance < state.bet) return jsonError(reply, 400, 'Недостаточно звёзд для удвоения.');
 
-      // Снимаем дополнительную ставку
-      setBalance(userId, balance - state.bet);
+      await setBalance(userId, balance - state.bet);
       const totalBet = state.bet * 2;
 
-      // Ровно одна карта игроку
       let { deck } = state;
       let { player, dealer } = state;
       if (deck.length < 1) return jsonError(reply, 409, 'Колода исчерпана. Начните новую партию.');
@@ -490,14 +491,13 @@ export function registerBlackjackRoutes(
         result = 'bust';
         payout = 0;
       } else {
-        // Дилер доигрывает
         const played = playDealer(deck, dealer);
         deck = played.deck;
         dealer = played.dealer;
         const settled = settleRound(totalBet, player, dealer);
         result = settled.result;
         payout = settled.payout;
-        if (payout > 0) setBalance(userId, getBalance(userId) + payout);
+        if (payout > 0) await setBalance(userId, (await getBalance(userId)) + payout);
       }
 
       const done: BjRowState = {
@@ -511,8 +511,8 @@ export function registerBlackjackRoutes(
         result,
         payout,
       };
-      writeState(userId, done);
-      return rowToResponse(done, getBalance(userId));
+      await writeState(userId, done);
+      return rowToResponse(done, await getBalance(userId));
     } catch (err) {
       req.log.error(err);
       const msg = err instanceof Error ? err.message : String(err);
