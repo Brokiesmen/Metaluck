@@ -945,6 +945,21 @@ export async function upsertBotChat(input: {
   if (error) throwSb(error, 'upsertBotChat');
 }
 
+/** Приватный chat_id игрока (если он нажимал /start и не заблокировал бота). */
+export async function getBotChatId(userId: number): Promise<number | null> {
+  if (!Number.isFinite(userId) || userId <= 0) return null;
+  const sb = getSupabase();
+  const { data, error } = await sb
+    .from('bot_chats')
+    .select('chat_id')
+    .eq('user_id', userId)
+    .eq('blocked', false)
+    .maybeSingle();
+  if (error) throwSb(error, 'getBotChatId');
+  const id = Number(data?.chat_id);
+  return Number.isFinite(id) && id !== 0 ? id : null;
+}
+
 export async function markBotChatBlocked(chatId: number, blocked = true): Promise<void> {
   const sb = getSupabase();
   const { error } = await sb

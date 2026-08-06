@@ -169,11 +169,13 @@ export function Cabinet({ user, balance, isDev, onBalanceUpdate, openInvoice, is
       case 'play_blackjack': return t.cabinet.taskPlayBlackjack;
       case 'play_minerush': return t.cabinet.taskPlayMinerush;
       case 'play_arena': return t.cabinet.taskPlayArena;
+      case 'play_aviator': return t.cabinet.taskPlayAviator;
       case 'win_game': return t.cabinet.taskWinGame;
       case 'win_coinflip': return t.cabinet.taskWinCoinflip;
       case 'win_blackjack': return t.cabinet.taskWinBlackjack;
       case 'win_minerush': return t.cabinet.taskWinMinerush;
       case 'win_arena': return t.cabinet.taskWinArena;
+      case 'win_aviator': return t.cabinet.taskWinAviator;
       default: return id;
     }
   };

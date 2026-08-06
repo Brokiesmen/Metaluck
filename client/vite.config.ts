@@ -51,6 +51,8 @@ export default defineConfig(({ mode }) => {
         changeOrigin: true,
         secure: false,
         timeout: 60_000,
+        // Aviator (/api/aviator/ws) — апгрейд до WebSocket через тот же proxy.
+        ws: true,
       },
     },
   },

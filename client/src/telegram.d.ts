@@ -26,7 +26,15 @@ interface TelegramSafeAreaInset {
   right: number;
 }
 
+interface TelegramHapticFeedback {
+  impactOccurred?(style: 'light' | 'medium' | 'heavy' | 'rigid' | 'soft'): void;
+  notificationOccurred?(type: 'error' | 'success' | 'warning'): void;
+  selectionChanged?(): void;
+}
+
 interface TelegramWebApp {
+  /** Доступно с Bot API 6.1 — на старых клиентах отсутствует. */
+  HapticFeedback?: TelegramHapticFeedback;
   initData: string;
   initDataUnsafe: {
     user?: TelegramUser;

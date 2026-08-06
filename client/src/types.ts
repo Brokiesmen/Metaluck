@@ -176,6 +176,71 @@ export interface ArenaStateResponse {
   now: number;
 }
 
+// ── Aviator (crash) ──────────────────────────────────────────────
+
+export type AviatorPhase = 'betting' | 'flying' | 'crashed';
+
+export interface AviatorPlayerView {
+  userId: number;
+  name: string;
+  bet: number;
+  color: string;
+  isBot: boolean;
+  autoCashout: number | null;
+  cashedOutMult: number | null;
+  payout: number;
+  isMe: boolean;
+}
+
+export interface AviatorConfig {
+  allowedBets: number[];
+  maxTotalBetPerPlayer: number;
+  minCashout: number;
+  maxCrash: number;
+  bettingWindowMs: number;
+}
+
+export interface AviatorRoundView {
+  roundId: string;
+  phase: AviatorPhase;
+  /** Момент старта полёта (серверное время) или null вне фазы flying. */
+  startedAt: number | null;
+  bettingEndsAt: number | null;
+  nextRoundAt: number | null;
+  multiplier: number;
+  /** Точка краша — не null только в фазе crashed. */
+  crashMultiplier: number | null;
+  players: AviatorPlayerView[];
+  myBet: number;
+  myAutoCashout: number | null;
+  myCashedOutMult: number | null;
+  myPayout: number;
+  history: number[];
+  config: AviatorConfig;
+}
+
+export interface AviatorStateResponse {
+  round: AviatorRoundView | null;
+  balance: number;
+  config: AviatorConfig;
+  history: number[];
+  now: number;
+}
+
+export interface AviatorBetResponse {
+  round: AviatorRoundView;
+  balance: number;
+  now: number;
+}
+
+export interface AviatorCashoutResponse {
+  round: AviatorRoundView;
+  balance: number;
+  payout: number;
+  multiplier: number;
+  now: number;
+}
+
 export type ProgressTaskId =
   | 'daily_login'
   | 'open_case'
@@ -185,11 +250,13 @@ export type ProgressTaskId =
   | 'play_blackjack'
   | 'play_minerush'
   | 'play_arena'
+  | 'play_aviator'
   | 'win_game'
   | 'win_coinflip'
   | 'win_blackjack'
   | 'win_minerush'
-  | 'win_arena';
+  | 'win_arena'
+  | 'win_aviator';
 
 export interface ProgressTask {
   id: ProgressTaskId | string;

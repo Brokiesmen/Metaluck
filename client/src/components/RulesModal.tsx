@@ -19,6 +19,7 @@ export function RulesModal({ onClose }: Props) {
     { title: r.blackjackTitle, body: r.blackjackBody },
     { title: r.minerushTitle, body: r.minerushBody },
     { title: r.arenaTitle, body: r.arenaBody },
+    { title: r.aviatorTitle, body: r.aviatorBody },
     { title: r.withdrawTitle, body: r.withdrawBody },
     { title: r.demoTitle, body: r.demoBody },
     { title: r.fairTitle, body: r.fairBody },

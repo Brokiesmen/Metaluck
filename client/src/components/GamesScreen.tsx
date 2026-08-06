@@ -8,6 +8,7 @@ interface Props {
   onOpenCoinflip: () => void;
   onOpenMineRush: () => void;
   onOpenArena: () => void;
+  onOpenAviator: () => void;
 }
 
 export function GamesScreen({
@@ -18,6 +19,7 @@ export function GamesScreen({
   onOpenCoinflip,
   onOpenMineRush,
   onOpenArena,
+  onOpenAviator,
 }: Props) {
   const { t } = useSettings();
 
@@ -88,6 +90,17 @@ export function GamesScreen({
           <div className="game-tile-body">
             <h2 className="game-tile-title">{t.games.arenaTitle}</h2>
             <p className="game-tile-subtitle">{t.games.arenaSub}</p>
+          </div>
+        </button>
+
+        <button type="button" className="game-tile game-tile--aviator" onClick={onOpenAviator}>
+          <div className="game-tile-glow game-tile-glow--aviator" aria-hidden />
+          <div className="game-tile-icon game-tile-icon--aviator" aria-hidden>
+            <span className="av-lobby-plane">✈️</span>
+          </div>
+          <div className="game-tile-body">
+            <h2 className="game-tile-title">{t.games.avTitle}</h2>
+            <p className="game-tile-subtitle">{t.games.avSub}</p>
           </div>
         </button>
 

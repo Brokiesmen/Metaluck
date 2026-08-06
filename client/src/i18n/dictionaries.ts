@@ -9,6 +9,7 @@ export type Dict = {
     coinflip: string;
     minerush: string;
     arena: string;
+    aviator: string;
     leaders: string;
     daily: string;
     cabinet: string;
@@ -52,6 +53,8 @@ export type Dict = {
     mrSub: string;
     arenaTitle: string;
     arenaSub: string;
+    avTitle: string;
+    avSub: string;
     soon: string;
     soonPvp: string;
     soonArcadeTitle: string;
@@ -94,10 +97,12 @@ export type Dict = {
     taskPlayBlackjack: string;
     taskPlayMinerush: string;
     taskPlayArena: string;
+    taskPlayAviator: string;
     taskWinCoinflip: string;
     taskWinBlackjack: string;
     taskWinMinerush: string;
     taskWinArena: string;
+    taskWinAviator: string;
     tasksResetIn: string;
     done: string;
   };
@@ -124,6 +129,8 @@ export type Dict = {
     minerushBody: string;
     arenaTitle: string;
     arenaBody: string;
+    aviatorTitle: string;
+    aviatorBody: string;
     withdrawTitle: string;
     withdrawBody: string;
     demoTitle: string;
@@ -310,6 +317,39 @@ export type Dict = {
     betError: string;
     betSize: string;
   };
+  av: {
+    back: string;
+    history: string;
+    historyEmpty: string;
+    flewAway: string;
+    startsIn: string;
+    nextIn: string;
+    secShort: string;
+    waiting: string;
+    pot: string;
+    playersCount: string;
+    yourWin: string;
+    empty: string;
+    you: string;
+    autoShort: string;
+    autoCashout: string;
+    autoOff: string;
+    autoUp: string;
+    autoDown: string;
+    cashOut: string;
+    loading: string;
+    roundRunning: string;
+    cashedOut: string;
+    nextRound: string;
+    addBet: string;
+    placeBet: string;
+    betSize: string;
+    loadError: string;
+    betError: string;
+    cashError: string;
+    toastWin: string;
+    toastLost: string;
+  };
 };
 
 const ru: Dict = {
@@ -321,6 +361,7 @@ const ru: Dict = {
     coinflip: 'Орёл или звезда',
     minerush: 'MineRush',
     arena: 'Арена',
+    aviator: 'Авиатор',
     leaders: 'Лидеры',
     daily: 'Ежедневный подарок',
     cabinet: 'Кабинет',
@@ -364,6 +405,8 @@ const ru: Dict = {
     mrSub: 'Сапёр на звёзды — открой поле и забери выигрыш!',
     arenaTitle: 'Арена',
     arenaSub: 'Общий банк: чем больше ставка — тем больше шанс забрать всё!',
+    avTitle: 'Авиатор',
+    avSub: 'Множитель растёт — успей забрать до того, как самолёт улетит!',
     soon: 'Скоро...',
     soonPvp: 'PvP турнир и командные челленджи',
     soonArcadeTitle: 'Скоро',
@@ -406,10 +449,12 @@ const ru: Dict = {
     taskPlayBlackjack: 'Сыграть в Блэкджек',
     taskPlayMinerush: 'Сыграть в Mine Rush',
     taskPlayArena: 'Сделать ставку на Арене',
+    taskPlayAviator: 'Сделать ставку в Авиаторе',
     taskWinCoinflip: 'Выиграть в Орёл/Звезда',
     taskWinBlackjack: 'Выиграть в Блэкджек',
     taskWinMinerush: 'Выиграть в Mine Rush',
     taskWinArena: 'Выиграть на Арене',
+    taskWinAviator: 'Забрать в Авиаторе',
     tasksResetIn: 'Задания обновятся через {t}',
     done: 'Готово',
   },
@@ -445,6 +490,9 @@ const ru: Dict = {
     arenaTitle: 'Арена',
     arenaBody:
       'Общий банк: игроки делают ставки в окне раунда. Поле делится на сектора пропорционально ставкам. Шарик указывает победителя — он забирает банк (с комиссией дома). Можно ставить от 1 ★.',
+    aviatorTitle: 'Авиатор',
+    aviatorBody:
+      'Ставка принимается в окне перед взлётом. После старта множитель растёт с каждой секундой, но в случайный момент самолёт улетает. Успели нажать «Забрать» — получаете ставку × текущий множитель; не успели — ставка сгорает. Auto Cashout забирает автоматически на выбранном множителе. Точка краша определяется на сервере до взлёта и не раскрывается заранее.',
     withdrawTitle: 'Вывод',
     withdrawBody:
       'Чтобы вывести звёзды, на балансе должно быть не меньше 100 ★. Минимальная сумма одной заявки — 100 ★. Заявка обрабатывается вручную; после создания сумма списывается с баланса. Демо-режим не даёт реального вывода.',
@@ -634,6 +682,39 @@ const ru: Dict = {
     betError: 'Ошибка ставки',
     betSize: 'Размер ставки',
   },
+  av: {
+    back: '‹ Игры',
+    history: 'Последние множители',
+    historyEmpty: 'Раундов пока не было',
+    flewAway: 'УЛЕТЕЛ',
+    startsIn: 'Взлёт через',
+    nextIn: 'Новый раунд через',
+    secShort: ' с',
+    waiting: 'Ожидание раунда…',
+    pot: 'Ставки',
+    playersCount: 'Игроков',
+    yourWin: 'Ваш выигрыш',
+    empty: 'Сделайте ставку — раунд начнётся, и другие игроки смогут присоединиться',
+    you: 'Вы',
+    autoShort: 'авто',
+    autoCashout: 'Auto Cashout',
+    autoOff: 'выкл',
+    autoUp: 'Увеличить авто-кэшаут',
+    autoDown: 'Уменьшить авто-кэшаут',
+    cashOut: 'ЗАБРАТЬ',
+    loading: 'Загрузка…',
+    roundRunning: 'Раунд идёт…',
+    cashedOut: 'ЗАБРАЛИ НА {mult}',
+    nextRound: 'Следующий раунд…',
+    addBet: 'ДОБАВИТЬ  •  {bet} ★',
+    placeBet: 'СТАВКА  •  {bet} ★',
+    betSize: 'Размер ставки',
+    loadError: 'Ошибка загрузки',
+    betError: 'Ошибка ставки',
+    cashError: 'Ошибка кэшаута',
+    toastWin: 'Забрали на {mult} — +{amount} ★',
+    toastLost: 'Улетел на {mult} — ставка сгорела',
+  },
 };
 
 const uk: Dict = {
@@ -645,6 +726,7 @@ const uk: Dict = {
     coinflip: 'Орел чи зірка',
     minerush: 'MineRush',
     arena: 'Арена',
+    aviator: 'Авіатор',
     leaders: 'Лідери',
     daily: 'Щоденний подарунок',
     cabinet: 'Кабінет',
@@ -688,6 +770,8 @@ const uk: Dict = {
     mrSub: 'Сапер на зірки — відкрий поле і забери виграш!',
     arenaTitle: 'Арена',
     arenaSub: 'Спільний банк: що більша ставка — то більший шанс забрати все!',
+    avTitle: 'Авіатор',
+    avSub: 'Множник зростає — встигни забрати, поки літак не полетів!',
     soon: 'Скоро...',
     soonPvp: 'PvP турнір і командні челенджі',
     soonArcadeTitle: 'Незабаром',
@@ -730,10 +814,12 @@ const uk: Dict = {
     taskPlayBlackjack: 'Зіграти в Блекджек',
     taskPlayMinerush: 'Зіграти в Mine Rush',
     taskPlayArena: 'Зробити ставку на Арені',
+    taskPlayAviator: 'Зробити ставку в Авіаторі',
     taskWinCoinflip: 'Виграти в Орел/Зірка',
     taskWinBlackjack: 'Виграти в Блекджек',
     taskWinMinerush: 'Виграти в Mine Rush',
     taskWinArena: 'Виграти на Арені',
+    taskWinAviator: 'Забрати в Авіаторі',
     tasksResetIn: 'Завдання оновляться через {t}',
     done: 'Готово',
   },
@@ -769,6 +855,9 @@ const uk: Dict = {
     arenaTitle: 'Арена',
     arenaBody:
       'Спільний банк: гравці ставлять у вікні раунду. Поле ділиться на сектори пропорційно ставкам. Кулька вказує переможця — він забирає банк (з комісією дому). Ставки від 1 ★.',
+    aviatorTitle: 'Авіатор',
+    aviatorBody:
+      'Ставка приймається у вікні перед злетом. Після старту множник зростає щосекунди, але у випадковий момент літак відлітає. Встигли натиснути «Забрати» — отримуєте ставку × поточний множник; не встигли — ставка згорає. Auto Cashout забирає автоматично на обраному множнику. Точка крашу визначається на сервері до злету й не розкривається заздалегідь.',
     withdrawTitle: 'Вивід',
     withdrawBody:
       'Для виводу на балансі має бути щонайменше 100 ★. Мінімальна сума заявки — 100 ★. Заявка обробляється вручну; після створення сума списується. Демо не дає реального виводу.',
@@ -958,6 +1047,39 @@ const uk: Dict = {
     betError: 'Помилка ставки',
     betSize: 'Розмір ставки',
   },
+  av: {
+    back: '‹ Ігри',
+    history: 'Останні множники',
+    historyEmpty: 'Раундів ще не було',
+    flewAway: 'ВІДЛЕТІВ',
+    startsIn: 'Зліт через',
+    nextIn: 'Новий раунд через',
+    secShort: ' с',
+    waiting: 'Очікування раунду…',
+    pot: 'Ставки',
+    playersCount: 'Гравців',
+    yourWin: 'Ваш виграш',
+    empty: 'Зробіть ставку — раунд почнеться, і інші гравці зможуть приєднатися',
+    you: 'Ви',
+    autoShort: 'авто',
+    autoCashout: 'Auto Cashout',
+    autoOff: 'вимк',
+    autoUp: 'Збільшити авто-кешаут',
+    autoDown: 'Зменшити авто-кешаут',
+    cashOut: 'ЗАБРАТИ',
+    loading: 'Завантаження…',
+    roundRunning: 'Раунд триває…',
+    cashedOut: 'ЗАБРАЛИ НА {mult}',
+    nextRound: 'Наступний раунд…',
+    addBet: 'ДОДАТИ  •  {bet} ★',
+    placeBet: 'СТАВКА  •  {bet} ★',
+    betSize: 'Розмір ставки',
+    loadError: 'Помилка завантаження',
+    betError: 'Помилка ставки',
+    cashError: 'Помилка кешауту',
+    toastWin: 'Забрали на {mult} — +{amount} ★',
+    toastLost: 'Відлетів на {mult} — ставка згоріла',
+  },
 };
 
 const en: Dict = {
@@ -969,6 +1091,7 @@ const en: Dict = {
     coinflip: 'Eagle or Star',
     minerush: 'MineRush',
     arena: 'Arena',
+    aviator: 'Aviator',
     leaders: 'Leaders',
     daily: 'Daily Gift',
     cabinet: 'Profile',
@@ -1012,6 +1135,8 @@ const en: Dict = {
     mrSub: 'Mines on stars — clear the field and cash out!',
     arenaTitle: 'Arena',
     arenaSub: 'Shared pot: the bigger your bet, the bigger your chance!',
+    avTitle: 'Aviator',
+    avSub: 'The multiplier climbs — cash out before the plane flies away!',
     soon: 'Soon...',
     soonPvp: 'PvP tournament and team challenges',
     soonArcadeTitle: 'Coming Soon',
@@ -1054,10 +1179,12 @@ const en: Dict = {
     taskPlayBlackjack: 'Play Blackjack',
     taskPlayMinerush: 'Play Mine Rush',
     taskPlayArena: 'Place an Arena bet',
+    taskPlayAviator: 'Place an Aviator bet',
     taskWinCoinflip: 'Win Eagle or Star',
     taskWinBlackjack: 'Win Blackjack',
     taskWinMinerush: 'Win Mine Rush',
     taskWinArena: 'Win in Arena',
+    taskWinAviator: 'Cash out in Aviator',
     tasksResetIn: 'Tasks refresh in {t}',
     done: 'Done',
   },
@@ -1093,6 +1220,9 @@ const en: Dict = {
     arenaTitle: 'Arena',
     arenaBody:
       'Shared pot: players bet during the round window. The wheel is split by bet size. The ball picks a winner who takes the pot (minus house fee). Bets from 1 ★.',
+    aviatorTitle: 'Aviator',
+    aviatorBody:
+      'Bets are accepted in the window before take-off. Once the plane starts, the multiplier climbs every second — but at a random moment it flies away. Hit "Cash out" in time and you get your bet × the current multiplier; too late and the bet is lost. Auto Cashout collects automatically at your chosen multiplier. The crash point is decided on the server before take-off and is never revealed in advance.',
     withdrawTitle: 'Withdrawals',
     withdrawBody:
       'You need at least 100 ★ on your balance to withdraw. Minimum order amount is 100 ★. Requests are processed manually; the amount is deducted when you submit. Demo mode has no real withdrawals.',
@@ -1282,6 +1412,39 @@ const en: Dict = {
     betError: 'Bet error',
     betSize: 'Bet size',
   },
+  av: {
+    back: '‹ Games',
+    history: 'Recent multipliers',
+    historyEmpty: 'No rounds yet',
+    flewAway: 'FLEW AWAY',
+    startsIn: 'Take-off in',
+    nextIn: 'Next round in',
+    secShort: 's',
+    waiting: 'Waiting for round…',
+    pot: 'Total bets',
+    playersCount: 'Players',
+    yourWin: 'Your win',
+    empty: 'Place a bet — the round will start and others can join',
+    you: 'You',
+    autoShort: 'auto',
+    autoCashout: 'Auto Cashout',
+    autoOff: 'off',
+    autoUp: 'Increase auto cashout',
+    autoDown: 'Decrease auto cashout',
+    cashOut: 'CASH OUT',
+    loading: 'Loading…',
+    roundRunning: 'Round in progress…',
+    cashedOut: 'CASHED OUT AT {mult}',
+    nextRound: 'Next round…',
+    addBet: 'ADD  •  {bet} ★',
+    placeBet: 'BET  •  {bet} ★',
+    betSize: 'Bet size',
+    loadError: 'Failed to load',
+    betError: 'Bet error',
+    cashError: 'Cash out error',
+    toastWin: 'Cashed out at {mult} — +{amount} ★',
+    toastLost: 'Flew away at {mult} — bet lost',
+  },
 };
 
 const es: Dict = {
@@ -1293,6 +1456,7 @@ const es: Dict = {
     coinflip: 'Águila o estrella',
     minerush: 'MineRush',
     arena: 'Arena',
+    aviator: 'Aviator',
     leaders: 'Líderes',
     daily: 'Regalo diario',
     cabinet: 'Perfil',
@@ -1336,6 +1500,8 @@ const es: Dict = {
     mrSub: 'Buscaminas con estrellas — ¡abre el campo y cobra!',
     arenaTitle: 'Arena',
     arenaSub: 'Bote compartido: ¡más apuesta, más chance de llevarte todo!',
+    avTitle: 'Aviator',
+    avSub: 'El multiplicador sube: ¡retira antes de que el avión se vaya!',
     soon: 'Pronto...',
     soonPvp: 'Torneo PvP y desafíos de equipo',
     soonArcadeTitle: 'Próximamente',
@@ -1378,10 +1544,12 @@ const es: Dict = {
     taskPlayBlackjack: 'Jugar Blackjack',
     taskPlayMinerush: 'Jugar Mine Rush',
     taskPlayArena: 'Apostar en la Arena',
+    taskPlayAviator: 'Apostar en Aviator',
     taskWinCoinflip: 'Ganar Águila o estrella',
     taskWinBlackjack: 'Ganar Blackjack',
     taskWinMinerush: 'Ganar Mine Rush',
     taskWinArena: 'Ganar en la Arena',
+    taskWinAviator: 'Retirar en Aviator',
     tasksResetIn: 'Las misiones se renuevan en {t}',
     done: 'Hecho',
   },
@@ -1417,6 +1585,9 @@ const es: Dict = {
     arenaTitle: 'Arena',
     arenaBody:
       'Bote compartido: apuestas en la ventana de la ronda. El campo se divide por tamaño de apuesta. La bola elige al ganador del bote (con comisión). Desde 1 ★.',
+    aviatorTitle: 'Aviator',
+    aviatorBody:
+      'Las apuestas se aceptan en la ventana previa al despegue. Tras el arranque el multiplicador sube cada segundo, pero en un momento aleatorio el avión se va. Si pulsas «Retirar» a tiempo recibes tu apuesta × el multiplicador actual; si no, pierdes la apuesta. Auto Cashout retira automáticamente en el multiplicador elegido. El punto de caída se decide en el servidor antes del despegue y nunca se revela por adelantado.',
     withdrawTitle: 'Retiros',
     withdrawBody:
       'Necesitas al menos 100 ★ en el saldo. El mínimo por solicitud es 100 ★. Se procesa manualmente; el importe se descuenta al crear la solicitud. El demo no permite retiros reales.',
@@ -1606,6 +1777,39 @@ const es: Dict = {
     betError: 'Error de apuesta',
     betSize: 'Tamaño de apuesta',
   },
+  av: {
+    back: '‹ Juegos',
+    history: 'Últimos multiplicadores',
+    historyEmpty: 'Aún no hay rondas',
+    flewAway: '¡SE FUE!',
+    startsIn: 'Despegue en',
+    nextIn: 'Nueva ronda en',
+    secShort: ' s',
+    waiting: 'Esperando ronda…',
+    pot: 'Apuestas',
+    playersCount: 'Jugadores',
+    yourWin: 'Tu ganancia',
+    empty: 'Haz una apuesta: la ronda empezará y otros podrán unirse',
+    you: 'Tú',
+    autoShort: 'auto',
+    autoCashout: 'Auto Cashout',
+    autoOff: 'apag',
+    autoUp: 'Aumentar auto retiro',
+    autoDown: 'Reducir auto retiro',
+    cashOut: 'RETIRAR',
+    loading: 'Cargando…',
+    roundRunning: 'Ronda en curso…',
+    cashedOut: 'RETIRADO EN {mult}',
+    nextRound: 'Próxima ronda…',
+    addBet: 'AÑADIR  •  {bet} ★',
+    placeBet: 'APOSTAR  •  {bet} ★',
+    betSize: 'Tamaño de apuesta',
+    loadError: 'Error al cargar',
+    betError: 'Error de apuesta',
+    cashError: 'Error al retirar',
+    toastWin: 'Retirado en {mult} — +{amount} ★',
+    toastLost: 'Se fue en {mult} — apuesta perdida',
+  },
 };
 
 const de: Dict = {
@@ -1617,6 +1821,7 @@ const de: Dict = {
     coinflip: 'Adler oder Stern',
     minerush: 'MineRush',
     arena: 'Arena',
+    aviator: 'Aviator',
     leaders: 'Rangliste',
     daily: 'Tägliches Geschenk',
     cabinet: 'Profil',
@@ -1660,6 +1865,8 @@ const de: Dict = {
     mrSub: 'Minenspiel um Sterne — öffne das Feld und cash out!',
     arenaTitle: 'Arena',
     arenaSub: 'Gemeinsamer Pot: je höher der Einsatz, desto größer die Chance!',
+    avTitle: 'Aviator',
+    avSub: 'Der Multiplikator steigt — kassiere, bevor das Flugzeug wegfliegt!',
     soon: 'Bald...',
     soonPvp: 'PvP-Turnier und Team-Challenges',
     soonArcadeTitle: 'Demnächst',
@@ -1702,10 +1909,12 @@ const de: Dict = {
     taskPlayBlackjack: 'Blackjack spielen',
     taskPlayMinerush: 'Mine Rush spielen',
     taskPlayArena: 'In der Arena setzen',
+    taskPlayAviator: 'Bei Aviator setzen',
     taskWinCoinflip: 'Adler oder Stern gewinnen',
     taskWinBlackjack: 'Blackjack gewinnen',
     taskWinMinerush: 'Mine Rush gewinnen',
     taskWinArena: 'In der Arena gewinnen',
+    taskWinAviator: 'Bei Aviator kassieren',
     tasksResetIn: 'Aufgaben erneuern in {t}',
     done: 'Erledigt',
   },
@@ -1741,6 +1950,9 @@ const de: Dict = {
     arenaTitle: 'Arena',
     arenaBody:
       'Gemeinsamer Pot: Einsätze im Rundfenster. Feld nach Einsatzgröße geteilt. Die Kugel wählt den Gewinner des Pots (mit Hausgebühr). Ab 1 ★.',
+    aviatorTitle: 'Aviator',
+    aviatorBody:
+      'Einsätze werden im Fenster vor dem Start angenommen. Nach dem Abheben steigt der Multiplikator jede Sekunde, doch zu einem zufälligen Zeitpunkt fliegt das Flugzeug davon. Wer rechtzeitig „Kassieren" drückt, erhält Einsatz × aktueller Multiplikator; sonst ist der Einsatz verloren. Auto Cashout kassiert automatisch beim gewählten Multiplikator. Der Absturzpunkt wird vor dem Start auf dem Server bestimmt und nie vorab verraten.',
     withdrawTitle: 'Auszahlung',
     withdrawBody:
       'Mindestens 100 ★ auf dem Guthaben nötig. Mindestbetrag pro Antrag: 100 ★. Manuelle Bearbeitung; Betrag wird bei Antrag abgezogen. Demo ohne echte Auszahlung.',
@@ -1929,6 +2141,39 @@ const de: Dict = {
     loadError: 'Laden fehlgeschlagen',
     betError: 'Einsatzfehler',
     betSize: 'Einsatzgröße',
+  },
+  av: {
+    back: '‹ Spiele',
+    history: 'Letzte Multiplikatoren',
+    historyEmpty: 'Noch keine Runden',
+    flewAway: 'WEGGEFLOGEN',
+    startsIn: 'Start in',
+    nextIn: 'Neue Runde in',
+    secShort: ' Sek.',
+    waiting: 'Warte auf Runde…',
+    pot: 'Einsätze',
+    playersCount: 'Spieler',
+    yourWin: 'Dein Gewinn',
+    empty: 'Setze einen Einsatz — die Runde startet und andere können mitmachen',
+    you: 'Du',
+    autoShort: 'auto',
+    autoCashout: 'Auto Cashout',
+    autoOff: 'aus',
+    autoUp: 'Auto-Cashout erhöhen',
+    autoDown: 'Auto-Cashout verringern',
+    cashOut: 'KASSIEREN',
+    loading: 'Lädt…',
+    roundRunning: 'Runde läuft…',
+    cashedOut: 'KASSIERT BEI {mult}',
+    nextRound: 'Nächste Runde…',
+    addBet: 'ERHÖHEN  •  {bet} ★',
+    placeBet: 'SETZEN  •  {bet} ★',
+    betSize: 'Einsatzgröße',
+    loadError: 'Laden fehlgeschlagen',
+    betError: 'Einsatzfehler',
+    cashError: 'Fehler beim Kassieren',
+    toastWin: 'Kassiert bei {mult} — +{amount} ★',
+    toastLost: 'Weggeflogen bei {mult} — Einsatz verloren',
   },
 };
 

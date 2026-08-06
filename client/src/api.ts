@@ -12,6 +12,9 @@ import type {
   MineRushRevealResult,
   MineRushCashoutResult,
   ArenaStateResponse,
+  AviatorStateResponse,
+  AviatorBetResponse,
+  AviatorCashoutResponse,
   ProgressView,
 } from './types';
 import {
@@ -31,6 +34,9 @@ import {
   demoMineRushCashout,
   demoArenaState,
   demoArenaBet,
+  demoAviatorState,
+  demoAviatorBet,
+  demoAviatorCashout,
 } from './demo';
 
 let _initData = '';
@@ -53,6 +59,22 @@ function getApiBase(): string {
 function resolveUrl(path: string): string {
   if (/^https?:\/\//i.test(path)) return path;
   return `${getApiBase()}${path}`;
+}
+
+/**
+ * ws://-адрес для того же бэкенда, что и REST (Aviator-лента).
+ * Пустая база → тот же origin, что и страница (работает через Vite-proxy и туннель).
+ */
+export function resolveWsUrl(path: string): string {
+  const base = getApiBase();
+  if (base) {
+    const u = new URL(base.endsWith('/') ? base : `${base}/`);
+    u.protocol = u.protocol === 'https:' ? 'wss:' : 'ws:';
+    const p = path.startsWith('/') ? path : `/${path}`;
+    return `${u.origin}${p}`;
+  }
+  const proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
+  return `${proto}://${window.location.host}${path.startsWith('/') ? path : `/${path}`}`;
 }
 
 function contentTypeLooksJson(ct: string): boolean {
@@ -390,6 +412,38 @@ export const api = {
     return request<ArenaStateResponse>('/api/arena/bet', {
       method: 'POST',
       body: JSON.stringify({ bet }),
+    });
+  },
+
+  // ── Aviator ──────────────────────────────────────────────────────────────
+
+  aviatorState: async () => {
+    if (isDemoMode()) {
+      await delay(20);
+      return demoAviatorState();
+    }
+    return request<AviatorStateResponse>('/api/aviator/state');
+  },
+
+  aviatorBet: async (bet: number, autoCashout: number | null) => {
+    if (isDemoMode()) {
+      await delay(40);
+      return demoAviatorBet(bet, autoCashout);
+    }
+    return request<AviatorBetResponse>('/api/aviator/bet', {
+      method: 'POST',
+      body: JSON.stringify({ bet, autoCashout }),
+    });
+  },
+
+  aviatorCashout: async (roundId: string) => {
+    if (isDemoMode()) {
+      await delay(25);
+      return demoAviatorCashout(roundId);
+    }
+    return request<AviatorCashoutResponse>('/api/aviator/cashout', {
+      method: 'POST',
+      body: JSON.stringify({ roundId }),
     });
   },
 

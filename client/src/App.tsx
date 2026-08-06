@@ -19,8 +19,9 @@ import { BlackjackGame } from './components/BlackjackGame';
 import { CoinflipGame } from './components/CoinflipGame';
 import { MineRushGame } from './components/MineRushGame';
 import { ArenaGame } from './components/ArenaGame';
+import { AviatorGame } from './components/AviatorGame';
 
-type GameView = 'lobby' | 'cases' | 'blackjack' | 'coinflip' | 'minerush' | 'arena';
+type GameView = 'lobby' | 'cases' | 'blackjack' | 'coinflip' | 'minerush' | 'arena' | 'aviator';
 
 export function App() {
   const { tg, user, initData, isDev } = useTelegram();
@@ -119,6 +120,11 @@ export function App() {
     setTab('games');
   }, []);
 
+  const openAviatorGame = useCallback(() => {
+    setGameView('aviator');
+    setTab('games');
+  }, []);
+
   const goToFreeCase = useCallback(() => {
     setTab('games');
     setGameView('cases');
@@ -142,7 +148,9 @@ export function App() {
               ? t.header.minerush
               : gameView === 'arena'
                 ? t.header.arena
-                : t.header.metaluck
+                : gameView === 'aviator'
+                  ? t.header.aviator
+                  : t.header.metaluck
       : tab === 'leaders'
         ? t.header.leaders
         : tab === 'daily'
@@ -195,7 +203,9 @@ export function App() {
               ? ' page-content--coinflip'
               : tab === 'games' && gameView === 'minerush'
                 ? ' page-content--minerush'
-                : ''
+                : tab === 'games' && gameView === 'aviator'
+                  ? ' page-content--aviator'
+                  : ''
         }`}
       >
         {tab === 'games' ? (
@@ -216,6 +226,8 @@ export function App() {
             <MineRushGame onBack={() => setGameView('lobby')} onBalanceUpdate={updateBalance} />
           ) : gameView === 'arena' ? (
             <ArenaGame onBack={() => setGameView('lobby')} onBalanceUpdate={updateBalance} />
+          ) : gameView === 'aviator' ? (
+            <AviatorGame onBack={() => setGameView('lobby')} onBalanceUpdate={updateBalance} />
           ) : (
             <GamesScreen
               isDemo={isDemo}
@@ -225,6 +237,7 @@ export function App() {
               onOpenCoinflip={openCoinflipGame}
               onOpenMineRush={openMineRushGame}
               onOpenArena={openArenaGame}
+              onOpenAviator={openAviatorGame}
             />
           )
         ) : tab === 'leaders' ? (

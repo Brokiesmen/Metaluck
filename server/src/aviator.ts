@@ -12,9 +12,17 @@ import {
   payoutForCashout,
   normalizeAutoCashout,
 } from './aviatorEngine.js';
-import { getProfile, addBalance, tryDeductBalance } from './supabaseStore.js';
+import {
+  getProfile,
+  addBalance,
+  tryDeductBalance,
+  addHistory,
+  getBotChatId,
+} from './supabaseStore.js';
 import { onGamePlayXp, onGameWinXp } from './progressAwards.js';
 import { XP } from './xp.js';
+import { telegramJsonMethod, miniAppUrl } from './routes/helpers.js';
+import type { Rarity } from './types.js';
 
 /**
  * «Aviator» — общий crash-раунд для всех игроков (паттерн arena.ts):
@@ -33,9 +41,15 @@ import { XP } from './xp.js';
  * Все вычисления (множитель, краш, авто-кэшаут, выплаты) — только на сервере.
  */
 
+/** Записи о выигрышах в общей таблице histories (как у колеса фортуны). */
+const AVIATOR_CASE_ID = 9020;
+const AVIATOR_CASE_NAME = 'Авиатор';
+/** От какой выплаты шлём игроку личное сообщение в Telegram. */
+const BIG_WIN_NOTIFY_MIN = 200;
+
 const BETTING_WINDOW_MS = 6_000;
 const CRASHED_SHOW_MS = 3_500;
-/** Частота тика игрового цикла (и WS aviator:tick во время полёта). */
+/** Частота тика игрового цикла: определяет точность момента краша. */
 const LOOP_INTERVAL_MS = 200;
 /** Сколько последних крашей отдаём в истории. */
 const HISTORY_LEN = 20;
@@ -155,10 +169,62 @@ function liveMultiplier(round: AviatorRound, now: number): number {
   return Math.min(m, round.crashMult);
 }
 
+function rarityForPayout(payout: number): Rarity {
+  if (payout >= 500) return 'gold';
+  if (payout >= 100) return 'purple';
+  if (payout >= 50) return 'blue';
+  return 'gray';
+}
+
+/**
+ * История выигрыша + личное уведомление в Telegram при крупной выплате.
+ * Полностью best-effort: игровой поток не должен падать из-за БД или Telegram.
+ */
+function recordCashout(userId: number, bet: number, mult: number, payout: number): void {
+  const now = Date.now();
+
+  addHistory(userId, {
+    caseId: AVIATOR_CASE_ID,
+    caseName: `${AVIATOR_CASE_NAME} ×${mult.toFixed(2)}`,
+    prize: {
+      id: 9220,
+      name: `${payout} ★`,
+      rarity: rarityForPayout(payout),
+      icon: '✈️',
+      stars: payout,
+    },
+    timestamp: now,
+  }).catch((err) => {
+    console.error('[aviator] history write failed', userId, err);
+  });
+
+  if (payout < BIG_WIN_NOTIFY_MIN) return;
+
+  void (async () => {
+    try {
+      const chatId = await getBotChatId(userId);
+      if (!chatId) return;
+      const url = miniAppUrl();
+      await telegramJsonMethod('sendMessage', {
+        chat_id: chatId,
+        text:
+          `✈️ <b>Авиатор</b> — вы забрали на <b>×${mult.toFixed(2)}</b>!\n` +
+          `Ставка: ${bet} ★ → выигрыш: <b>${payout} ★</b>`,
+        parse_mode: 'HTML',
+        disable_web_page_preview: true,
+        ...(url ? { reply_markup: { inline_keyboard: [[{ text: '🎮 Играть', url }]] } } : {}),
+      });
+    } catch (err) {
+      console.warn('[aviator] win notify failed', userId, err);
+    }
+  })();
+}
+
 /**
  * Рассчитать кэшаут ставки (авто или ручной). Флаг выставляется СИНХРОННО до
  * await, поэтому повторные/конкурентные вызовы не могут выплатить дважды.
  * Для реальных игроков зачисляет баланс и XP; боты — косметика.
+ * Если зачисление упало — откатываем флаг, чтобы игрок мог повторить cashout.
  */
 async function settleCashout(bet: AviatorBet, mult: number): Promise<number> {
   if (bet.cashedOutMult !== null) return bet.payout; // уже забрал — идемпотентно
@@ -166,8 +232,15 @@ async function settleCashout(bet: AviatorBet, mult: number): Promise<number> {
   bet.cashedOutMult = mult;
   bet.payout = payout;
   if (!bet.isBot && payout > 0) {
-    await addBalance(bet.userId, payout);
+    try {
+      await addBalance(bet.userId, payout);
+    } catch (err) {
+      bet.cashedOutMult = null;
+      bet.payout = 0;
+      throw err;
+    }
     await onGameWinXp(bet.userId, XP.AVIATOR_CASHOUT(mult), 'aviator');
+    recordCashout(bet.userId, bet.bet, mult, payout);
   }
   broadcast('aviator:cashout', {
     roundId: currentRound?.id,
@@ -180,18 +253,33 @@ async function settleCashout(bet: AviatorBet, mult: number): Promise<number> {
   return payout;
 }
 
-// ── Игровой цикл (сериализован, чтобы await'ы не гонялись) ──────────────────
+// ── Игровой цикл (сериализован: tick + bet + cashout в одной очереди) ────────
 
-let queue: Promise<void> = Promise.resolve();
+let queue: Promise<unknown> = Promise.resolve();
+
+/** Все мутации раунда идут строго по очереди — иначе двойные ставки / кэшаут после краша. */
+function runExclusive<T>(fn: () => Promise<T>): Promise<T> {
+  const run = queue.then(fn, fn);
+  queue = run.then(
+    () => undefined,
+    () => undefined,
+  );
+  return run;
+}
 
 function tick(now = Date.now(), spawn = false): Promise<void> {
-  queue = queue.then(() => doTick(now, spawn)).catch((err) => {
-    console.error('[aviator] tick error', err);
-  });
-  return queue;
+  return runExclusive(() => doTick(now, spawn));
 }
 
 async function doTick(now: number, spawn: boolean): Promise<void> {
+  try {
+    await doTickInner(now, spawn);
+  } catch (err) {
+    console.error('[aviator] tick error', err);
+  }
+}
+
+async function doTickInner(now: number, spawn: boolean): Promise<void> {
   if (!currentRound) {
     if (spawn) {
       currentRound = newRound(now);
@@ -217,7 +305,11 @@ async function doTick(now: number, spawn: boolean): Promise<void> {
       if (b.cashedOutMult === null && b.autoCashout !== null) {
         // Успевает только если цель строго ниже точки краша и уже достигнута.
         if (b.autoCashout < round.crashMult && b.autoCashout <= reached) {
-          await settleCashout(b, b.autoCashout);
+          try {
+            await settleCashout(b, b.autoCashout);
+          } catch (err) {
+            console.error('[aviator] auto cashout failed', b.userId, err);
+          }
         }
       }
     }
@@ -226,7 +318,11 @@ async function doTick(now: number, spawn: boolean): Promise<void> {
       // Финальный проход авто-кэшаутов для целей строго ниже краша (страховка от округления).
       for (const b of round.bets) {
         if (b.cashedOutMult === null && b.autoCashout !== null && b.autoCashout < round.crashMult) {
-          await settleCashout(b, b.autoCashout);
+          try {
+            await settleCashout(b, b.autoCashout);
+          } catch (err) {
+            console.error('[aviator] auto cashout failed', b.userId, err);
+          }
         }
       }
       round.phase = 'crashed';
@@ -347,8 +443,6 @@ export async function registerAviatorRoutes(
       if (userId <= 0) {
         return jsonError(reply, 400, 'Ставки доступны только внутри Telegram Mini App.');
       }
-      const now = Date.now();
-      await tick(now, true);
 
       try {
         const bet = Number(req.body?.bet);
@@ -357,55 +451,75 @@ export async function registerAviatorRoutes(
         }
         const autoCashout = normalizeAutoCashout(req.body?.autoCashout);
 
-        const round = currentRound;
-        if (!round || round.phase !== 'betting') {
-          return jsonError(reply, 400, 'Ставки закрыты — дождитесь следующего раунда');
-        }
+        return await runExclusive(async () => {
+          await doTick(Date.now(), true);
 
-        const existing = round.bets.find((b) => b.userId === userId && !b.isBot);
-        if (existing && existing.bet + bet > MAX_TOTAL_BET_PER_PLAYER) {
-          return jsonError(reply, 400, `Максимум ${MAX_TOTAL_BET_PER_PLAYER} звёзд на раунд`);
-        }
+          const round = currentRound;
+          if (!round || round.phase !== 'betting') {
+            return jsonError(reply, 400, 'Ставки закрыты — дождитесь следующего раунда');
+          }
 
-        // Атомарное списание — при нехватке вернёт null.
-        const newBalance = await tryDeductBalance(userId, bet);
-        if (newBalance === null) {
-          return jsonError(reply, 400, 'Недостаточно звёзд');
-        }
-        await onGamePlayXp(userId, 'aviator');
+          const existing = round.bets.find((b) => b.userId === userId && !b.isBot);
+          if (existing && existing.bet + bet > MAX_TOTAL_BET_PER_PLAYER) {
+            return jsonError(reply, 400, `Максимум ${MAX_TOTAL_BET_PER_PLAYER} звёзд на раунд`);
+          }
 
-        if (existing) {
-          existing.bet += bet;
-          if (autoCashout !== null) existing.autoCashout = autoCashout;
-        } else {
-          const profile = await getProfile(userId).catch(() => null);
-          round.bets.push({
+          // Атомарное списание — при нехватке вернёт null.
+          const newBalance = await tryDeductBalance(userId, bet);
+          if (newBalance === null) {
+            return jsonError(reply, 400, 'Недостаточно звёзд');
+          }
+
+          // После await фаза могла смениться только если кто-то обошёл очередь —
+          // на всякий случай возвращаем деньги.
+          if (!currentRound || currentRound.id !== round.id || currentRound.phase !== 'betting') {
+            await addBalance(userId, bet);
+            return jsonError(reply, 400, 'Ставки закрыты — дождитесь следующего раунда');
+          }
+
+          await onGamePlayXp(userId, 'aviator');
+
+          if (existing) {
+            existing.bet += bet;
+            if (autoCashout !== null) existing.autoCashout = autoCashout;
+          } else {
+            // Повторный поиск: в очереди дублей быть не должно, но защищаемся.
+            const again = round.bets.find((b) => b.userId === userId && !b.isBot);
+            if (again) {
+              again.bet += bet;
+              if (autoCashout !== null) again.autoCashout = autoCashout;
+            } else {
+              const profile = await getProfile(userId).catch(() => null);
+              round.bets.push({
+                userId,
+                name: profile?.name || `Игрок #${userId}`,
+                bet,
+                color: PLAYER_COLORS[round.bets.length % PLAYER_COLORS.length],
+                isBot: false,
+                autoCashout,
+                cashedOutMult: null,
+                payout: 0,
+              });
+            }
+          }
+
+          const bumped = round.bets.find((b) => b.userId === userId && !b.isBot)!;
+          broadcast('aviator:bet', {
+            roundId: round.id,
             userId,
-            name: profile?.name || `Игрок #${userId}`,
-            bet,
-            color: PLAYER_COLORS[round.bets.length % PLAYER_COLORS.length],
-            isBot: false,
-            autoCashout,
-            cashedOutMult: null,
-            payout: 0,
+            name: bumped.name,
+            bet: bumped.bet,
+            color: bumped.color,
+            autoCashout: bumped.autoCashout,
           });
-        }
 
-        const bumped = round.bets.find((b) => b.userId === userId && !b.isBot)!;
-        broadcast('aviator:bet', {
-          roundId: round.id,
-          userId,
-          name: bumped.name,
-          bet: bumped.bet,
-          color: bumped.color,
-          autoCashout: bumped.autoCashout,
+          const now = Date.now();
+          return {
+            round: publicRound(round, now, userId),
+            balance: newBalance,
+            now,
+          };
         });
-
-        return {
-          round: publicRound(round, now, userId),
-          balance: newBalance,
-          now: Date.now(),
-        };
       } catch (err) {
         req.log.error(err);
         const msg = err instanceof Error ? err.message : String(err);
@@ -428,46 +542,53 @@ export async function registerAviatorRoutes(
     },
     async (req, reply) => {
       const userId = await getUserId(req);
-      const now = Date.now();
-      await tick(now, true);
 
       try {
         const roundId = String(req.body?.roundId ?? '');
-        const round = currentRound;
-        if (!round || round.id !== roundId) {
-          return jsonError(reply, 400, 'Раунд уже завершён');
-        }
-        if (round.phase !== 'flying') {
-          return jsonError(reply, 400, 'Сейчас забрать нельзя');
-        }
 
-        const bet = round.bets.find((b) => b.userId === userId && !b.isBot);
-        if (!bet) return jsonError(reply, 404, 'Ставка не найдена');
+        return await runExclusive(async () => {
+          await doTick(Date.now(), true);
 
-        if (bet.cashedOutMult !== null) {
-          // Уже забрал — идемпотентно возвращаем прежний результат.
+          const round = currentRound;
+          if (!round || round.id !== roundId) {
+            return jsonError(reply, 400, 'Раунд уже завершён');
+          }
+          if (round.phase !== 'flying') {
+            return jsonError(reply, 400, 'Сейчас забрать нельзя');
+          }
+
+          const bet = round.bets.find((b) => b.userId === userId && !b.isBot);
+          if (!bet) return jsonError(reply, 404, 'Ставка не найдена');
+
+          if (bet.cashedOutMult !== null) {
+            // Уже забрал — идемпотентно возвращаем прежний результат.
+            const now = Date.now();
+            return {
+              round: publicRound(round, now, userId),
+              balance: await getBalance(userId),
+              payout: bet.payout,
+              multiplier: bet.cashedOutMult,
+              now,
+            };
+          }
+
+          const now = Date.now();
+          const mult = liveMultiplier(round, now);
+          // Строго до точки краша: при equality самолёт уже «улетел».
+          if (mult < MIN_CASHOUT || mult >= round.crashMult || now >= round.crashAtWall) {
+            return jsonError(reply, 400, 'Опоздали — самолёт улетел');
+          }
+
+          const payout = await settleCashout(bet, mult);
+          const after = Date.now();
           return {
-            round: publicRound(round, Date.now(), userId),
+            round: publicRound(round, after, userId),
             balance: await getBalance(userId),
-            payout: bet.payout,
-            multiplier: bet.cashedOutMult,
-            now: Date.now(),
+            payout,
+            multiplier: mult,
+            now: after,
           };
-        }
-
-        const mult = liveMultiplier(round, Date.now());
-        if (mult < MIN_CASHOUT || mult >= round.crashMult) {
-          return jsonError(reply, 400, 'Опоздали — самолёт улетел');
-        }
-
-        const payout = await settleCashout(bet, mult);
-        return {
-          round: publicRound(round, Date.now(), userId),
-          balance: await getBalance(userId),
-          payout,
-          multiplier: mult,
-          now: Date.now(),
-        };
+        });
       } catch (err) {
         req.log.error(err);
         const msg = err instanceof Error ? err.message : String(err);
@@ -516,22 +637,17 @@ export async function registerAviatorRoutes(
     );
   }
 
-  // ── Driver-loop: двигает фазы и вещает aviator:tick во время полёта ────────
+  // ── Driver-loop: двигает фазы раунда ──────────────────────────────────────
+  // Множитель по проводам НЕ гоняем: клиент считает его сам по той же кривой от
+  // startedAt (см. lib/aviatorOdds.ts), а сервер шлёт только смены фаз, ставки,
+  // кэшауты и краш. Это убирает ~5 сообщений/сек на каждого зрителя.
   const loop = setInterval(() => {
     const now = Date.now();
     // Работаем только когда есть аудитория (сокеты) или живой раунд с игроками —
     // иначе игра «спит» и создаётся лениво по REST-запросу.
     const active = sockets.size > 0 || (currentRound && currentRound.bets.some((b) => !b.isBot));
     if (!active && !currentRound) return;
-    void tick(now, sockets.size > 0).then(() => {
-      if (currentRound?.phase === 'flying') {
-        broadcast('aviator:tick', {
-          roundId: currentRound.id,
-          multiplier: liveMultiplier(currentRound, Date.now()),
-          elapsedMs: Date.now() - currentRound.startedAt,
-        });
-      }
-    });
+    void tick(now, sockets.size > 0);
   }, LOOP_INTERVAL_MS);
   loop.unref?.();
 

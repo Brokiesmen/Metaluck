@@ -18,14 +18,22 @@ export {
   demoMineRushCashout,
 } from './minerush';
 export { resetDemoArena, demoArenaState, demoArenaBet } from './arena';
+export {
+  resetDemoAviator,
+  demoAviatorState,
+  demoAviatorBet,
+  demoAviatorCashout,
+} from './aviator';
 
 import { resetDemoBlackjack } from './blackjack';
 import { resetDemoMineRush } from './minerush';
 import { resetDemoArena } from './arena';
+import { resetDemoAviator } from './aviator';
 
 /** Clear in-memory demo game sessions when toggling demo on/off. */
 export function resetAllDemoSessions(): void {
   resetDemoBlackjack();
   resetDemoMineRush();
   resetDemoArena();
+  resetDemoAviator();
 }
