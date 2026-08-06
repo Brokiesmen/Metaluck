@@ -2,6 +2,8 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import crypto from 'crypto';
 import { applyHouseEdge } from './houseEdge.js';
 import { getProfile, addBalance, tryDeductBalance } from './supabaseStore.js';
+import { onGamePlayXp, onGameWinXp } from './progressAwards.js';
+import { XP } from './xp.js';
 
 /**
  * «Арена» — общий джекпот-раунд:
@@ -16,8 +18,8 @@ import { getProfile, addBalance, tryDeductBalance } from './supabaseStore.js';
  * клиентов (~1 раз/сек) двигает раунд вовремя.
  */
 
-const ALLOWED_BETS = [5, 10, 25, 50, 100] as const;
-const MAX_PLAYERS = 8;
+const ALLOWED_BETS = [1, 5, 10, 25, 50, 100] as const;
+const MAX_PLAYERS = 5;
 const MAX_TOTAL_BET_PER_PLAYER = 500;
 
 const BETTING_WINDOW_MS = 20_000;
@@ -27,8 +29,28 @@ const MAX_BETTING_WINDOW_MS = 45_000;
 const SPIN_MS = 4_500;
 const RESULT_SHOW_MS = 6_000;
 
-const BOT_ID = -1;
-const BOT_NAME = '🤖 Бот';
+const BOT_NAMES = [
+  'ShadowFox',
+  'NeonWolf',
+  'StarHunter',
+  'LuckyAce',
+  'FrostBite',
+  'NightOwl',
+  'GoldRush',
+  'ViperX',
+  'CosmoKid',
+  'BlazeRun',
+  'SilkShot',
+  'ZeroGravity',
+  'PixelKing',
+  'IronPulse',
+  'NovaSpin',
+  'QuickDraw',
+  'MoonJack',
+  'CrystalBet',
+  'TurboLynx',
+  'PhantomAce',
+] as const;
 
 const PLAYER_COLORS = [
   '#5eaee6', '#ff9f43', '#2ecc71', '#e74c3c',
@@ -117,16 +139,38 @@ function angleInsideSegment(round: ArenaRound, userId: number): number {
   return seg.startDeg + pad + usable * r;
 }
 
+function pickBotName(round: ArenaRound): string {
+  const used = new Set(round.players.map((p) => p.name));
+  const free = BOT_NAMES.filter((n) => !used.has(n));
+  const pool = free.length > 0 ? free : [...BOT_NAMES];
+  return pool[crypto.randomInt(0, pool.length)];
+}
+
+function nextBotId(round: ArenaRound): number {
+  const botCount = round.players.filter((p) => p.isBot).length;
+  return -1 - botCount;
+}
+
 function makeBot(round: ArenaRound): ArenaPlayer {
-  const base = Math.max(5, Math.round(pot(round) * (0.5 + crypto.randomInt(0, 60) / 100)));
-  const bet = Math.min(200, base);
+  const bet = ALLOWED_BETS[crypto.randomInt(0, ALLOWED_BETS.length)];
   return {
-    userId: BOT_ID,
-    name: BOT_NAME,
+    userId: nextBotId(round),
+    name: pickBotName(round),
     bet,
     color: PLAYER_COLORS[round.players.length % PLAYER_COLORS.length],
     isBot: true,
   };
+}
+
+/** Добираем ботов до 2–5 участников со случайными именами и ставками. */
+function fillBots(round: ArenaRound): void {
+  const free = MAX_PLAYERS - round.players.length;
+  if (free <= 0 || round.players.length === 0) return;
+  const minAdd = round.players.length < 2 ? 1 : 0;
+  const add = minAdd + crypto.randomInt(0, free - minAdd + 1);
+  for (let i = 0; i < add; i++) {
+    round.players.push(makeBot(round));
+  }
 }
 
 /** Ленивые переходы фаз; вызывается на каждом запросе. */
@@ -135,9 +179,7 @@ async function tick(now = Date.now()): Promise<void> {
   if (!round) return;
 
   if (round.phase === 'betting' && round.players.length > 0 && now >= round.bettingEndsAt) {
-    if (round.players.length === 1) {
-      round.players.push(makeBot(round));
-    }
+    fillBots(round);
     const winner = pickWinner(round);
     round.winnerId = winner.userId;
     round.winnerAngleDeg = angleInsideSegment(round, winner.userId);
@@ -156,6 +198,7 @@ async function tick(now = Date.now()): Promise<void> {
     const winner = round.players.find((p) => p.userId === round.winnerId);
     if (winner && !winner.isBot && round.payout > 0) {
       await addBalance(winner.userId, round.payout);
+      await onGameWinXp(winner.userId, XP.ARENA_WIN, 'arena');
     }
   }
 
@@ -266,6 +309,7 @@ export function registerArenaRoutes(
         if (newBalance === null) {
           return jsonError(reply, 400, 'Недостаточно звёзд');
         }
+        await onGamePlayXp(userId, 'arena');
 
         if (existing) {
           existing.bet += bet;
@@ -278,6 +322,10 @@ export function registerArenaRoutes(
             color: PLAYER_COLORS[round.players.length % PLAYER_COLORS.length],
             isBot: false,
           });
+          // Первому живому игроку сразу подселяем ботов, чтобы колесо не было пустым
+          if (round.players.filter((p) => !p.isBot).length === 1 && round.players.every((p) => !p.isBot)) {
+            fillBots(round);
+          }
           // Новому участнику оставляем время увидеть раунд
           const minEnd = now + MIN_WINDOW_AFTER_JOIN_MS;
           const maxEnd = round.createdAt + MAX_BETTING_WINDOW_MS;

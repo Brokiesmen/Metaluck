@@ -10,7 +10,7 @@ interface Props {
   onBalanceUpdate: (balance: number) => void;
 }
 
-const BETS = [5, 10, 25, 50, 100] as const;
+const BETS = [1, 5, 10, 25, 50, 100] as const;
 type BetAmount = (typeof BETS)[number];
 
 const POLL_MS = 900;

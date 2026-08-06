@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../api';
 import type { Case, Prize } from '../types';
 import { useSettings } from '../settings/SettingsContext';
+import { isDemoMode } from '../demo';
 import { StripOpener } from './StripOpener';
 import { CaseGrid } from './CaseGrid';
 import { PrizesGrid } from './PrizesGrid';
@@ -23,7 +24,7 @@ function prizeScore(p: Prize): number {
     if (p.name.includes('3'))      return  50_000;
     return 10_000;
   }
-  if (p.stars) return p.stars; // 25 / 50 / 100 / 500 / 1000
+  if (p.stars) return p.stars;
   const r: Record<string, number> = { gold: 800, purple: 400, blue: 200, gray: 50 };
   return r[p.rarity] ?? 0;
 }
@@ -43,10 +44,11 @@ export function CaseGame({
   const [isAnimating, setIsAnimating] = useState(false);
   const [previewKey, setPreviewKey] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  /** Баланс/кейсы обновляем ПОСЛЕ анимации — иначе App ререндерится в момент старта спина. */
+  const pendingBalanceRef = useRef<number | null>(null);
 
   const freeCase = useMemo(() => cases.find(c => c.isFree) ?? null, [cases]);
 
-  /** Топ-3 приза по ценности — только они крутятся в рулетке и показываются в витрине */
   const topPrizes = useMemo(() => {
     if (!prizes.length) return prizes;
     return [...prizes]
@@ -68,28 +70,38 @@ export function CaseGame({
     setSelectedCase(freeCase ?? cases[0] ?? null);
   }, [forceSelectFreeSignal, cases, freeCase]);
 
+  const flushPendingBalance = useCallback(() => {
+    if (pendingBalanceRef.current == null) return;
+    const bal = pendingBalanceRef.current;
+    pendingBalanceRef.current = null;
+    onBalanceUpdate(bal);
+    onCasesReload();
+  }, [onBalanceUpdate, onCasesReload]);
+
   const handleOpen = useCallback(async () => {
     if (!selectedCase || isAnimating) return;
     setError(null);
     setIsAnimating(true);
     setWinner(null);
+    pendingBalanceRef.current = null;
 
     try {
       const { prize, newBalance } = await api.openCase(selectedCase.id);
-      onBalanceUpdate(newBalance);
+      if (!isDemoMode()) pendingBalanceRef.current = newBalance;
       setWinner(prize);
-      onCasesReload();
     } catch (err) {
+      pendingBalanceRef.current = null;
       setError(err instanceof Error ? err.message : t.cases.serverError);
       setIsAnimating(false);
     }
-  }, [isAnimating, onBalanceUpdate, onCasesReload, selectedCase, t.cases.serverError]);
+  }, [isAnimating, selectedCase, t.cases.serverError]);
 
   const handleDone = useCallback((prize: Prize) => {
     setIsAnimating(false);
     setWinner(null);
     setResultPrize(prize);
-  }, []);
+    requestAnimationFrame(() => flushPendingBalance());
+  }, [flushPendingBalance]);
 
   const handleCloseResult = useCallback(() => {
     setResultPrize(null);

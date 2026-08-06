@@ -8,6 +8,8 @@ import {
 } from './blackjackEngine.js';
 import { getSupabase, parseJsonField } from './supabaseStore.js';
 import { applyHouseEdge } from './houseEdge.js';
+import { onGamePlayXp, onGameWinXp } from './progressAwards.js';
+import { XP } from './xp.js';
 
 const ALLOWED_BETS = [5, 10, 25, 50, 100] as const;
 
@@ -297,6 +299,7 @@ export function registerBlackjackRoutes(
 
         const stakeTaken = balance - bet;
         await setBalance(userId, stakeTaken);
+        await onGamePlayXp(userId, 'blackjack');
 
         let state: BjRowState = {
           bet,
@@ -326,6 +329,9 @@ export function registerBlackjackRoutes(
               result: 'blackjack',
               payout: win,
             };
+            await writeState(userId, state);
+            await onGameWinXp(userId, XP.BJ_BLACKJACK, 'blackjack');
+            return rowToResponse(state, await getBalance(userId));
           }
           await writeState(userId, state);
           return rowToResponse(state, await getBalance(userId));
@@ -392,6 +398,8 @@ export function registerBlackjackRoutes(
         dl = played.dealer;
         const { result, payout } = settleRound(state.bet, player, dl);
         await setBalance(userId, (await getBalance(userId)) + payout);
+        if (result === 'win') await onGameWinXp(userId, XP.BJ_WIN, 'blackjack');
+        if (result === 'blackjack') await onGameWinXp(userId, XP.BJ_BLACKJACK, 'blackjack');
         const done: BjRowState = {
           ...revealed,
           deck: dk,
@@ -443,6 +451,8 @@ export function registerBlackjackRoutes(
       dealer = played.dealer;
       const { result, payout } = settleRound(state.bet, player, dealer);
       await setBalance(userId, (await getBalance(userId)) + payout);
+      if (result === 'win') await onGameWinXp(userId, XP.BJ_WIN, 'blackjack');
+      if (result === 'blackjack') await onGameWinXp(userId, XP.BJ_BLACKJACK, 'blackjack');
       const done: BjRowState = {
         ...revealed,
         deck,
@@ -498,6 +508,8 @@ export function registerBlackjackRoutes(
         result = settled.result;
         payout = settled.payout;
         if (payout > 0) await setBalance(userId, (await getBalance(userId)) + payout);
+        if (result === 'win') await onGameWinXp(userId, XP.BJ_WIN, 'blackjack');
+        if (result === 'blackjack') await onGameWinXp(userId, XP.BJ_BLACKJACK, 'blackjack');
       }
 
       const done: BjRowState = {

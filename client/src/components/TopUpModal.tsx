@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api';
 import { StarIcon } from './StarIcon';
+import { ModalShell } from './ModalShell';
 import { useSettings } from '../settings/SettingsContext';
 import type { TopupPackage } from '../types';
 
@@ -86,53 +87,52 @@ export function TopUpModal({ onClose, onBalanceUpdate, isTelegram, openInvoice }
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-sheet topup-sheet" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-handle" />
+    <ModalShell onClose={onClose} sheetClassName="topup-sheet">
+      <div className="modal-handle" />
 
-        {done ? (
-          <div className="topup-success">
-            <div className="topup-success-icon">✓</div>
-            <div className="topup-success-title">{t.topup.successTitle}</div>
-            <div className="topup-success-amount num">
-              +{done.amount.toLocaleString(locale)} <StarIcon size={22} />
-            </div>
-            <button className="tg-btn" onClick={onClose}>{t.topup.successOk}</button>
+      {done ? (
+        <div className="topup-success">
+          <div className="topup-success-icon">✓</div>
+          <div className="topup-success-title">{t.topup.successTitle}</div>
+          <div className="topup-success-amount num">
+            +{done.amount.toLocaleString(locale)} <StarIcon size={22} />
           </div>
-        ) : (
-          <div>
-            <div className="topup-header">
-              <div className="topup-title">{t.topup.title}</div>
-              <div className="topup-subtitle">{t.topup.viaTelegram}</div>
-            </div>
-
-            {error && <div className="error-banner" style={{ margin: '0 0 12px' }}>{error}</div>}
-            {loadingPackages && <div className="loading">{t.topup.loadingPackages}</div>}
-
-            {!loadingPackages && (
-              <div className="topup-grid">
-                {packages.map((pkg) => (
-                  <button
-                    key={pkg.id}
-                    className={`topup-pkg${pkg.popular ? ' topup-pkg--popular' : ''}`}
-                    onClick={() => handleBuy(pkg)}
-                    disabled={loading}
-                  >
-                    {pkg.popular && <div className="topup-pkg-badge">{t.topup.hit}</div>}
-                    <div className="topup-pkg-amount num">
-                      {pkg.balanceAmount.toLocaleString(locale)} <StarIcon size={18} animate={false} />
-                    </div>
-                    <div className="topup-pkg-label">{pkg.label}</div>
-                    <div className="topup-pkg-bonus num">{pkg.xtrAmount} XTR</div>
-                  </button>
-                ))}
-              </div>
-            )}
-
-            <button className="topup-cancel" onClick={onClose}>{t.topup.cancel}</button>
+          <button type="button" className="tg-btn modal-action" onClick={onClose}>{t.topup.successOk}</button>
+        </div>
+      ) : (
+        <div className="modal-sheet-body">
+          <div className="topup-header">
+            <div className="topup-title">{t.topup.title}</div>
+            <div className="topup-subtitle">{t.topup.viaTelegram}</div>
           </div>
-        )}
-      </div>
-    </div>
+
+          {error && <div className="error-banner" style={{ margin: '0 0 12px' }}>{error}</div>}
+          {loadingPackages && <div className="loading">{t.topup.loadingPackages}</div>}
+
+          {!loadingPackages && (
+            <div className="topup-grid">
+              {packages.map((pkg) => (
+                <button
+                  key={pkg.id}
+                  type="button"
+                  className={`topup-pkg${pkg.popular ? ' topup-pkg--popular' : ''}`}
+                  onClick={() => handleBuy(pkg)}
+                  disabled={loading}
+                >
+                  {pkg.popular && <div className="topup-pkg-badge">{t.topup.hit}</div>}
+                  <div className="topup-pkg-amount num">
+                    {pkg.balanceAmount.toLocaleString(locale)} <StarIcon size={18} animate={false} />
+                  </div>
+                  <div className="topup-pkg-label">{pkg.label}</div>
+                  <div className="topup-pkg-bonus num">{pkg.xtrAmount} XTR</div>
+                </button>
+              ))}
+            </div>
+          )}
+
+          <button type="button" className="topup-cancel modal-action" onClick={onClose}>{t.topup.cancel}</button>
+        </div>
+      )}
+    </ModalShell>
   );
 }

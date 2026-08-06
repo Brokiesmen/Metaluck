@@ -7,6 +7,7 @@ export interface Prize {
   icon: string;
   stars?: number;  // set for star prizes
   isPremium?: boolean; // set for Telegram Premium
+  coupons?: number; // premium-wheel / free-wheel coupon prizes
 }
 
 export interface WeightedPrize extends Prize {

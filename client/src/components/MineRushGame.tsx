@@ -4,43 +4,25 @@ import type { MineRushDifficulty, MineRushGameView } from '../types';
 import { useSettings } from '../settings/SettingsContext';
 import { tf } from '../i18n/tf';
 import { StarIcon } from './StarIcon';
+import {
+  ALLOWED_BETS,
+  formatNetMult,
+  mineCountFor,
+  payoutForCashout,
+  payoutForWin,
+} from '../lib/mineRushOdds';
 
 interface Props {
   onBack: () => void;
   onBalanceUpdate: (balance: number) => void;
 }
 
-const BETS = [5, 10, 25, 50] as const;
-const DIFFICULTIES: { id: MineRushDifficulty; mines: number }[] = [
-  { id: 'easy', mines: 10 },
-  { id: 'medium', mines: 15 },
-  { id: 'hard', mines: 20 },
+const BETS = ALLOWED_BETS;
+const DIFFICULTIES: { id: MineRushDifficulty }[] = [
+  { id: 'easy' },
+  { id: 'medium' },
+  { id: 'hard' },
 ];
-
-function formatTime(ms: number): string {
-  const totalSec = Math.max(0, Math.floor(ms / 1000));
-  const m = Math.floor(totalSec / 60);
-  const s = totalSec % 60;
-  return `${m}:${String(s).padStart(2, '0')}`;
-}
-
-function calcCashout(
-  bet: number,
-  score: number,
-  mineCount: number,
-  difficulty: MineRushDifficulty,
-): number {
-  const safe = 100 - mineCount;
-  if (score <= 0 || safe <= 0) return 0;
-  const progress = score / safe;
-  const mult = difficulty === 'easy' ? 1.2 : difficulty === 'medium' ? 1.6 : 2.1;
-  return Math.floor(bet * (0.5 + progress * mult) * 0.75);
-}
-
-function calcWinPayout(bet: number, difficulty: MineRushDifficulty): number {
-  const mult = difficulty === 'easy' ? 2.5 : difficulty === 'medium' ? 3.5 : 5;
-  return Math.floor(bet * mult * 0.75);
-}
 
 function parseKey(key: string): { x: number; y: number } {
   const [xs, ys] = key.split(',');
@@ -57,53 +39,37 @@ export function MineRushGame({ onBack, onBalanceUpdate }: Props) {
   const [err, setErr] = useState<string | null>(null);
   const [exploded, setExploded] = useState<string | null>(null);
   const [lastPayout, setLastPayout] = useState<number | null>(null);
-  const [now, setNow] = useState(Date.now());
-  const [timerStart, setTimerStart] = useState<number | null>(null);
-  const [frozenMs, setFrozenMs] = useState<number | null>(null);
 
   const active = game?.status === 'active';
   const finished = game && game.status !== 'active';
 
   const cashoutAmount = useMemo(() => {
     if (!game || !active) return 0;
-    return calcCashout(game.bet, game.score, game.mineCount, game.difficulty);
+    return payoutForCashout(game.bet, game.score, game.mineCount, game.difficulty);
   }, [active, game]);
 
   const winPayout = useMemo(() => {
     if (!game) return 0;
-    return calcWinPayout(game.bet, game.difficulty);
+    return payoutForWin(game.bet, game.difficulty);
   }, [game]);
+
+  const headerMult = game
+    ? formatNetMult(game.bet, game.difficulty)
+    : formatNetMult(bet, difficulty);
+
+  const previewMines = mineCountFor(difficulty, bet);
+  const previewMult = formatNetMult(bet, difficulty);
+  const lobbyWinPayout = payoutForWin(bet, difficulty);
 
   useEffect(() => {
     api.mineRushState()
       .then((res) => {
-        if (res.game) {
-          setGame(res.game);
-          if (res.game.score > 0) setTimerStart(res.game.startedAt);
-        }
+        if (res.game) setGame(res.game);
         onBalanceUpdate(res.balance);
       })
       .catch(() => setErr(t.mr.loadError));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onBalanceUpdate]);
-
-  useEffect(() => {
-    if (!active || timerStart == null) return;
-    const id = setInterval(() => setNow(Date.now()), 250);
-    return () => clearInterval(id);
-  }, [active, timerStart]);
-
-  useEffect(() => {
-    if (finished && timerStart != null && frozenMs == null) {
-      setFrozenMs(Math.max(0, Date.now() - timerStart));
-    }
-  }, [finished, timerStart, frozenMs]);
-
-  const elapsed = useMemo(() => {
-    if (frozenMs != null) return formatTime(frozenMs);
-    if (timerStart == null) return '0:00';
-    return formatTime(now - timerStart);
-  }, [frozenMs, now, timerStart]);
 
   const start = useCallback(async () => {
     if (busy) return;
@@ -111,8 +77,6 @@ export function MineRushGame({ onBack, onBalanceUpdate }: Props) {
     setErr(null);
     setExploded(null);
     setLastPayout(null);
-    setTimerStart(null);
-    setFrozenMs(null);
     try {
       const res = await api.mineRushStart(difficulty, bet);
       setGame(res);
@@ -136,24 +100,16 @@ export function MineRushGame({ onBack, onBalanceUpdate }: Props) {
         onBalanceUpdate(res.balance);
       } else {
         const res = await api.mineRushReveal(game.gameId, x, y);
-        let newTimerStart = timerStart;
-        if (res.score > 0 && newTimerStart == null) {
-          newTimerStart = Date.now();
-          setTimerStart(newTimerStart);
-        }
         setGame(res);
         onBalanceUpdate(res.balance);
         if (res.exploded) setExploded(res.exploded);
-        if (res.status !== 'active') {
-          setFrozenMs(newTimerStart ? Math.max(0, Date.now() - newTimerStart) : 0);
-        }
       }
     } catch (e) {
       setErr(e instanceof Error ? e.message : t.mr.moveError);
     } finally {
       setBusy(false);
     }
-  }, [busy, flagMode, game, onBalanceUpdate, timerStart, t.mr.moveError]);
+  }, [busy, flagMode, game, onBalanceUpdate, t.mr.moveError]);
 
   const cashout = useCallback(async () => {
     if (!game || busy || game.status !== 'active') return;
@@ -161,7 +117,6 @@ export function MineRushGame({ onBack, onBalanceUpdate }: Props) {
     setErr(null);
     try {
       const res = await api.mineRushCashout(game.gameId);
-      if (timerStart != null) setFrozenMs(Math.max(0, Date.now() - timerStart));
       setGame(res);
       onBalanceUpdate(res.balance);
       setLastPayout(res.payout);
@@ -170,14 +125,12 @@ export function MineRushGame({ onBack, onBalanceUpdate }: Props) {
     } finally {
       setBusy(false);
     }
-  }, [busy, game, onBalanceUpdate, timerStart, t.mr.cashError]);
+  }, [busy, game, onBalanceUpdate, t.mr.cashError]);
 
   const reset = useCallback(() => {
     setGame(null);
     setExploded(null);
     setLastPayout(null);
-    setTimerStart(null);
-    setFrozenMs(null);
     setErr(null);
   }, []);
 
@@ -199,9 +152,9 @@ export function MineRushGame({ onBack, onBalanceUpdate }: Props) {
           <span className="mr-stat-label">{t.mr.score}</span>
           <span className="mr-stat-value num">{game?.score ?? 0}</span>
         </div>
-        <div className="mr-stat mr-stat--timer">
-          <span className="mr-stat-label">{t.mr.time}</span>
-          <span className="mr-stat-value num">{elapsed}</span>
+        <div className="mr-stat mr-stat--mult">
+          <span className="mr-stat-label">{t.mr.multLabel}</span>
+          <span className="mr-stat-value num">{headerMult}x</span>
         </div>
         <div className="mr-stat mr-stat--balance">
           <span className="mr-stat-label">{t.mr.balance}</span>
@@ -297,7 +250,7 @@ export function MineRushGame({ onBack, onBalanceUpdate }: Props) {
                   {game.status === 'cashed' && t.mr.cashed}
                 </div>
                 <div className="mr-result-sheet-meta">
-                  <span>{tf(t.mr.timeLabel, { t: elapsed })}</span>
+                  <span>{tf(t.mr.mult, { n: formatNetMult(game.bet, game.difficulty) })}</span>
                   <span>{tf(t.mr.opened, { n: game.score })}</span>
                 </div>
                 {(game.status === 'cashed' && lastPayout != null) || game.status === 'won' ? (
@@ -328,7 +281,7 @@ export function MineRushGame({ onBack, onBalanceUpdate }: Props) {
                   disabled={busy}
                 >
                   {t.mr[d.id]}
-                  <span className="mr-diff-mines">{d.mines}💣</span>
+                  <span className="mr-diff-mines">{mineCountFor(d.id, bet)}💣</span>
                 </button>
               ))}
             </div>
@@ -341,9 +294,15 @@ export function MineRushGame({ onBack, onBalanceUpdate }: Props) {
                   onClick={() => setBet(b)}
                   disabled={busy}
                 >
-                  {b}
+                  <span className="mr-bet-amount num">{b}</span>
+                  <span className="mr-bet-mult">{formatNetMult(b, difficulty)}x</span>
                 </button>
               ))}
+            </div>
+            <div className="mr-odds-hint">
+              <span>{tf(t.mr.mines, { n: previewMines })}</span>
+              <span>{tf(t.mr.mult, { n: previewMult })}</span>
+              <span>{tf(t.mr.max, { n: lobbyWinPayout })} <StarIcon size={12} /></span>
             </div>
             <button
               type="button"
@@ -388,6 +347,7 @@ export function MineRushGame({ onBack, onBalanceUpdate }: Props) {
             </div>
             <div className="mr-meta">
               <span>{tf(t.mr.stake, { n: game.bet })} <StarIcon size={12} /></span>
+              <span>{tf(t.mr.mult, { n: formatNetMult(game.bet, game.difficulty) })}</span>
               <span>{tf(t.mr.mines, { n: game.mineCount })}</span>
               <span>{tf(t.mr.max, { n: winPayout })} <StarIcon size={12} /></span>
             </div>

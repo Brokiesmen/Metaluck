@@ -3,6 +3,7 @@ import confetti from 'canvas-confetti';
 import { api } from '../api';
 import { GIFT_IMAGES, RARITY } from '../data';
 import { ResultModal } from './ResultModal';
+import { FortuneWheel } from './FortuneWheel';
 import { useSettings } from '../settings/SettingsContext';
 import { tf } from '../i18n/tf';
 import type { Case, Prize } from '../types';
@@ -19,10 +20,25 @@ const DAILY_REWARDS = [
 
 function fmtTimer(ms: number) {
   if (ms <= 0) return '00:00:00';
-  const h = Math.floor(ms / 3600000);
+  const d = Math.floor(ms / 86400000);
+  const h = Math.floor((ms % 86400000) / 3600000);
   const m = Math.floor((ms % 3600000) / 60000);
   const s = Math.floor((ms % 60000) / 1000);
+  if (d > 0) {
+    return `${d}д ${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  }
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+}
+
+function fmtRemainLabel(
+  ms: number,
+  t: { daysHoursMinutes: string; hoursMinutes: string },
+): string {
+  const d = Math.floor(ms / 86400000);
+  const h = Math.floor((ms % 86400000) / 3600000);
+  const m = Math.floor((ms % 3600000) / 60000);
+  if (d > 0) return tf(t.daysHoursMinutes, { d, h, m });
+  return tf(t.hoursMinutes, { h, m });
 }
 
 interface Props {
@@ -30,6 +46,11 @@ interface Props {
   cases: Case[];
   onBalanceUpdate: (b: number) => void;
   onGoToFreeCase: () => void;
+  isTelegram?: boolean;
+  openInvoice?: (
+    url: string,
+    callback?: (status: 'paid' | 'cancelled' | 'failed' | 'pending') => void,
+  ) => void;
 }
 
 const ORDER = { gold: 0, purple: 1, blue: 2, gray: 3 } as const;
@@ -88,8 +109,7 @@ function FreeCaseBanner({ freeCase, onOpen }: { freeCase: Case | undefined; onOp
   }, [freeCase?.nextFreeAt]);
 
   const available = freeCase?.freeAvailable ?? true;
-  const h = Math.floor(remaining / 3600000);
-  const m = Math.floor((remaining % 3600000) / 60000);
+  const remainLabel = fmtRemainLabel(remaining, t.daily);
 
   return (
     <div className={`free-case-banner${available ? ' free-case-banner--ready' : ''}`}>
@@ -97,7 +117,7 @@ function FreeCaseBanner({ freeCase, onOpen }: { freeCase: Case | undefined; onOp
       <div className="free-case-banner-body">
         <div className="free-case-banner-title">{t.daily.freeCase}</div>
         <div className="free-case-banner-sub">
-          {available ? t.daily.freeReady : `${t.daily.againIn} ${tf(t.daily.hoursMinutes, { h, m })}`}
+          {available ? t.daily.freeReady : `${t.daily.againIn} ${remainLabel}`}
         </div>
       </div>
       <button
@@ -122,15 +142,23 @@ function DailyCalendar({ onBalanceUpdate }: { onBalanceUpdate: (b: number) => vo
   const [timeLeft, setTimeLeft] = useState(0);
   const [result, setResult] = useState<{ prize: Prize; newBalance: number; day: number } | null>(null);
 
-  useEffect(() => {
+  const refreshStatus = () => {
     api.getDailyStatus().then(setStatus).catch(() => {});
+  };
+
+  useEffect(() => {
+    refreshStatus();
   }, []);
 
   useEffect(() => {
     if (!status || status.canClaim || !status.nextClaimAt) return;
-    const tick = () => setTimeLeft(Math.max(0, status.nextClaimAt - Date.now()));
+    const tick = () => {
+      const left = Math.max(0, status.nextClaimAt - Date.now());
+      setTimeLeft(left);
+      if (left <= 0) refreshStatus();
+    };
     tick();
-    const id = setInterval(tick, 10000);
+    const id = setInterval(tick, 1000);
     return () => clearInterval(id);
   }, [status]);
 
@@ -141,13 +169,14 @@ function DailyCalendar({ onBalanceUpdate }: { onBalanceUpdate: (b: number) => vo
       const res = await api.claimDaily();
       setResult(res as { prize: Prize; newBalance: number; day: number });
       onBalanceUpdate(res.newBalance);
+      refreshStatus();
       if (res.prize.rarity === 'gold') {
         confetti({
           particleCount: 150,
           spread: 100,
           origin: { y: 0.5 },
           colors: ['#ffd700', '#ffaa00', '#ff8800', '#e8c06a'],
-          zIndex: 9999,
+          zIndex: 150,
         });
         setTimeout(
           () =>
@@ -156,12 +185,12 @@ function DailyCalendar({ onBalanceUpdate }: { onBalanceUpdate: (b: number) => vo
               spread: 70,
               origin: { y: 0.4 },
               colors: ['#ffd700', '#fff'],
-              zIndex: 9999,
+              zIndex: 150,
             }),
           400,
         );
       } else {
-        confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 }, zIndex: 9999 });
+        confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 }, zIndex: 150 });
       }
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : t.daily.error);
@@ -169,9 +198,6 @@ function DailyCalendar({ onBalanceUpdate }: { onBalanceUpdate: (b: number) => vo
       setClaiming(false);
     }
   };
-
-  const h = Math.floor(timeLeft / 3600000);
-  const m = Math.floor((timeLeft % 3600000) / 60000);
 
   return (
     <>
@@ -211,23 +237,41 @@ function DailyCalendar({ onBalanceUpdate }: { onBalanceUpdate: (b: number) => vo
       ) : timeLeft > 0 ? (
         <div className="daily-countdown-row">
           <span className="daily-countdown-label">{t.daily.nextGiftIn}</span>
-          <span className="daily-countdown-time num">{tf(t.daily.hoursMinutes, { h, m })}</span>
+          <span className="daily-countdown-time num">{fmtRemainLabel(timeLeft, t.daily)}</span>
         </div>
       ) : (
         <div className="daily-countdown-row">{t.common.loading}</div>
       )}
 
-      <ResultModal prize={result?.prize ?? null} onClose={() => setResult(null)} />
+      <ResultModal
+        prize={result?.prize ?? null}
+        onClose={() => {
+          setResult(null);
+          refreshStatus();
+        }}
+      />
     </>
   );
 }
 
-export function DailyTab({ prizes, cases, onBalanceUpdate, onGoToFreeCase }: Props) {
+export function DailyTab({
+  prizes,
+  cases,
+  onBalanceUpdate,
+  onGoToFreeCase,
+  isTelegram,
+  openInvoice,
+}: Props) {
   const freeCase = cases.find((c) => c.isFree);
 
   return (
     <div className="daily-tab">
       <FreeCaseBanner freeCase={freeCase} onOpen={onGoToFreeCase} />
+      <FortuneWheel
+        onBalanceUpdate={onBalanceUpdate}
+        isTelegram={isTelegram}
+        openInvoice={openInvoice}
+      />
       <DailyCalendar onBalanceUpdate={onBalanceUpdate} />
       <PrizesShowcase prizes={prizes} />
     </div>

@@ -4,9 +4,12 @@ import { RARITY, GIFT_IMAGES } from '../data';
 import { StarIcon } from './StarIcon';
 import { TopUpModal } from './TopUpModal';
 import { WithdrawModal } from './WithdrawModal';
+import { RulesModal } from './RulesModal';
 import { ReferralCard } from './ReferralCard';
+import { ModalShell } from './ModalShell';
 import { useSettings } from '../settings/SettingsContext';
-import type { TelegramUser, HistoryEntry, Rarity } from '../types';
+import { tf } from '../i18n/tf';
+import type { TelegramUser, HistoryEntry, Rarity, ProgressView } from '../types';
 
 interface Props {
   user: TelegramUser;
@@ -49,44 +52,42 @@ function GiftDetail({ entry, onClose, locale, rarityLabel, labels }: GiftDetailP
     });
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-sheet gift-detail-sheet" onClick={e => e.stopPropagation()}>
-        <div className="modal-handle" />
+    <ModalShell onClose={onClose} sheetClassName="gift-detail-sheet">
+      <div className="modal-handle" />
 
-        <div className="modal-icon-wrap"
-          style={{ borderColor: r.border, color: r.border }}>
-          {img?.animated
-            ? <img src={img.animated} alt={entry.prize.name} className="modal-anim" loading="lazy" />
-            : img
-              ? <img src={img.image} alt={entry.prize.name} className="modal-anim" loading="lazy" />
-              : <span className="modal-icon">{entry.prize.icon}</span>}
-        </div>
-
-        <div className="modal-rarity" style={{ color: r.text }}>{rarityLabel(entry.prize.rarity)}</div>
-        <div className="modal-name">{entry.prize.name}</div>
-
-        <div className="gift-detail-stats">
-          <div className="gift-stat-row">
-            <span className="gift-stat-label">{labels.rarity}</span>
-            <span className="gift-stat-value num">
-              {Array.from({ length: 4 }).map((_, i) => (
-                <span key={i} style={{ opacity: i < stars ? 1 : 0.2 }}>●</span>
-              ))}
-            </span>
-          </div>
-          <div className="gift-stat-row">
-            <span className="gift-stat-label">{labels.from}</span>
-            <span className="gift-stat-value">{entry.caseName}</span>
-          </div>
-          <div className="gift-stat-row">
-            <span className="gift-stat-label">{labels.date}</span>
-            <span className="gift-stat-value num">{formatDate(entry.timestamp)}</span>
-          </div>
-        </div>
-
-        <button className="tg-btn" onClick={onClose}>{labels.close}</button>
+      <div className="modal-icon-wrap"
+        style={{ borderColor: r.border, color: r.border }}>
+        {img?.animated
+          ? <img src={img.animated} alt={entry.prize.name} className="modal-anim" loading="lazy" />
+          : img
+            ? <img src={img.image} alt={entry.prize.name} className="modal-anim" loading="lazy" />
+            : <span className="modal-icon">{entry.prize.icon}</span>}
       </div>
-    </div>
+
+      <div className="modal-rarity" style={{ color: r.text }}>{rarityLabel(entry.prize.rarity)}</div>
+      <div className="modal-name">{entry.prize.name}</div>
+
+      <div className="gift-detail-stats">
+        <div className="gift-stat-row">
+          <span className="gift-stat-label">{labels.rarity}</span>
+          <span className="gift-stat-value num">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <span key={i} style={{ opacity: i < stars ? 1 : 0.2 }}>●</span>
+            ))}
+          </span>
+        </div>
+        <div className="gift-stat-row">
+          <span className="gift-stat-label">{labels.from}</span>
+          <span className="gift-stat-value">{entry.caseName}</span>
+        </div>
+        <div className="gift-stat-row">
+          <span className="gift-stat-label">{labels.date}</span>
+          <span className="gift-stat-value num">{formatDate(entry.timestamp)}</span>
+        </div>
+      </div>
+
+      <button type="button" className="tg-btn modal-action" onClick={onClose}>{labels.close}</button>
+    </ModalShell>
   );
 }
 
@@ -110,6 +111,9 @@ export function Cabinet({ user, balance, isDev, onBalanceUpdate, openInvoice, is
   const [selected, setSelected]   = useState<HistoryEntry | null>(null);
   const [showTopUp, setShowTopUp] = useState(false);
   const [showWithdraw, setShowWithdraw] = useState(false);
+  const [showRules, setShowRules] = useState(false);
+  const [progress, setProgress] = useState<ProgressView | null>(null);
+  const [nowTick, setNowTick] = useState(() => Date.now());
 
   useEffect(() => {
     api.getHistory(0, PAGE_SIZE).then(res => {
@@ -119,7 +123,20 @@ export function Cabinet({ user, balance, isDev, onBalanceUpdate, openInvoice, is
       setFresh(true);
       writeCache(res.history);
     }).catch(() => setFresh(true));
+
+    api.getProgress().then(setProgress).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      const now = Date.now();
+      setNowTick(now);
+      if (progress?.tasksResetAt && now >= progress.tasksResetAt) {
+        api.getProgress().then(setProgress).catch(() => {});
+      }
+    }, 30_000);
+    return () => window.clearInterval(id);
+  }, [progress?.tasksResetAt]);
 
   const loadMore = async () => {
     if (loadingMore) return;
@@ -142,6 +159,36 @@ export function Cabinet({ user, balance, isDev, onBalanceUpdate, openInvoice, is
   const fullName = [user.first_name, user.last_name].filter(Boolean).join(' ');
   const rarityLabel = (r: Rarity) => t.rarity[r];
 
+  const taskLabel = (id: string) => {
+    switch (id) {
+      case 'daily_login': return t.cabinet.taskDailyLogin;
+      case 'open_case': return t.cabinet.taskOpenCase;
+      case 'open_paid_case': return t.cabinet.taskOpenPaidCase;
+      case 'claim_daily': return t.cabinet.taskClaimDaily;
+      case 'play_coinflip': return t.cabinet.taskPlayCoinflip;
+      case 'play_blackjack': return t.cabinet.taskPlayBlackjack;
+      case 'play_minerush': return t.cabinet.taskPlayMinerush;
+      case 'play_arena': return t.cabinet.taskPlayArena;
+      case 'win_game': return t.cabinet.taskWinGame;
+      case 'win_coinflip': return t.cabinet.taskWinCoinflip;
+      case 'win_blackjack': return t.cabinet.taskWinBlackjack;
+      case 'win_minerush': return t.cabinet.taskWinMinerush;
+      case 'win_arena': return t.cabinet.taskWinArena;
+      default: return id;
+    }
+  };
+
+  const tasksResetLeft = progress?.tasksResetAt
+    ? Math.max(0, progress.tasksResetAt - nowTick)
+    : 0;
+  const tasksResetText = (() => {
+    if (!tasksResetLeft) return '';
+    const h = Math.floor(tasksResetLeft / 3600000);
+    const m = Math.floor((tasksResetLeft % 3600000) / 60000);
+    if (h > 0) return `${h}ч ${m}м`;
+    return `${m}м`;
+  })();
+
   const formatDate = (ts: number) =>
     new Date(ts).toLocaleString(locale, {
       day: '2-digit', month: '2-digit',
@@ -155,6 +202,10 @@ export function Cabinet({ user, balance, isDev, onBalanceUpdate, openInvoice, is
     blue:   history.filter(e => e.prize.rarity === 'blue').length,
   };
 
+  const xpPct = progress
+    ? Math.min(100, Math.round((progress.xp / Math.max(1, progress.xpForNextLevel)) * 100))
+    : 0;
+
   return (
     <div className="cabinet">
 
@@ -162,12 +213,51 @@ export function Cabinet({ user, balance, isDev, onBalanceUpdate, openInvoice, is
         <div className="profile-row">
           <Avatar user={user} />
           <div className="profile-info">
-            <div className="profile-name">{fullName}</div>
+            <div className="profile-name-row">
+              <div className="profile-name">{fullName}</div>
+              {progress && (
+                <span className="level-badge">{t.cabinet.level} {progress.level}</span>
+              )}
+            </div>
             {user.username && <div className="profile-username">@{user.username}</div>}
             {isDev && <div className="dev-badge">{t.cabinet.devMode}</div>}
           </div>
         </div>
       </div>
+
+      {progress && (
+        <>
+          <div className="tg-section-title">{t.cabinet.xpLabel}</div>
+          <div className="tg-section">
+            <div className="xp-block">
+              <div className="xp-meta">
+                <span className="xp-current num">
+                  {progress.xp.toLocaleString(locale)} / {progress.xpForNextLevel.toLocaleString(locale)} XP
+                </span>
+                <span className="xp-hint">
+                  {tf(t.cabinet.xpToNext, { n: Math.max(0, progress.xpForNextLevel - progress.xp) })}
+                </span>
+              </div>
+              <div className="xp-bar" role="progressbar" aria-valuenow={xpPct} aria-valuemin={0} aria-valuemax={100}>
+                <div className="xp-bar-fill" style={{ width: `${xpPct}%` }} />
+              </div>
+            </div>
+            <div className="xp-tasks">
+              <div className="xp-tasks-title">{t.cabinet.tasks}</div>
+              {tasksResetText ? (
+                <div className="xp-tasks-reset">{tf(t.cabinet.tasksResetIn, { t: tasksResetText })}</div>
+              ) : null}
+              {progress.tasks.map(task => (
+                <div key={task.id} className={`xp-task${task.done ? ' done' : ''}`}>
+                  <span className="xp-task-check">{task.done ? '✓' : '○'}</span>
+                  <span className="xp-task-label">{taskLabel(task.id)}</span>
+                  {task.done && <span className="xp-task-done">{t.cabinet.done}</span>}
+                </div>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
 
       <div className="tg-section-title">{t.cabinet.balance}</div>
       <div className="tg-section">
@@ -187,11 +277,14 @@ export function Cabinet({ user, balance, isDev, onBalanceUpdate, openInvoice, is
               type="button"
               className="withdraw-inline-btn"
               onClick={() => setShowWithdraw(true)}
-              disabled={balance < 50}
+              disabled={balance < 100}
             >
               {t.cabinet.withdraw}
             </button>
           </div>
+          <button type="button" className="rules-inline-btn" onClick={() => setShowRules(true)}>
+            {t.rules.button}
+          </button>
         </div>
       </div>
 
@@ -304,6 +397,8 @@ export function Cabinet({ user, balance, isDev, onBalanceUpdate, openInvoice, is
           onBalanceUpdate={onBalanceUpdate}
         />
       )}
+
+      {showRules && <RulesModal onClose={() => setShowRules(false)} />}
     </div>
   );
 }

@@ -27,16 +27,20 @@ export function isLowEndDevice(): boolean {
  */
 export function stripConfig() {
   const mobile = isCoarsePointer();
+  const desktop = !mobile && typeof window !== 'undefined' && window.matchMedia('(min-width: 700px)').matches;
   const lowEnd = mobile && isLowEndDevice();
-  const total = lowEnd ? 28 : mobile ? 36 : 56;
-  const winnerIdx = Math.floor(total * 0.8);
+  // Короче лента = меньше GPU-тайлов при translate; на ПК можно длиннее и плавнее.
+  const total = lowEnd ? 22 : mobile ? 28 : desktop ? 52 : 40;
+  const winnerIdx = Math.floor(total * 0.78);
   const durationMs = prefersReducedMotion()
-    ? 4500
+    ? 2800
     : lowEnd
-      ? 6500
+      ? 4200
       : mobile
-        ? 7500
-        : 9500;
+        ? 5000
+        : desktop
+          ? 7200
+          : 6200;
   return { total, winnerIdx, durationMs };
 }
 

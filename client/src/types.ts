@@ -12,6 +12,7 @@ export interface Prize {
   icon: string;
   stars?: number;  // set for star prizes
   isPremium?: boolean;
+  coupons?: number;
 }
 
 export interface Leader {
@@ -173,4 +174,36 @@ export interface ArenaStateResponse {
   round: ArenaRoundView | null;
   balance: number;
   now: number;
+}
+
+export type ProgressTaskId =
+  | 'daily_login'
+  | 'open_case'
+  | 'open_paid_case'
+  | 'claim_daily'
+  | 'play_coinflip'
+  | 'play_blackjack'
+  | 'play_minerush'
+  | 'play_arena'
+  | 'win_game'
+  | 'win_coinflip'
+  | 'win_blackjack'
+  | 'win_minerush'
+  | 'win_arena';
+
+export interface ProgressTask {
+  id: ProgressTaskId | string;
+  done: boolean;
+}
+
+export interface ProgressView {
+  level: number;
+  xp: number;
+  xpForNextLevel: number;
+  totalXp: number;
+  xpGained?: number;
+  leveledUp?: boolean;
+  /** When daily tasks refresh (ms epoch). */
+  tasksResetAt?: number;
+  tasks: ProgressTask[];
 }

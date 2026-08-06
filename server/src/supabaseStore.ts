@@ -1,4 +1,5 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { applyXpGain, xpToNextLevel, TASKS_PERIOD_MS, TASK_IDS, pickDailyTasks, type ProgressView } from './xp.js';
 
 const DEFAULT_BALANCE = 0;
 
@@ -165,6 +166,101 @@ export async function addHistory(
     ts: entry.timestamp,
   });
   if (error) throwSb(error, 'addHistory');
+}
+
+/** Last free Wheel of Fortune spin (tracked via histories case_id). */
+export async function getLastWheelAt(userId: number, wheelCaseId: number): Promise<number> {
+  const sb = getSupabase();
+  const { data, error } = await sb
+    .from('histories')
+    .select('ts')
+    .eq('user_id', userId)
+    .eq('case_id', wheelCaseId)
+    .order('ts', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throwSb(error, 'getLastWheelAt');
+  return Number(data?.ts ?? 0);
+}
+
+/** Coupon balance from ledger rows (case_id = coupon ledger). */
+export async function getCoupons(userId: number, ledgerCaseId: number): Promise<number> {
+  const sb = getSupabase();
+  const { data, error } = await sb
+    .from('histories')
+    .select('prize')
+    .eq('user_id', userId)
+    .eq('case_id', ledgerCaseId);
+  if (error) throwSb(error, 'getCoupons');
+  let total = 0;
+  for (const row of data ?? []) {
+    const prize = parseJsonField<{ coupons?: unknown }>(row.prize, {});
+    const n = Number(prize.coupons);
+    if (Number.isFinite(n)) total += n;
+  }
+  return Math.max(0, Math.floor(total));
+}
+
+export async function addCouponsLedger(
+  userId: number,
+  delta: number,
+  ledgerCaseId: number,
+  ledgerCaseName: string,
+): Promise<number> {
+  if (!Number.isFinite(delta) || delta === 0) {
+    return getCoupons(userId, ledgerCaseId);
+  }
+  const now = Date.now();
+  await addHistory(userId, {
+    caseId: ledgerCaseId,
+    caseName: ledgerCaseName,
+    prize: {
+      id: 9210,
+      name: delta > 0 ? `+${delta} купон` : `${delta} купон`,
+      rarity: 'gold',
+      icon: '🎟️',
+      coupons: delta,
+    },
+    timestamp: now,
+  });
+  return getCoupons(userId, ledgerCaseId);
+}
+
+export async function trySpendCoupon(
+  userId: number,
+  ledgerCaseId: number,
+  ledgerCaseName: string,
+): Promise<number | null> {
+  const current = await getCoupons(userId, ledgerCaseId);
+  if (current < 1) return null;
+  return addCouponsLedger(userId, -1, ledgerCaseId, ledgerCaseName);
+}
+
+export async function setTopupOrderMeta(payload: string, meta: string): Promise<void> {
+  const sb = getSupabase();
+  const { error } = await sb
+    .from('topup_orders')
+    .update({ error_message: meta, updated_at: Date.now() })
+    .eq('payload', payload);
+  if (error) throwSb(error, 'setTopupOrderMeta');
+}
+
+export async function getTopupOrderMeta(payload: string, userId: number) {
+  const sb = getSupabase();
+  const { data, error } = await sb
+    .from('topup_orders')
+    .select('status, balance_amount, package_id, error_message')
+    .eq('payload', payload)
+    .eq('user_id', userId)
+    .maybeSingle();
+  if (error) throwSb(error, 'getTopupOrderMeta');
+  if (!data) return null;
+  return {
+    status: data.status as string,
+    balance_amount: Number(data.balance_amount),
+    package_id: String(data.package_id),
+    meta: data.error_message != null ? String(data.error_message) : null,
+  };
 }
 
 export async function getHistoryPage(userId: number, limit: number, offset: number) {
@@ -565,6 +661,266 @@ export async function claimTopupPaid(
     xtr_amount: Number(data.xtr_amount),
     balance_amount: Number(data.balance_amount),
   };
+}
+
+// ── Account XP / levels ───────────────────────────────────────────────────────
+
+export type TasksState = {
+  periodStartedAt: number;
+  /** Task ids selected for this 24h period. */
+  active: string[];
+  /** Completed task ids within the period. */
+  ids: string[];
+};
+
+export interface UserProgressRow {
+  user_id: number;
+  level: number;
+  xp: number;
+  total_xp: number;
+  last_daily_login_at: number;
+  tasks: TasksState;
+}
+
+function startTasksPeriod(userId: number, now: number, avoid: string[] = []): TasksState {
+  return {
+    periodStartedAt: now,
+    active: pickDailyTasks(userId, now, undefined, avoid),
+    ids: [],
+  };
+}
+
+function normalizeTasksState(
+  userId: number,
+  raw: unknown,
+  now = Date.now(),
+): { state: TasksState; rotated: boolean } {
+  // Legacy: claimed_tasks was a plain string[] of one-time ids.
+  if (Array.isArray(raw)) {
+    return { state: startTasksPeriod(userId, now), rotated: true };
+  }
+  if (raw && typeof raw === 'object') {
+    const o = raw as { periodStartedAt?: unknown; ids?: unknown; active?: unknown };
+    const periodStartedAt = Number(o.periodStartedAt) || 0;
+    const ids = Array.isArray(o.ids) ? o.ids.map(String) : [];
+    const active = Array.isArray(o.active) ? o.active.map(String).filter(Boolean) : [];
+    if (!periodStartedAt || now - periodStartedAt >= TASKS_PERIOD_MS) {
+      return { state: startTasksPeriod(userId, now, active), rotated: true };
+    }
+    if (active.length === 0) {
+      // Old shape without `active` — pick a set for the remaining period window.
+      const picked = pickDailyTasks(userId, periodStartedAt);
+      return {
+        state: { periodStartedAt, active: picked, ids: ids.filter((id) => picked.includes(id)) },
+        rotated: true,
+      };
+    }
+    return { state: { periodStartedAt, active, ids }, rotated: false };
+  }
+  return { state: startTasksPeriod(userId, now), rotated: true };
+}
+
+async function persistProgress(row: UserProgressRow): Promise<void> {
+  const sb = getSupabase();
+  const { error } = await sb.from('user_progress').upsert(
+    {
+      user_id: row.user_id,
+      level: row.level,
+      xp: row.xp,
+      total_xp: row.total_xp,
+      last_daily_login_at: row.last_daily_login_at,
+      claimed_tasks: row.tasks,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: 'user_id' },
+  );
+  if (error) throwSb(error, 'persistProgress');
+}
+
+async function ensureProgressRow(userId: number): Promise<UserProgressRow> {
+  const sb = getSupabase();
+  const now = Date.now();
+  const { data, error } = await sb
+    .from('user_progress')
+    .select('user_id, level, xp, total_xp, last_daily_login_at, claimed_tasks')
+    .eq('user_id', userId)
+    .maybeSingle();
+  if (error) throwSb(error, 'ensureProgressRow select');
+
+  if (!data) {
+    const row: UserProgressRow = {
+      user_id: userId,
+      level: 1,
+      xp: 0,
+      total_xp: 0,
+      last_daily_login_at: 0,
+      tasks: startTasksPeriod(userId, now),
+    };
+    const { error: insErr } = await sb.from('user_progress').insert({
+      user_id: userId,
+      level: 1,
+      xp: 0,
+      total_xp: 0,
+      last_daily_login_at: 0,
+      claimed_tasks: row.tasks,
+    });
+    if (insErr) throwSb(insErr, 'ensureProgressRow insert');
+    return row;
+  }
+
+  const { state, rotated } = normalizeTasksState(userId, data.claimed_tasks, now);
+  const row: UserProgressRow = {
+    user_id: Number(data.user_id),
+    level: Number(data.level) || 1,
+    xp: Number(data.xp) || 0,
+    total_xp: Number(data.total_xp) || 0,
+    last_daily_login_at: Number(data.last_daily_login_at) || 0,
+    tasks: state,
+  };
+  if (rotated) {
+    await persistProgress(row).catch((err) => {
+      console.warn('[xp] tasks rotate persist failed', userId, err);
+    });
+  }
+  return row;
+}
+
+function toProgressView(
+  row: UserProgressRow,
+  extra?: { xpGained?: number; leveledUp?: boolean },
+): ProgressView {
+  const done = new Set(row.tasks.ids);
+  return {
+    level: row.level,
+    xp: row.xp,
+    xpForNextLevel: xpToNextLevel(row.level),
+    totalXp: row.total_xp,
+    xpGained: extra?.xpGained,
+    leveledUp: extra?.leveledUp,
+    tasksResetAt: row.tasks.periodStartedAt + TASKS_PERIOD_MS,
+    tasks: row.tasks.active.map((id) => ({ id, done: done.has(id) })),
+  };
+}
+
+export async function getProgress(userId: number): Promise<ProgressView> {
+  const row = await ensureProgressRow(userId);
+  return toProgressView(row);
+}
+
+/** Award XP and persist. Returns updated progress (includes xpGained). */
+export async function awardXp(userId: number, amount: number): Promise<ProgressView> {
+  const gain = Math.max(0, Math.floor(amount));
+  const row = await ensureProgressRow(userId);
+  if (gain <= 0) return toProgressView(row, { xpGained: 0, leveledUp: false });
+
+  const next = applyXpGain(row.level, row.xp, gain);
+  const updated: UserProgressRow = {
+    ...row,
+    level: next.level,
+    xp: next.xp,
+    total_xp: row.total_xp + gain,
+  };
+
+  await persistProgress(updated);
+  return toProgressView(updated, { xpGained: gain, leveledUp: next.leveledUp });
+}
+
+/** Login XP only when `daily_login` is in today's active task set. */
+export async function claimDailyLoginXp(
+  userId: number,
+  amount: number,
+): Promise<ProgressView> {
+  const row = await ensureProgressRow(userId);
+  if (!row.tasks.active.includes(TASK_IDS.DAILY_LOGIN)) {
+    return toProgressView(row, { xpGained: 0, leveledUp: false });
+  }
+  if (row.tasks.ids.includes(TASK_IDS.DAILY_LOGIN)) {
+    return toProgressView(row, { xpGained: 0, leveledUp: false });
+  }
+
+  const gain = Math.max(0, Math.floor(amount));
+  const next = applyXpGain(row.level, row.xp, gain);
+  const updated: UserProgressRow = {
+    ...row,
+    level: next.level,
+    xp: next.xp,
+    total_xp: row.total_xp + gain,
+    last_daily_login_at: Date.now(),
+    tasks: { ...row.tasks, ids: [...row.tasks.ids, TASK_IDS.DAILY_LOGIN] },
+  };
+
+  await persistProgress(updated);
+  return toProgressView(updated, { xpGained: gain, leveledUp: next.leveledUp });
+}
+
+/** Complete a task if it is active this period; no-op otherwise. */
+export async function claimTaskXp(
+  userId: number,
+  taskId: string,
+  amount: number,
+): Promise<ProgressView> {
+  const row = await ensureProgressRow(userId);
+  if (!row.tasks.active.includes(taskId) || row.tasks.ids.includes(taskId)) {
+    return toProgressView(row, { xpGained: 0, leveledUp: false });
+  }
+
+  const gain = Math.max(0, Math.floor(amount));
+  const next = applyXpGain(row.level, row.xp, gain);
+  const updated: UserProgressRow = {
+    ...row,
+    level: next.level,
+    xp: next.xp,
+    total_xp: row.total_xp + gain,
+    tasks: { ...row.tasks, ids: [...row.tasks.ids, taskId] },
+  };
+
+  await persistProgress(updated);
+  return toProgressView(updated, { xpGained: gain, leveledUp: next.leveledUp });
+}
+
+/** Chats that started the bot — recipients for broadcast. */
+export async function upsertBotChat(input: {
+  chatId: number;
+  userId: number;
+  username?: string | null;
+  firstName?: string | null;
+}): Promise<void> {
+  const sb = getSupabase();
+  const now = Date.now();
+  const { error } = await sb.from('bot_chats').upsert(
+    {
+      chat_id: input.chatId,
+      user_id: input.userId,
+      username: input.username ?? null,
+      first_name: input.firstName ?? null,
+      blocked: false,
+      last_start_at: now,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: 'chat_id' },
+  );
+  if (error) throwSb(error, 'upsertBotChat');
+}
+
+export async function markBotChatBlocked(chatId: number, blocked = true): Promise<void> {
+  const sb = getSupabase();
+  const { error } = await sb
+    .from('bot_chats')
+    .update({ blocked, updated_at: new Date().toISOString() })
+    .eq('chat_id', chatId);
+  if (error) throwSb(error, 'markBotChatBlocked');
+}
+
+export async function listBroadcastChatIds(limit = 5000): Promise<number[]> {
+  const sb = getSupabase();
+  const { data, error } = await sb
+    .from('bot_chats')
+    .select('chat_id')
+    .eq('blocked', false)
+    .order('last_start_at', { ascending: false })
+    .limit(Math.min(20_000, Math.max(1, limit)));
+  if (error) throwSb(error, 'listBroadcastChatIds');
+  return (data ?? []).map((r) => Number(r.chat_id)).filter((id) => Number.isFinite(id) && id > 0);
 }
 
 export { DEFAULT_BALANCE };

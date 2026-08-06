@@ -3,14 +3,69 @@ import { PLAYER_RTP } from './houseEdge.js';
 
 export const GRID_SIZE = 10;
 export const ALLOWED_BETS = [5, 10, 25, 50] as const;
+export type AllowedBet = (typeof ALLOWED_BETS)[number];
 export type Difficulty = 'easy' | 'medium' | 'hard';
 export type GameStatus = 'active' | 'lost' | 'won' | 'cashed';
 
+/** Base mine counts by difficulty (before bet risk). */
 export const DIFFICULTY_MINES: Record<Difficulty, number> = {
   easy: 10,
   medium: 15,
   hard: 20,
 };
+
+/**
+ * Fair (pre–house-edge) full-clear multipliers by stake.
+ * Higher stake → higher multiplier. Net ≈ fair × PLAYER_RTP (25% edge).
+ * Example: bet 10 → 1.87 × 0.75 ≈ 1.40x.
+ */
+export const BET_FAIR_WIN_MULT: Record<AllowedBet, number> = {
+  5: 1.55,
+  10: 1.87,
+  25: 2.4,
+  50: 3.2,
+};
+
+/** Difficulty scales the bet multiplier (harder board → bigger reward). */
+export const DIFF_FAIR_SCALE: Record<Difficulty, number> = {
+  easy: 0.85,
+  medium: 1,
+  hard: 1.25,
+};
+
+/**
+ * Extra mines for larger stakes — raises loss risk as bet grows.
+ * Cap keeps the board playable (≥ 65 safe cells).
+ */
+export const BET_EXTRA_MINES: Record<AllowedBet, number> = {
+  5: 0,
+  10: 2,
+  25: 5,
+  50: 8,
+};
+
+const MAX_MINES = 35;
+
+export function isAllowedBet(bet: number): bet is AllowedBet {
+  return (ALLOWED_BETS as readonly number[]).includes(bet);
+}
+
+export function mineCountFor(difficulty: Difficulty, bet: number): number {
+  const base = DIFFICULTY_MINES[difficulty];
+  const extra = isAllowedBet(bet) ? BET_EXTRA_MINES[bet] : 0;
+  return Math.min(MAX_MINES, base + extra);
+}
+
+/** Fair multiplier before 25% house edge. */
+export function fairWinMultiplier(bet: number, difficulty: Difficulty): number {
+  const betMult = isAllowedBet(bet) ? BET_FAIR_WIN_MULT[bet] : BET_FAIR_WIN_MULT[10];
+  return betMult * DIFF_FAIR_SCALE[difficulty];
+}
+
+/** Net multiplier the player receives on full clear (after house edge). */
+export function netWinMultiplier(bet: number, difficulty: Difficulty): number {
+  return fairWinMultiplier(bet, difficulty) * PLAYER_RTP;
+}
 
 export function cellKey(x: number, y: number): string {
   return `${x},${y}`;
@@ -87,15 +142,29 @@ export function totalSafeCells(mineCount: number): number {
   return GRID_SIZE * GRID_SIZE - mineCount;
 }
 
-export function payoutForCashout(bet: number, revealedCount: number, mineCount: number, difficulty: Difficulty): number {
-  const safe = totalSafeCells(mineCount);
-  if (revealedCount <= 0) return 0;
-  const progress = revealedCount / safe;
-  const mult = difficulty === 'easy' ? 1.2 : difficulty === 'medium' ? 1.6 : 2.1;
-  return Math.floor(bet * (0.5 + progress * mult) * PLAYER_RTP);
+/**
+ * Full-clear payout: stake × fairMult × (1 − 25% house edge).
+ */
+export function payoutForWin(bet: number, difficulty: Difficulty): number {
+  return Math.floor(bet * fairWinMultiplier(bet, difficulty) * PLAYER_RTP);
 }
 
-export function payoutForWin(bet: number, difficulty: Difficulty): number {
-  const mult = difficulty === 'easy' ? 2.5 : difficulty === 'medium' ? 3.5 : 5;
-  return Math.floor(bet * mult * PLAYER_RTP);
+/**
+ * Early cash-out: scales with board progress toward ~95% of full-clear payout.
+ * Quadratic ease keeps early exits modest (house edge + risk stay intact).
+ */
+export function payoutForCashout(
+  bet: number,
+  revealedCount: number,
+  mineCount: number,
+  difficulty: Difficulty,
+): number {
+  const safe = totalSafeCells(mineCount);
+  if (revealedCount <= 0 || safe <= 0) return 0;
+  const progress = Math.min(1, revealedCount / safe);
+  const full = payoutForWin(bet, difficulty);
+  const start = Math.floor(bet * PLAYER_RTP * 0.25);
+  const end = Math.floor(full * 0.95);
+  const eased = progress * progress;
+  return Math.max(0, Math.floor(start + (end - start) * eased));
 }

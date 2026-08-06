@@ -106,7 +106,7 @@ export function StripOpener({
 
     void strip.offsetWidth;
     strip.style.willChange = 'transform';
-    strip.style.transition = `transform ${seconds}s cubic-bezier(0.08, 0.82, 0.17, 1)`;
+    strip.style.transition = `transform ${seconds}s cubic-bezier(0.12, 0.75, 0.18, 1)`;
     strip.style.transform  = `translate3d(${finalX}px,0,0)`;
   }, []);
 

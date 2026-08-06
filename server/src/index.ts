@@ -18,6 +18,23 @@ import { registerPvpRoutes } from './pvp.js';
 import { registerCoinflipRoutes } from './coinflip.js';
 import { registerMineRushRoutes } from './minerush.js';
 import { registerArenaRoutes } from './arena.js';
+import {
+  WHEEL_CASE_ID,
+  WHEEL_CASE_NAME,
+  WHEEL_INTERVAL_MS,
+  WHEEL_SEGMENTS,
+  PREMIUM_WHEEL_CASE_ID,
+  PREMIUM_WHEEL_CASE_NAME,
+  PREMIUM_WHEEL_PACKAGE_ID,
+  PREMIUM_WHEEL_XTR,
+  PREMIUM_WHEEL_SEGMENTS,
+  COUPON_LEDGER_CASE_ID,
+  COUPON_LEDGER_CASE_NAME,
+  pickWheelSegment,
+  pickPremiumWheelSegment,
+  segmentToPrizeBase,
+  type WheelSegment,
+} from './wheel.js';
 import type { Prize } from './types.js';
 import {
   requireSupabase,
@@ -35,6 +52,12 @@ import {
   setDailyState,
   getLastFreeCaseAt,
   setLastFreeCaseAt,
+  getLastWheelAt,
+  getCoupons,
+  addCouponsLedger,
+  trySpendCoupon,
+  setTopupOrderMeta,
+  getTopupOrderMeta,
   ensureReferral,
   resolveReferrerByCode,
   updateReferralReferrer,
@@ -51,10 +74,36 @@ import {
   tryDeductBalance,
   createWithdrawOrder,
   listWithdrawOrders,
+  claimDailyLoginXp,
+  upsertBotChat,
+  markBotChatBlocked,
+  listBroadcastChatIds,
   type ReferralRow,
 } from './supabaseStore.js';
+import { XP, TASK_IDS } from './xp.js';
+import { quietAwardXp, quietClaimTask, quietTryTasks } from './progressAwards.js';
 
 requireSupabase();
+
+const ADMIN_API_SECRET = String(process.env.ADMIN_API_SECRET ?? '').trim();
+
+function miniAppUrl(): string | null {
+  const username = String(process.env.TELEGRAM_BOT_USERNAME ?? '').trim().replace(/^@/, '');
+  if (!username) return null;
+  const pathPart =
+    String(process.env.TELEGRAM_MINI_APP_PATH ?? 'app').trim().replace(/^\/+|\/+$/g, '') || 'app';
+  return `https://t.me/${username}/${pathPart}`;
+}
+
+function verifyAdminSecret(req: FastifyRequest): boolean {
+  if (!ADMIN_API_SECRET) return false;
+  const got = String(req.headers['x-admin-secret'] ?? '').trim();
+  if (!got) return false;
+  const a = Buffer.from(got, 'utf8');
+  const b = Buffer.from(ADMIN_API_SECRET, 'utf8');
+  if (a.length !== b.length) return false;
+  return crypto.timingSafeEqual(a, b);
+}
 
 const TOPUP_PACKAGES = [
   { id: 'xtr_25', xtrAmount: 25, balanceAmount: 25, label: '25 звёзд', popular: false },
@@ -62,6 +111,15 @@ const TOPUP_PACKAGES = [
   { id: 'xtr_100', xtrAmount: 100, balanceAmount: 100, label: '100 звёзд', popular: false },
   { id: 'xtr_500', xtrAmount: 500, balanceAmount: 500, label: '500 звёзд', popular: false },
 ] as const;
+
+const PREMIUM_WHEEL_PACKAGE = {
+  id: PREMIUM_WHEEL_PACKAGE_ID,
+  xtrAmount: PREMIUM_WHEEL_XTR,
+  balanceAmount: 0,
+  label: 'Премиум фортуна ×1',
+  popular: false,
+} as const;
+
 const PRE_CHECKOUT_DEADLINE_MS = Math.min(
   9700,
   Math.max(2500, Number(process.env.PRE_CHECKOUT_DEADLINE_MS ?? 9000)),
@@ -70,6 +128,11 @@ const TELEGRAM_WEBHOOK_SECRET_TOKEN = String(process.env.TELEGRAM_WEBHOOK_SECRET
 
 function getTopupPackageById(packageId: string) {
   return TOPUP_PACKAGES.find((p) => p.id === packageId) ?? null;
+}
+
+function getInvoicePackageById(packageId: string) {
+  if (packageId === PREMIUM_WHEEL_PACKAGE.id) return PREMIUM_WHEEL_PACKAGE;
+  return getTopupPackageById(packageId);
 }
 
 function buildTopupPayload(userId: number, packageId: string): string {
@@ -88,7 +151,7 @@ function parseTopupPayload(payload: string) {
   }
   const userId = Number(parts[2]);
   const packageId = parts[3];
-  if (!Number.isFinite(userId) || userId <= 0 || !getTopupPackageById(packageId)) {
+  if (!Number.isFinite(userId) || userId <= 0 || !getInvoicePackageById(packageId)) {
     throw new Error('INVALID_PAYLOAD');
   }
   return { userId, packageId };
@@ -120,10 +183,17 @@ async function telegramJsonMethod<T = unknown>(
   return data.result as T;
 }
 
-async function createTopupInvoiceLink(userId: number, pkg: (typeof TOPUP_PACKAGES)[number], payload: string) {
+async function createTopupInvoiceLink(
+  userId: number,
+  pkg: { label: string; balanceAmount: number; xtrAmount: number },
+  payload: string,
+) {
+  const isWheel = pkg.balanceAmount === 0;
   const body: Record<string, unknown> = {
-    title: `Пополнение ${pkg.label}`,
-    description: `Пополнение баланса на ${pkg.balanceAmount} звёзд за ${pkg.xtrAmount} XTR.`,
+    title: isWheel ? 'Премиум фортуна' : `Пополнение ${pkg.label}`,
+    description: isWheel
+      ? `1 вращение премиум-колеса за ${pkg.xtrAmount} Telegram Stars.`
+      : `Пополнение баланса на ${pkg.balanceAmount} звёзд за ${pkg.xtrAmount} XTR.`,
     payload,
     currency: 'XTR',
     provider_token: '',
@@ -363,6 +433,12 @@ app.get('/api/balance', async (req) => {
   return { balance: await getBalance(userId) };
 });
 
+app.get('/api/progress', async (req) => {
+  const userId = await getUserId(req);
+  // Daily login XP (once per UTC day) when cabinet/progress is opened
+  return claimDailyLoginXp(userId, XP.DAILY_LOGIN);
+});
+
 app.get('/api/prizes', async () => ({
   prizes: PRIZES.map(({ weight: _w, ...p }) => p),
 }));
@@ -410,39 +486,45 @@ app.get<{ Querystring: { page?: string; limit?: string } }>('/api/leaders', asyn
 });
 
 // ── Daily reward ──────────────────────────────────────────────────────────────
+const MS_24H = 24 * 60 * 60 * 1000;
+
+/** Next calendar day in the 1→7→1 loop (no streak break). */
+function nextDailyDay(claimedDay: number): number {
+  if (!claimedDay || claimedDay < 1) return 1;
+  return claimedDay >= 7 ? 1 : claimedDay + 1;
+}
 
 app.get('/api/daily/status', async (req) => {
   const userId = await getUserId(req);
   const state = (await getDailyState(userId)) ?? { claimed_day: 0, last_claim_at: 0 };
   const now = Date.now();
-  const ms24 = 24 * 60 * 60 * 1000;
-  const ms48 = 48 * 60 * 60 * 1000;
-  const elapsed = now - state.last_claim_at;
+  const elapsed = state.last_claim_at > 0 ? now - state.last_claim_at : Number.POSITIVE_INFINITY;
 
   let currentDay: number;
   let canClaim: boolean;
   let nextClaimAt = 0;
+  let claimedDays: boolean[];
 
-  if (!state.last_claim_at) {
+  if (!state.last_claim_at || state.claimed_day <= 0) {
     currentDay = 1;
     canClaim = true;
-  } else if (elapsed >= ms48) {
-    currentDay = 1;
-    canClaim = true;
-  } else if (elapsed >= ms24) {
-    currentDay = state.claimed_day >= 7 ? 1 : state.claimed_day + 1;
-    canClaim = true;
-  } else {
-    currentDay = state.claimed_day >= 7 ? 1 : state.claimed_day + 1;
+    claimedDays = Array.from({ length: 7 }, () => false);
+  } else if (elapsed < MS_24H) {
+    // Cooldown after claim — highlight the upcoming day.
+    currentDay = nextDailyDay(state.claimed_day);
     canClaim = false;
-    nextClaimAt = state.last_claim_at + ms24;
+    nextClaimAt = state.last_claim_at + MS_24H;
+    claimedDays = Array.from({ length: 7 }, (_, i) => i < state.claimed_day);
+  } else {
+    // Ready to claim the next day in sequence (wraps 7 → 1).
+    currentDay = nextDailyDay(state.claimed_day);
+    canClaim = true;
+    // New cycle after day 7: clear checkmarks so the calendar starts fresh.
+    claimedDays =
+      state.claimed_day >= 7
+        ? Array.from({ length: 7 }, () => false)
+        : Array.from({ length: 7 }, (_, i) => i < state.claimed_day);
   }
-
-  const streakBroken = state.last_claim_at > 0 && elapsed >= ms48;
-  const claimedDays = Array.from(
-    { length: 7 },
-    (_, i) => !streakBroken && state.claimed_day > 0 && i < state.claimed_day,
-  );
 
   return { currentDay, canClaim, nextClaimAt, claimedDays };
 });
@@ -451,20 +533,13 @@ app.post('/api/daily/claim', { schema: { body: { type: 'object' } } }, async (re
   const userId = await getUserId(req);
   const state = (await getDailyState(userId)) ?? { claimed_day: 0, last_claim_at: 0 };
   const now = Date.now();
-  const ms24 = 24 * 60 * 60 * 1000;
-  const ms48 = 48 * 60 * 60 * 1000;
-  const elapsed = now - state.last_claim_at;
+  const elapsed = state.last_claim_at > 0 ? now - state.last_claim_at : Number.POSITIVE_INFINITY;
 
-  if (state.last_claim_at && elapsed < ms24) {
+  if (state.last_claim_at && elapsed < MS_24H) {
     return reply.status(400).send({ message: 'Уже забрано сегодня' });
   }
 
-  let dayToClaim: number;
-  if (!state.last_claim_at || elapsed >= ms48) {
-    dayToClaim = 1;
-  } else {
-    dayToClaim = state.claimed_day >= 7 ? 1 : state.claimed_day + 1;
-  }
+  const dayToClaim = nextDailyDay(state.claimed_day);
 
   const reward = DAILY_REWARDS[dayToClaim - 1];
   let prize: Prize;
@@ -491,7 +566,202 @@ app.post('/api/daily/claim', { schema: { body: { type: 'object' } } }, async (re
   }
 
   await setDailyState(userId, dayToClaim, now);
+  await quietAwardXp(userId, XP.DAILY_CLAIM(dayToClaim));
+  await quietClaimTask(userId, TASK_IDS.CLAIM_DAILY);
   return { prize, newBalance, day: dayToClaim };
+});
+
+// ── Free Wheel of Fortune (once / 7 days) ─────────────────────────────────────
+
+function giftPoolForRarity(rarity: string): Prize[] {
+  let giftPool = PRIZES.filter((p) => !p.stars && !p.isPremium && p.rarity === rarity);
+  if (giftPool.length === 0) {
+    giftPool = PRIZES.filter((p) => !p.stars && !p.isPremium);
+  }
+  return giftPool;
+}
+
+async function applyWheelOutcome(
+  userId: number,
+  segment: WheelSegment,
+  caseId: number,
+  caseName: string,
+  now: number,
+): Promise<{
+  prize: Prize;
+  newBalance: number;
+  coupons: number;
+  segmentIndex: number;
+  empty: boolean;
+}> {
+  const built = segmentToPrizeBase(segment, giftPoolForRarity('gold'));
+  let newBalance = await getBalance(userId);
+
+  if (built.prize.stars && built.prize.stars > 0) {
+    newBalance += built.prize.stars;
+    await setBalance(userId, newBalance);
+  }
+
+  let coupons = await getCoupons(userId, COUPON_LEDGER_CASE_ID);
+  if (built.couponsDelta > 0) {
+    coupons = await addCouponsLedger(
+      userId,
+      built.couponsDelta,
+      COUPON_LEDGER_CASE_ID,
+      COUPON_LEDGER_CASE_NAME,
+    );
+  }
+
+  await addHistory(userId, {
+    caseId,
+    caseName,
+    prize: built.prize,
+    timestamp: now,
+  } satisfies HistoryEntry);
+
+  if (!built.prize.stars) {
+    newBalance = await getBalance(userId);
+  }
+
+  return {
+    prize: built.prize,
+    newBalance,
+    coupons,
+    segmentIndex: built.segmentIndex,
+    empty: built.empty,
+  };
+}
+
+app.get('/api/wheel/status', async (req) => {
+  const userId = await getUserId(req);
+  const now = Date.now();
+  const lastAt = await getLastWheelAt(userId, WHEEL_CASE_ID);
+  const available = now - lastAt >= WHEEL_INTERVAL_MS;
+  const coupons = await getCoupons(userId, COUPON_LEDGER_CASE_ID);
+  return {
+    available,
+    nextAt: available ? null : lastAt + WHEEL_INTERVAL_MS,
+    coupons,
+    segments: WHEEL_SEGMENTS.map(({ id, label, color }) => ({ id, label, color })),
+    premiumSegments: PREMIUM_WHEEL_SEGMENTS.map(({ id, label, color }) => ({ id, label, color })),
+    premiumXtr: PREMIUM_WHEEL_XTR,
+  };
+});
+
+app.post('/api/wheel/spin', { schema: { body: { type: 'object' } } }, async (req, reply) => {
+  const userId = await getUserId(req);
+  const now = Date.now();
+  const lastAt = await getLastWheelAt(userId, WHEEL_CASE_ID);
+  if (now - lastAt < WHEEL_INTERVAL_MS) {
+    return reply.status(400).send({
+      message: 'Колесо будет доступно позже',
+      nextAt: lastAt + WHEEL_INTERVAL_MS,
+    });
+  }
+
+  const segment = pickWheelSegment();
+  const result = await applyWheelOutcome(userId, segment, WHEEL_CASE_ID, WHEEL_CASE_NAME, now);
+  await quietAwardXp(userId, XP.WHEEL_SPIN);
+
+  return {
+    ...result,
+    nextAt: now + WHEEL_INTERVAL_MS,
+  };
+});
+
+app.post<{ Body: { method?: string; payload?: string } }>(
+  '/api/wheel/premium/spin',
+  {
+    schema: {
+      body: {
+        type: 'object',
+        properties: {
+          method: { type: 'string' },
+          payload: { type: 'string' },
+        },
+      },
+    },
+  },
+  async (req, reply) => {
+    const userId = await getUserId(req);
+    const method = String(req.body?.method ?? '');
+    const now = Date.now();
+
+    if (method === 'coupon') {
+      const spent = await trySpendCoupon(userId, COUPON_LEDGER_CASE_ID, COUPON_LEDGER_CASE_NAME);
+      if (spent === null) {
+        return reply.status(400).send({ message: 'Недостаточно купонов' });
+      }
+    } else if (method === 'xtr') {
+      const payload = String(req.body?.payload ?? '');
+      if (!payload) {
+        return reply.status(400).send({ message: 'Нет платежа' });
+      }
+      const order = await getTopupOrderMeta(payload, userId);
+      if (!order || order.status !== 'paid' || order.package_id !== PREMIUM_WHEEL_PACKAGE_ID) {
+        return reply.status(400).send({ message: 'Оплата не найдена' });
+      }
+      if (order.meta !== 'premium_spin_credit') {
+        return reply.status(400).send({ message: 'Это вращение уже использовано' });
+      }
+      await setTopupOrderMeta(payload, 'premium_spin_used');
+    } else {
+      return reply.status(400).send({ message: 'Укажите method: coupon или xtr' });
+    }
+
+    const segment = pickPremiumWheelSegment();
+    const result = await applyWheelOutcome(
+      userId,
+      segment,
+      PREMIUM_WHEEL_CASE_ID,
+      PREMIUM_WHEEL_CASE_NAME,
+      now,
+    );
+    await quietAwardXp(userId, XP.WHEEL_SPIN);
+
+    return result;
+  },
+);
+
+app.post('/api/wheel/premium/create-invoice', { schema: { body: { type: 'object' } } }, async (req, reply) => {
+  const userId = await getUserId(req);
+  if (userId <= 0) {
+    return reply.status(400).send({ message: 'Оплата доступна только внутри Telegram Mini App.' });
+  }
+
+  const pkg = PREMIUM_WHEEL_PACKAGE;
+  const payload = buildTopupPayload(userId, pkg.id);
+  const now = Date.now();
+  await insertTopupOrder({
+    payload,
+    user_id: userId,
+    package_id: pkg.id,
+    xtr_amount: pkg.xtrAmount,
+    balance_amount: pkg.balanceAmount,
+    created_at: now,
+    updated_at: now,
+  });
+
+  try {
+    const invoiceLink = await createTopupInvoiceLink(userId, pkg, payload);
+    return { invoiceLink, payload, xtrAmount: pkg.xtrAmount };
+  } catch (err) {
+    await failTopupOrder(payload, err instanceof Error ? err.message : 'INVOICE_CREATE_FAILED');
+    return reply.status(500).send({ message: 'Не удалось создать счёт. Попробуйте ещё раз.' });
+  }
+});
+
+app.get<{ Params: { payload: string } }>('/api/wheel/premium/status/:payload', async (req, reply) => {
+  const userId = await getUserId(req);
+  const order = await getTopupOrderMeta(req.params.payload, userId);
+  if (!order) {
+    return reply.status(404).send({ message: 'Платёж не найден' });
+  }
+  return {
+    status: order.status,
+    readyToSpin: order.status === 'paid' && order.meta === 'premium_spin_credit',
+    used: order.meta === 'premium_spin_used',
+  };
 });
 
 // ── Referral ──────────────────────────────────────────────────────────────────
@@ -606,8 +876,8 @@ app.get<{ Params: { payload: string } }>('/api/topup/status/:payload', async (re
 
 // ── Withdraw ──────────────────────────────────────────────────────────────────
 
-const MIN_WITHDRAW = 50;
-const WITHDRAW_PRESETS = [50, 100, 250, 500, 1000, 5000] as const;
+const MIN_WITHDRAW = 100;
+const WITHDRAW_PRESETS = [100, 250, 500, 1000, 5000] as const;
 
 app.get('/api/withdraw/info', async (req) => {
   const userId = await getUserId(req);
@@ -725,10 +995,32 @@ app.post<{ Body: OpenBody }>(
     const pool = caseId === 3 ? PRIZES_CASE3 : caseId === 2 ? PRIZES_CASE2 : PRIZES_CASE1;
     let prize = pickPrize(pool);
 
-    // 25% house edge on gift rolls: bias toward cheaper outcomes
-    if (!prize.stars && Math.random() < HOUSE_EDGE) {
-      const cheap = pool.filter((p) => p.rarity === 'gray' || Boolean(p.stars));
-      if (cheap.length > 0) prize = pickPrize(cheap);
+    // House edge: крупные призы (gold / premium / 500+★) чаще перекидываем на мелкие
+    const isBig =
+      Boolean(prize.isPremium) ||
+      prize.rarity === 'gold' ||
+      (typeof prize.stars === 'number' && prize.stars >= 500);
+    const isMid =
+      prize.rarity === 'purple' ||
+      (typeof prize.stars === 'number' && prize.stars >= 100 && prize.stars < 500);
+    const rerollChance = isBig ? 0.62 : isMid ? 0.38 : !prize.stars ? HOUSE_EDGE : 0;
+
+    if (Math.random() < rerollChance) {
+      if (caseId === 3) {
+        // В элитном кейсе нет gray/stars — даунгрейдим Legendary → Epic
+        const epicOnly = pool.filter((p) => p.rarity === 'purple' && !p.isPremium);
+        if (epicOnly.length > 0 && (prize.rarity === 'gold' || prize.isPremium)) {
+          prize = pickPrize(epicOnly);
+        }
+      } else {
+        const cheap = pool.filter(
+          (p) =>
+            p.rarity === 'gray' ||
+            p.rarity === 'blue' ||
+            (typeof p.stars === 'number' && p.stars <= 50),
+        );
+        if (cheap.length > 0) prize = pickPrize(cheap);
+      }
     }
 
     if (prize.stars) {
@@ -744,6 +1036,12 @@ app.post<{ Body: OpenBody }>(
     if (!prize.stars) {
       await addHistory(userId, { caseId, caseName: gameCase.name, prize, timestamp: now });
     }
+
+    const xpAmount = gameCase.isFree ? XP.FREE_CASE : XP.CASE_OPEN(cost);
+    await quietAwardXp(userId, xpAmount);
+    const caseTasks: string[] = [TASK_IDS.OPEN_CASE];
+    if (!gameCase.isFree && cost > 0) caseTasks.push(TASK_IDS.OPEN_PAID_CASE);
+    await quietTryTasks(userId, caseTasks);
 
     return { prize, newBalance };
   },
@@ -864,6 +1162,12 @@ async function applySuccessfulPayment(sp: any, payerTelegramId: number) {
   const claimed = await claimTopupPaid(payload, chargeId, providerChargeId);
   if (!claimed) return;
 
+  if (claimed.package_id === PREMIUM_WHEEL_PACKAGE_ID) {
+    // Marks a paid premium spin credit — client calls /api/wheel/premium/spin { method: 'xtr' }
+    await setTopupOrderMeta(payload, 'premium_spin_credit');
+    return;
+  }
+
   await addBalance(claimed.user_id, claimed.balance_amount);
 
   const referral = await getReferral(claimed.user_id);
@@ -880,6 +1184,57 @@ app.get('/api/telegram/webhook', async () => ({
   ok: true,
   hint: 'Telegram sends POST updates here.',
 }));
+
+async function handleBotStartMessage(message: any) {
+  const chat = message?.chat;
+  const from = message?.from;
+  const chatId = Number(chat?.id);
+  const userId = Number(from?.id);
+  if (!Number.isFinite(chatId) || chatId === 0 || !Number.isFinite(userId) || userId <= 0) return;
+  if (chat?.type && chat.type !== 'private') return;
+
+  await upsertBotChat({
+    chatId,
+    userId,
+    username: from?.username ?? null,
+    firstName: from?.first_name ?? null,
+  }).catch((err) => {
+    console.warn('[bot_chats] upsert failed', err);
+  });
+
+  const appUrl = miniAppUrl();
+  const name = String(from?.first_name ?? '').trim() || 'друг';
+  const text =
+    `Привет, ${name}! 👋\n\n` +
+    `Добро пожаловать в <b>Metaluck</b> — кейсы, мини-игры и Stars.\n` +
+    `Нажми кнопку ниже, чтобы открыть приложение.`;
+
+  const body: Record<string, unknown> = {
+    chat_id: chatId,
+    text,
+    parse_mode: 'HTML',
+    disable_web_page_preview: true,
+  };
+  if (appUrl) {
+    body.reply_markup = {
+      inline_keyboard: [[{ text: '🎮 Играть', url: appUrl }]],
+    };
+  }
+  await telegramJsonMethod('sendMessage', body).catch((err) => {
+    console.warn('[bot] welcome send failed', err);
+  });
+}
+
+async function handleMyChatMember(update: any) {
+  const chatId = Number(update?.chat?.id);
+  const status = String(update?.new_chat_member?.status ?? '');
+  if (!Number.isFinite(chatId) || chatId === 0) return;
+  if (status === 'kicked' || status === 'left') {
+    await markBotChatBlocked(chatId, true).catch(() => undefined);
+  } else if (status === 'member' || status === 'restricted') {
+    await markBotChatBlocked(chatId, false).catch(() => undefined);
+  }
+}
 
 app.post('/api/telegram/webhook', async (req, reply) => {
   if (!verifyWebhookSecret(req)) {
@@ -898,7 +1253,66 @@ app.post('/api/telegram/webhook', async (req, reply) => {
     }
     return reply.send({ ok: true });
   }
+
+  const text = String(update.message?.text ?? '').trim();
+  if (text === '/start' || text.startsWith('/start ')) {
+    await handleBotStartMessage(update.message);
+    return reply.send({ ok: true });
+  }
+  if (update.my_chat_member) {
+    await handleMyChatMember(update.my_chat_member);
+    return reply.send({ ok: true });
+  }
   return reply.send({ ok: true });
+});
+
+/** Admin broadcast to everyone who pressed /start. Header: x-admin-secret */
+app.post('/api/admin/broadcast', async (req, reply) => {
+  if (!verifyAdminSecret(req)) {
+    return reply.status(401).send({ message: 'Unauthorized' });
+  }
+  const body = (req.body ?? {}) as { text?: string; button?: string; dryRun?: boolean; limit?: number };
+  const text = String(body.text ?? '').trim();
+  if (!text || text.length > 3900) {
+    return reply.status(400).send({ message: 'text required (1–3900 chars)' });
+  }
+  const dryRun = Boolean(body.dryRun);
+  const buttonLabel = String(body.button ?? 'Играть').trim() || 'Играть';
+  const limit = Math.min(20_000, Math.max(1, Number(body.limit) || 5000));
+  const chatIds = await listBroadcastChatIds(limit);
+  const appUrl = miniAppUrl();
+  const replyMarkup = appUrl
+    ? { inline_keyboard: [[{ text: buttonLabel, url: appUrl }]] }
+    : undefined;
+
+  if (dryRun) {
+    return reply.send({ ok: true, dryRun: true, recipients: chatIds.length });
+  }
+
+  let sent = 0;
+  let failed = 0;
+  let blocked = 0;
+  for (const chatId of chatIds) {
+    try {
+      await telegramJsonMethod('sendMessage', {
+        chat_id: chatId,
+        text,
+        parse_mode: 'HTML',
+        disable_web_page_preview: true,
+        reply_markup: replyMarkup,
+      });
+      sent += 1;
+    } catch (err) {
+      failed += 1;
+      const msg = String((err as Error)?.message ?? err);
+      if (/blocked|deactivated|chat not found|Forbidden/i.test(msg)) {
+        blocked += 1;
+        await markBotChatBlocked(chatId, true).catch(() => undefined);
+      }
+    }
+    await new Promise((r) => setTimeout(r, 40));
+  }
+  return reply.send({ ok: true, recipients: chatIds.length, sent, failed, blocked });
 });
 
 if (isProd && process.env.SERVE_CLIENT === '1') {

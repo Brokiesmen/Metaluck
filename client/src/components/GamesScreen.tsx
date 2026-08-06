@@ -1,6 +1,8 @@
 import { useSettings } from '../settings/SettingsContext';
 
 interface Props {
+  isDemo: boolean;
+  onToggleDemo: () => void;
   onOpenCases: () => void;
   onOpenBlackjack: () => void;
   onOpenCoinflip: () => void;
@@ -8,11 +10,31 @@ interface Props {
   onOpenArena: () => void;
 }
 
-export function GamesScreen({ onOpenCases, onOpenBlackjack, onOpenCoinflip, onOpenMineRush, onOpenArena }: Props) {
+export function GamesScreen({
+  isDemo,
+  onToggleDemo,
+  onOpenCases,
+  onOpenBlackjack,
+  onOpenCoinflip,
+  onOpenMineRush,
+  onOpenArena,
+}: Props) {
   const { t } = useSettings();
 
   return (
     <section className="games-lobby">
+      <div className="demo-toggle-row">
+        <button
+          type="button"
+          className={`demo-toggle-btn${isDemo ? ' demo-toggle-btn--on' : ''}`}
+          onClick={onToggleDemo}
+          aria-pressed={isDemo}
+        >
+          {isDemo ? t.demo.disable : t.demo.enable}
+        </button>
+        <p className="demo-toggle-hint">{t.demo.hint}</p>
+      </div>
+
       <div className="games-lobby-grid">
         <button type="button" className="game-tile game-tile--cases" onClick={onOpenCases}>
           <div className="game-tile-glow" aria-hidden />

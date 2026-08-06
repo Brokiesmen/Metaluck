@@ -12,7 +12,26 @@ import type {
   MineRushRevealResult,
   MineRushCashoutResult,
   ArenaStateResponse,
+  ProgressView,
 } from './types';
+import {
+  isDemoMode,
+  delay,
+  demoOpenCase,
+  demoCoinflipPlay,
+  demoBlackjackState,
+  demoBlackjackDeal,
+  demoBlackjackHit,
+  demoBlackjackStand,
+  demoBlackjackDouble,
+  demoMineRushState,
+  demoMineRushStart,
+  demoMineRushReveal,
+  demoMineRushFlag,
+  demoMineRushCashout,
+  demoArenaState,
+  demoArenaBet,
+} from './demo';
 
 let _initData = '';
 export function setInitData(d: string) { _initData = d; }
@@ -112,11 +131,19 @@ export const api = {
   getBalance: () =>
     request<{ balance: number }>('/api/balance').then(d => d.balance),
 
+  getProgress: () =>
+    request<ProgressView>('/api/progress'),
+
   getPrizes: () =>
     request<{ prizes: Prize[] }>('/api/prizes').then(d => d.prizes),
 
   getCases: () =>
-    request<{ cases: Case[] }>('/api/cases').then(d => d.cases),
+    request<{ cases: Case[] }>('/api/cases').then((d) => {
+      if (!isDemoMode()) return d.cases;
+      return d.cases.map((c) =>
+        c.isFree ? { ...c, freeAvailable: true, nextFreeAt: null } : c,
+      );
+    }),
 
   getHistory: (page = 0, limit = 20) =>
     request<HistoryPage>(`/api/history?page=${page}&limit=${limit}`),
@@ -129,6 +156,46 @@ export const api = {
 
   claimDaily: () =>
     request<{ prize: { id: number; name: string; rarity: string; icon: string; stars?: number }; newBalance: number; day: number }>('/api/daily/claim', { method: 'POST', body: '{}' }),
+
+  getWheelStatus: () =>
+    request<{
+      available: boolean;
+      nextAt: number | null;
+      coupons: number;
+      segments: { id: number; label: string; color: string }[];
+      premiumSegments: { id: number; label: string; color: string }[];
+      premiumXtr: number;
+    }>('/api/wheel/status'),
+
+  spinWheel: () =>
+    request<{
+      prize: { id: number; name: string; rarity: string; icon: string; stars?: number; coupons?: number };
+      newBalance: number;
+      coupons: number;
+      segmentIndex: number;
+      empty?: boolean;
+      nextAt: number;
+    }>('/api/wheel/spin', { method: 'POST', body: '{}' }),
+
+  spinPremiumWheel: (body: { method: 'coupon' } | { method: 'xtr'; payload: string }) =>
+    request<{
+      prize: { id: number; name: string; rarity: string; icon: string; stars?: number; coupons?: number };
+      newBalance: number;
+      coupons: number;
+      segmentIndex: number;
+      empty?: boolean;
+    }>('/api/wheel/premium/spin', { method: 'POST', body: JSON.stringify(body) }),
+
+  createPremiumWheelInvoice: () =>
+    request<{ invoiceLink: string; payload: string; xtrAmount: number }>(
+      '/api/wheel/premium/create-invoice',
+      { method: 'POST', body: '{}' },
+    ),
+
+  getPremiumWheelPayStatus: (payload: string) =>
+    request<{ status: string; readyToSpin: boolean; used: boolean }>(
+      `/api/wheel/premium/status/${encodeURIComponent(payload)}`,
+    ),
 
   getReferralStatus: () =>
     request<{
@@ -175,84 +242,156 @@ export const api = {
       { method: 'POST', body: JSON.stringify({ amount }) },
     ),
 
-  openCase: (caseId: number) =>
-    request<{ prize: Prize; newBalance: number }>('/api/case/open', {
+  openCase: async (caseId: number) => {
+    if (isDemoMode()) {
+      await delay(80);
+      return demoOpenCase(caseId);
+    }
+    return request<{ prize: Prize; newBalance: number }>('/api/case/open', {
       method: 'POST',
       body: JSON.stringify({ caseId }),
-    }),
+    });
+  },
 
-  getBlackjackState: () => request<BlackjackStateResponse>('/api/blackjack/state'),
+  getBlackjackState: async () => {
+    if (isDemoMode()) {
+      await delay(30);
+      return demoBlackjackState();
+    }
+    return request<BlackjackStateResponse>('/api/blackjack/state');
+  },
 
-  blackjackDeal: (bet: number) =>
-    request<BlackjackStateResponse>('/api/blackjack/deal', {
+  blackjackDeal: async (bet: number) => {
+    if (isDemoMode()) {
+      await delay(60);
+      return demoBlackjackDeal(bet);
+    }
+    return request<BlackjackStateResponse>('/api/blackjack/deal', {
       method: 'POST',
       body: JSON.stringify({ bet }),
-    }),
+    });
+  },
 
-  blackjackHit: () =>
-    request<BlackjackStateResponse>('/api/blackjack/hit', {
+  blackjackHit: async () => {
+    if (isDemoMode()) {
+      await delay(40);
+      return demoBlackjackHit();
+    }
+    return request<BlackjackStateResponse>('/api/blackjack/hit', {
       method: 'POST',
       body: '{}',
-    }),
+    });
+  },
 
-  blackjackStand: () =>
-    request<BlackjackStateResponse>('/api/blackjack/stand', {
+  blackjackStand: async () => {
+    if (isDemoMode()) {
+      await delay(40);
+      return demoBlackjackStand();
+    }
+    return request<BlackjackStateResponse>('/api/blackjack/stand', {
       method: 'POST',
       body: '{}',
-    }),
+    });
+  },
 
-  blackjackDouble: () =>
-    request<BlackjackStateResponse>('/api/blackjack/double', {
+  blackjackDouble: async () => {
+    if (isDemoMode()) {
+      await delay(40);
+      return demoBlackjackDouble();
+    }
+    return request<BlackjackStateResponse>('/api/blackjack/double', {
       method: 'POST',
       body: '{}',
-    }),
+    });
+  },
 
   // ── Coinflip ─────────────────────────────────────────────────────────────
 
-  coinflipPlay: (bet: number, choice: CoinSide) =>
-    request<CoinflipResult>('/api/coinflip/play', {
+  coinflipPlay: async (bet: number, choice: CoinSide) => {
+    if (isDemoMode()) {
+      await delay(50);
+      return demoCoinflipPlay(bet, choice);
+    }
+    return request<CoinflipResult>('/api/coinflip/play', {
       method: 'POST',
       body: JSON.stringify({ bet, choice }),
-    }),
+    });
+  },
 
   // ── MineRush ─────────────────────────────────────────────────────────────
 
-  mineRushState: () =>
-    request<{ game: MineRushGameView | null; balance: number }>('/api/minerush/state'),
+  mineRushState: async () => {
+    if (isDemoMode()) {
+      await delay(30);
+      return demoMineRushState();
+    }
+    return request<{ game: MineRushGameView | null; balance: number }>('/api/minerush/state');
+  },
 
-  mineRushStart: (difficulty: MineRushDifficulty, bet: number) =>
-    request<MineRushGameView>('/api/minerush/start', {
+  mineRushStart: async (difficulty: MineRushDifficulty, bet: number) => {
+    if (isDemoMode()) {
+      await delay(50);
+      return demoMineRushStart(difficulty, bet);
+    }
+    return request<MineRushGameView>('/api/minerush/start', {
       method: 'POST',
       body: JSON.stringify({ difficulty, bet }),
-    }),
+    });
+  },
 
-  mineRushReveal: (gameId: string, x: number, y: number) =>
-    request<MineRushRevealResult>('/api/minerush/reveal', {
+  mineRushReveal: async (gameId: string, x: number, y: number) => {
+    if (isDemoMode()) {
+      await delay(20);
+      return demoMineRushReveal(gameId, x, y);
+    }
+    return request<MineRushRevealResult>('/api/minerush/reveal', {
       method: 'POST',
       body: JSON.stringify({ gameId, x, y }),
-    }),
+    });
+  },
 
-  mineRushFlag: (gameId: string, x: number, y: number) =>
-    request<MineRushGameView>('/api/minerush/flag', {
+  mineRushFlag: async (gameId: string, x: number, y: number) => {
+    if (isDemoMode()) {
+      await delay(15);
+      return demoMineRushFlag(gameId, x, y);
+    }
+    return request<MineRushGameView>('/api/minerush/flag', {
       method: 'POST',
       body: JSON.stringify({ gameId, x, y }),
-    }),
+    });
+  },
 
-  mineRushCashout: (gameId: string) =>
-    request<MineRushCashoutResult>('/api/minerush/cashout', {
+  mineRushCashout: async (gameId: string) => {
+    if (isDemoMode()) {
+      await delay(40);
+      return demoMineRushCashout(gameId);
+    }
+    return request<MineRushCashoutResult>('/api/minerush/cashout', {
       method: 'POST',
       body: JSON.stringify({ gameId }),
-    }),
+    });
+  },
 
   // ── Arena ────────────────────────────────────────────────────────────────
 
-  arenaState: () => request<ArenaStateResponse>('/api/arena/state'),
+  arenaState: async () => {
+    if (isDemoMode()) {
+      await delay(20);
+      return demoArenaState();
+    }
+    return request<ArenaStateResponse>('/api/arena/state');
+  },
 
-  arenaBet: (bet: number) =>
-    request<ArenaStateResponse>('/api/arena/bet', {
+  arenaBet: async (bet: number) => {
+    if (isDemoMode()) {
+      await delay(40);
+      return demoArenaBet(bet);
+    }
+    return request<ArenaStateResponse>('/api/arena/bet', {
       method: 'POST',
       body: JSON.stringify({ bet }),
-    }),
+    });
+  },
 
   // ── PvP ──────────────────────────────────────────────────────────────────
 

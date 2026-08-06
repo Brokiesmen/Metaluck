@@ -2,7 +2,6 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import crypto from 'crypto';
 import {
   ALLOWED_BETS,
-  DIFFICULTY_MINES,
   type Difficulty,
   GRID_SIZE,
   cellKey,
@@ -13,8 +12,11 @@ import {
   payoutForCashout,
   payoutForWin,
   totalSafeCells,
+  mineCountFor,
 } from './mineRushEngine.js';
 import { getSupabase, parseJsonField } from './supabaseStore.js';
+import { onGamePlayXp, onGameWinXp } from './progressAwards.js';
+import { XP } from './xp.js';
 
 interface GameRow {
   game_id: string;
@@ -177,7 +179,7 @@ export function registerMineRushRoutes(
       status: row.status,
       score: row.score,
       balance,
-      mineCount: DIFFICULTY_MINES[row.difficulty as Difficulty],
+      mineCount: mines.size,
       gridSize: GRID_SIZE,
       flags: [...flags],
       cells: buildBoard(mines, revealed),
@@ -210,7 +212,7 @@ export function registerMineRushRoutes(
       const balance = await getBalance(userId);
       if (balance < bet) return jsonError(reply, 400, 'Недостаточно звёзд');
 
-      const mineCount = DIFFICULTY_MINES[difficulty];
+      const mineCount = mineCountFor(difficulty, bet);
       const mines = generateMines(mineCount);
       const gameId = crypto.randomUUID();
       const now = Date.now();
@@ -224,6 +226,7 @@ export function registerMineRushRoutes(
         mines_json: serializeSet(mines),
         started_at: now,
       });
+      await onGamePlayXp(userId, 'minerush');
 
       const row = (await getGame(gameId))!;
       return toView(row, await getBalance(userId));
@@ -258,7 +261,7 @@ export function registerMineRushRoutes(
       let firstClick = row.first_click;
       if (!firstClick) {
         if (mines.has(key)) {
-          mines = generateMines(DIFFICULTY_MINES[row.difficulty as Difficulty], { x, y });
+          mines = generateMines(mineCountFor(row.difficulty as Difficulty, row.bet), { x, y });
         }
         firstClick = 1;
       }
@@ -278,6 +281,7 @@ export function registerMineRushRoutes(
           status = 'won';
           const payout = payoutForWin(row.bet, row.difficulty as Difficulty);
           await setBalance(userId, (await getBalance(userId)) + payout);
+          await onGameWinXp(userId, XP.MINERUSH_CASHOUT(score), 'minerush');
         }
       }
 
@@ -333,10 +337,11 @@ export function registerMineRushRoutes(
     if (row.status !== 'active') return jsonError(reply, 400, 'Игра уже завершена');
     if (row.score <= 0) return jsonError(reply, 400, 'Откройте хотя бы одну клетку');
 
+    const mines = deserializeSet(row.mines_json);
     const payout = payoutForCashout(
       row.bet,
       row.score,
-      DIFFICULTY_MINES[row.difficulty as Difficulty],
+      mines.size,
       row.difficulty as Difficulty,
     );
     await setBalance(userId, (await getBalance(userId)) + payout);
@@ -348,6 +353,7 @@ export function registerMineRushRoutes(
       score: row.score,
       first_click: row.first_click,
     });
+    await onGameWinXp(userId, XP.MINERUSH_CASHOUT(row.score), 'minerush');
     const updated = (await getGame(gameId))!;
     return { ...toView(updated, await getBalance(userId)), payout };
   });

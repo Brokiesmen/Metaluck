@@ -4,6 +4,8 @@ import { useTelegram } from './hooks/useTelegram';
 import { useSettings } from './settings/SettingsContext';
 import { applyTheme } from './settings/applyTheme';
 import { startTelegramViewportSync } from './lib/telegramViewport';
+import { setDemoBalanceSnapshot, setDemoPrizePool } from './demo';
+import { useDemoMode } from './demo/useDemoMode';
 import { TabBar, type Tab } from './components/TabBar';
 import { Cabinet } from './components/Cabinet';
 import { Leaders } from './components/Leaders';
@@ -23,6 +25,7 @@ type GameView = 'lobby' | 'cases' | 'blackjack' | 'coinflip' | 'minerush' | 'are
 export function App() {
   const { tg, user, initData, isDev } = useTelegram();
   const { t, locale, theme } = useSettings();
+  const { isDemo, setDemo } = useDemoMode();
   // До первого useEffect дочерних компонентов: иначе /api/blackjack/state уходит без init, а /deal — уже с init (другой user_id → «завершите партию»).
   setInitData(initData);
 
@@ -36,6 +39,11 @@ export function App() {
   const [logs,         setLogs]         = useState<string[]>([]);
   const [showSettings, setShowSettings] = useState(false);
 
+  const updateBalance = useCallback((b: number) => {
+    setBalance(b);
+    setDemoBalanceSnapshot(b);
+  }, []);
+
   useEffect(() => {
     // @ts-ignore
     setLogs(window.startupLog || []);
@@ -43,15 +51,12 @@ export function App() {
     window.log = (m: string) => setLogs(prev => [...prev.slice(-10), m]);
   }, []);
 
-  // Keep Telegram chrome in sync with app theme
   useEffect(() => {
     applyTheme(theme);
   }, [theme, tg]);
 
-  // iOS Telegram: keep viewport / safe-area CSS vars live
   useEffect(() => startTelegramViewportSync(), []);
 
-  // ── Init and Load data ──────────────────────────────────────────────────────
   useEffect(() => {
     if (tg) {
       tg.ready();
@@ -61,9 +66,10 @@ export function App() {
 
     Promise.all([api.getBalance(), api.getCases(), api.getPrizes()])
       .then(([bal, c, p]) => {
-        setBalance(bal);
+        updateBalance(bal);
         setCases(c);
         setPrizes(p);
+        setDemoPrizePool(p);
       })
       .catch((err) => {
         console.error('Initial load failed:', err);
@@ -71,6 +77,18 @@ export function App() {
       });
   // eslint-disable-next-line react-hooks/exhaustive-deps -- boot once per telegram session
   }, [tg, initData]);
+
+  useEffect(() => {
+    setDemoBalanceSnapshot(balance);
+  }, [balance]);
+
+  useEffect(() => {
+    setDemoPrizePool(prizes);
+  }, [prizes]);
+
+  useEffect(() => {
+    api.getCases().then(setCases).catch(() => {});
+  }, [isDemo]);
 
   const reloadCases = useCallback(() => {
     api.getCases().then(setCases).catch(() => {});
@@ -132,7 +150,7 @@ export function App() {
           : t.header.cabinet;
 
   return (
-    <div className="app">
+    <div className={`app${isDemo ? ' app--demo' : ''}`}>
 
       <header className="tg-header">
         <div className="tg-header-left">
@@ -160,6 +178,13 @@ export function App() {
         </div>
       </header>
 
+      {isDemo && (
+        <div className="demo-banner" role="status">
+          <span className="demo-banner-label">{t.demo.label}</span>
+          <span className="demo-banner-hint">{t.demo.hint}</span>
+        </div>
+      )}
+
       {error && <div className="error-banner">{error}</div>}
 
       <main
@@ -179,20 +204,22 @@ export function App() {
               cases={cases}
               prizes={prizes}
               onBack={() => setGameView('lobby')}
-              onBalanceUpdate={setBalance}
+              onBalanceUpdate={updateBalance}
               onCasesReload={reloadCases}
               forceSelectFreeSignal={freeCaseJump}
             />
           ) : gameView === 'blackjack' ? (
-            <BlackjackGame onBack={() => setGameView('lobby')} onBalanceUpdate={setBalance} />
+            <BlackjackGame onBack={() => setGameView('lobby')} onBalanceUpdate={updateBalance} />
           ) : gameView === 'coinflip' ? (
-            <CoinflipGame onBack={() => setGameView('lobby')} onBalanceUpdate={setBalance} />
+            <CoinflipGame onBack={() => setGameView('lobby')} onBalanceUpdate={updateBalance} />
           ) : gameView === 'minerush' ? (
-            <MineRushGame onBack={() => setGameView('lobby')} onBalanceUpdate={setBalance} />
+            <MineRushGame onBack={() => setGameView('lobby')} onBalanceUpdate={updateBalance} />
           ) : gameView === 'arena' ? (
-            <ArenaGame onBack={() => setGameView('lobby')} onBalanceUpdate={setBalance} />
+            <ArenaGame onBack={() => setGameView('lobby')} onBalanceUpdate={updateBalance} />
           ) : (
             <GamesScreen
+              isDemo={isDemo}
+              onToggleDemo={() => setDemo(!isDemo)}
               onOpenCases={openCasesGame}
               onOpenBlackjack={openBlackjackGame}
               onOpenCoinflip={openCoinflipGame}
@@ -206,15 +233,17 @@ export function App() {
           <DailyTab
             prizes={prizes}
             cases={cases}
-            onBalanceUpdate={setBalance}
+            onBalanceUpdate={updateBalance}
             onGoToFreeCase={goToFreeCase}
+            openInvoice={tg?.openInvoice?.bind(tg)}
+            isTelegram={!!tg}
           />
         ) : (
           <Cabinet
             user={user}
             balance={balance}
             isDev={isDev}
-            onBalanceUpdate={setBalance}
+            onBalanceUpdate={updateBalance}
             openInvoice={tg?.openInvoice?.bind(tg)}
             isTelegram={!!tg}
             tg={tg}

@@ -1,6 +1,8 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import crypto from 'crypto';
 import { applyHouseEdge } from './houseEdge.js';
+import { onGamePlayXp, onGameWinXp } from './progressAwards.js';
+import { XP } from './xp.js';
 
 const ALLOWED_BETS = [5, 10, 25, 50, 100] as const;
 const SIDES = ['heads', 'tails'] as const;
@@ -71,6 +73,9 @@ export function registerCoinflipRoutes(
 
         const newBalance = balance - bet + payout;
         await setBalance(userId, newBalance);
+
+        await onGamePlayXp(userId, 'coinflip');
+        if (win) await onGameWinXp(userId, XP.COINFLIP_WIN, 'coinflip');
 
         return { newBalance, bet, choice, result, win, payout };
       } catch (err) {

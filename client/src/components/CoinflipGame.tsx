@@ -4,7 +4,7 @@ import type { CoinSide } from '../types';
 import { useSettings } from '../settings/SettingsContext';
 import { tf } from '../i18n/tf';
 import { StarIcon } from './StarIcon';
-import { EagleCrest, WreathCrest } from './coinCrest';
+import { EagleBadge, EagleCrest, StarBadge, StarCrest } from './coinCrest';
 
 interface Props {
   onBack: () => void;
@@ -14,23 +14,19 @@ interface Props {
 const BETS = [5, 10, 25, 50, 100] as const;
 type BetAmount = (typeof BETS)[number];
 
-/** Длительность CSS-анимации переворота монеты (мс) — держим в синхронизации с keyframe в index.css */
-const FLIP_DURATION_MS = 1250;
-/** Сколько полных оборотов делает монета перед остановкой — чисто визуальный эффект */
+/** Длительность вращения — синхрон с @keyframes cf-spin */
+const FLIP_DURATION_MS = 1200;
+/** Полных оборотов до остановки */
 const FLIP_TURNS = 5;
 
-/** Слои "гурта" — дают монете толщину при виде с ребра. Статичные transform'ы,
- *  считаются один раз и не влияют на плавность анимации. */
 const EDGE_LAYERS = 9;
 const EDGE_STEP_PX = 1.2;
 const EDGE_OFFSETS = Array.from(
   { length: EDGE_LAYERS },
   (_, i) => (i - (EDGE_LAYERS - 1) / 2) * EDGE_STEP_PX,
 );
-/** Лицевые стороны чуть снаружи крайних слоёв гурта */
 const FACE_Z_PX = ((EDGE_LAYERS - 1) / 2) * EDGE_STEP_PX + 0.4;
 
-/* ── Confetti (лёгкая, без внешних ассетов) ──────────────────────── */
 function Confetti() {
   const pieces = Array.from({ length: 14 }, (_, i) => ({
     id: i,
@@ -58,8 +54,6 @@ export function CoinflipGame({ onBack, onBalanceUpdate }: Props) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  /** endRotDeg / spinId управляют CSS-анимацией; spinId меняется на каждый бросок, чтобы React
-   *  пересоздал узел монеты (key) и анимация гарантированно проигралась заново с нуля. */
   const [endRotDeg, setEndRotDeg] = useState(0);
   const [spinId, setSpinId] = useState(0);
   const [flipping, setFlipping] = useState(false);
@@ -85,8 +79,6 @@ export function CoinflipGame({ onBack, onBalanceUpdate }: Props) {
         const res = await api.coinflipPlay(bet, choice);
         onBalanceUpdate(res.newBalance);
 
-        // Узел монеты пересоздаётся (key=spinId), поэтому анимация всегда стартует с 0deg —
-        // достаточно рассчитать конечный угол для этого броска.
         const extraHalfTurn = res.result === 'tails' ? 180 : 0;
         setEndRotDeg(FLIP_TURNS * 360 + extraHalfTurn);
         setSpinId((n) => n + 1);
@@ -134,7 +126,7 @@ export function CoinflipGame({ onBack, onBalanceUpdate }: Props) {
             </div>
             <div className="cf-coin-face cf-coin-face--tails" style={{ transform: `rotateY(180deg) translateZ(${FACE_Z_PX}px)` }}>
               <span className="cf-coin-ring" aria-hidden />
-              <WreathCrest />
+              <StarCrest />
             </div>
           </div>
           <div
@@ -174,7 +166,7 @@ export function CoinflipGame({ onBack, onBalanceUpdate }: Props) {
             onClick={() => setChoice('heads')}
             aria-pressed={choice === 'heads'}
           >
-            <span className="cf-side-badge" aria-hidden>О</span>
+            <span className="cf-side-badge" aria-hidden><EagleBadge /></span>
             {t.coin.heads}
           </button>
           <button
@@ -184,7 +176,7 @@ export function CoinflipGame({ onBack, onBalanceUpdate }: Props) {
             onClick={() => setChoice('tails')}
             aria-pressed={choice === 'tails'}
           >
-            <span className="cf-side-badge" aria-hidden>Р</span>
+            <span className="cf-side-badge" aria-hidden><StarBadge /></span>
             {t.coin.tails}
           </button>
         </div>

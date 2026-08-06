@@ -57,6 +57,14 @@ export type Dict = {
     soonArcadeTitle: string;
     soonArcadeSub: string;
   };
+  demo: {
+    label: string;
+    hint: string;
+    enable: string;
+    disable: string;
+    resultNote: string;
+    close: string;
+  };
   cabinet: {
     balance: string;
     topup: string;
@@ -73,6 +81,55 @@ export type Dict = {
     date: string;
     rarity: string;
     devMode: string;
+    level: string;
+    xpLabel: string;
+    xpToNext: string;
+    tasks: string;
+    taskDailyLogin: string;
+    taskOpenCase: string;
+    taskOpenPaidCase: string;
+    taskWinGame: string;
+    taskClaimDaily: string;
+    taskPlayCoinflip: string;
+    taskPlayBlackjack: string;
+    taskPlayMinerush: string;
+    taskPlayArena: string;
+    taskWinCoinflip: string;
+    taskWinBlackjack: string;
+    taskWinMinerush: string;
+    taskWinArena: string;
+    tasksResetIn: string;
+    done: string;
+  };
+  rules: {
+    button: string;
+    title: string;
+    subtitle: string;
+    close: string;
+    generalTitle: string;
+    generalBody: string;
+    starsTitle: string;
+    starsBody: string;
+    casesTitle: string;
+    casesBody: string;
+    dailyTitle: string;
+    dailyBody: string;
+    gamesTitle: string;
+    gamesIntro: string;
+    coinflipTitle: string;
+    coinflipBody: string;
+    blackjackTitle: string;
+    blackjackBody: string;
+    minerushTitle: string;
+    minerushBody: string;
+    arenaTitle: string;
+    arenaBody: string;
+    withdrawTitle: string;
+    withdrawBody: string;
+    demoTitle: string;
+    demoBody: string;
+    fairTitle: string;
+    fairBody: string;
   };
   rarity: {
     gray: string;
@@ -102,7 +159,26 @@ export type Dict = {
     claimGift: string;
     nextGiftIn: string;
     hoursMinutes: string;
+    daysHoursMinutes: string;
     error: string;
+    wheelTitle: string;
+    wheelReady: string;
+    wheelOpen: string;
+    wheelHint: string;
+    wheelSpin: string;
+    wheelSpinning: string;
+    wheelCooldown: string;
+    wheelError: string;
+    couponsLabel: string;
+    premiumWheelTitle: string;
+    premiumWheelHint: string;
+    premiumSpinCoupon: string;
+    premiumSpinStars: string;
+    wheelNoCoupons: string;
+    wheelPayTelegramOnly: string;
+    wheelPayCancelled: string;
+    wheelPayUsed: string;
+    wheelPayPending: string;
   };
   referral: {
     title: string;
@@ -206,6 +282,8 @@ export type Dict = {
     cashout: string;
     stake: string;
     mines: string;
+    mult: string;
+    multLabel: string;
     max: string;
     easy: string;
     medium: string;
@@ -240,7 +318,7 @@ const ru: Dict = {
     metaluck: 'Metaluck',
     cases: 'Кейсы',
     blackjack: 'Блэкджек',
-    coinflip: 'Орёл или решка',
+    coinflip: 'Орёл или звезда',
     minerush: 'MineRush',
     arena: 'Арена',
     leaders: 'Лидеры',
@@ -280,7 +358,7 @@ const ru: Dict = {
     casesSub: 'Испытай удачу и выиграй призы Fragment',
     bjTitle: 'Блэкджек',
     bjSub: 'Классическая игра против дилера. Удвой свои звёзды!',
-    coinTitle: 'Орёл или решка',
+    coinTitle: 'Орёл или звезда',
     coinSub: 'Угадай сторону монеты и удвой ставку!',
     mrTitle: 'MineRush',
     mrSub: 'Сапёр на звёзды — открой поле и забери выигрыш!',
@@ -290,6 +368,14 @@ const ru: Dict = {
     soonPvp: 'PvP турнир и командные челленджи',
     soonArcadeTitle: 'Скоро',
     soonArcadeSub: 'Аркада и быстрые мини-игры',
+  },
+  demo: {
+    label: 'Демо-режим',
+    hint: 'Награды только визуальные — баланс, инвентарь и статистика не меняются',
+    enable: 'Демо-режим',
+    disable: 'Выйти из демо',
+    resultNote: 'Демо — приз не зачислен',
+    close: 'Понятно',
   },
   cabinet: {
     balance: 'Баланс',
@@ -307,6 +393,67 @@ const ru: Dict = {
     date: 'Дата',
     rarity: 'Редкость',
     devMode: 'dev режим',
+    level: 'Уровень',
+    xpLabel: 'Опыт',
+    xpToNext: '{n} XP до след. уровня',
+    tasks: 'Задания',
+    taskDailyLogin: 'Ежедневный вход',
+    taskOpenCase: 'Открыть кейс',
+    taskOpenPaidCase: 'Открыть платный кейс',
+    taskWinGame: 'Выиграть в любой мини-игре',
+    taskClaimDaily: 'Забрать ежедневный подарок',
+    taskPlayCoinflip: 'Сыграть в Орёл/Звезда',
+    taskPlayBlackjack: 'Сыграть в Блэкджек',
+    taskPlayMinerush: 'Сыграть в Mine Rush',
+    taskPlayArena: 'Сделать ставку на Арене',
+    taskWinCoinflip: 'Выиграть в Орёл/Звезда',
+    taskWinBlackjack: 'Выиграть в Блэкджек',
+    taskWinMinerush: 'Выиграть в Mine Rush',
+    taskWinArena: 'Выиграть на Арене',
+    tasksResetIn: 'Задания обновятся через {t}',
+    done: 'Готово',
+  },
+  rules: {
+    button: 'Правила',
+    title: 'Правила Metaluck',
+    subtitle: 'Как устроены кейсы, мини-игры и вывод звёзд',
+    close: 'Понятно',
+    generalTitle: 'Общее',
+    generalBody:
+      'Metaluck — мини-приложение Telegram. Играйте на внутренние звёзды (★): открывайте кейсы, участвуйте в мини-играх и копите баланс. Звёзды внутри приложения — игровая валюта сервиса.',
+    starsTitle: 'Звёзды (★)',
+    starsBody:
+      'Баланс пополняется через Telegram Stars и выигрыши. Звёзды можно тратить на кейсы и ставки в мини-играх. За активность начисляется XP и растёт уровень в кабинете.',
+    casesTitle: 'Кейсы',
+    casesBody:
+      'Выберите кейс и откройте его за звёзды (или бесплатный, когда доступен). Приз определяется случайно по весам предметов. Выпавший подарок попадает в историю; звёздные призы зачисляются на баланс.',
+    dailyTitle: 'Ежедневные награды',
+    dailyBody:
+      'Забирайте подарок каждый день по порядку: день 1 → 7, затем цикл начинается снова. Бесплатный кейс и колесо фортуны — раз в 7 дней.',
+    gamesTitle: 'Мини-игры',
+    gamesIntro:
+      'Все мини-игры идут на ваш баланс ★. Ставка списывается сразу. Выигрыш зачисляется на баланс. Есть демо-режим: визуальный розыгрыш без изменения баланса.',
+    coinflipTitle: 'Орёл или Звезда',
+    coinflipBody:
+      'Выберите сторону и ставку. Монета крутится; угадали — выигрыш ×2 (за вычетом комиссии дома). Не угадали — ставка сгорает.',
+    blackjackTitle: 'Блэкджек',
+    blackjackBody:
+      'Классический блэкджек против дилера. Цель — набрать больше дилера, не превысив 21. Ставка возвращается с коэффициентом при победе; при блэкджеке — повышенный выигрыш.',
+    minerushTitle: 'Mine Rush',
+    minerushBody:
+      'Поле 10×10 с минами. Открывайте безопасные клетки, ставьте флаги. Можно забрать выигрыш раньше (cash out) или очистить поле. Попали на мину — ставка проиграна. Большая ставка даёт больший множитель, но и больше мин. Выплаты с house edge 25%.',
+    arenaTitle: 'Арена',
+    arenaBody:
+      'Общий банк: игроки делают ставки в окне раунда. Поле делится на сектора пропорционально ставкам. Шарик указывает победителя — он забирает банк (с комиссией дома). Можно ставить от 1 ★.',
+    withdrawTitle: 'Вывод',
+    withdrawBody:
+      'Чтобы вывести звёзды, на балансе должно быть не меньше 100 ★. Минимальная сумма одной заявки — 100 ★. Заявка обрабатывается вручную; после создания сумма списывается с баланса. Демо-режим не даёт реального вывода.',
+    demoTitle: 'Демо-режим',
+    demoBody:
+      'Включается в лобби игр. Розыгрыши и анимации работают, но баланс, инвентарь, XP и вывод не меняются. Удобно посмотреть, как устроены игры.',
+    fairTitle: 'Важно',
+    fairBody:
+      'Исходы случайны. Сервис удерживает комиссию дома на ставках. Не играйте на суммы, которые не готовы потерять. Правила могут уточняться — актуальная версия всегда в этом разделе.',
   },
   rarity: {
     gray: 'Обычный',
@@ -336,7 +483,26 @@ const ru: Dict = {
     claimGift: '🎁 Забрать подарок дня',
     nextGiftIn: 'Следующий подарок через',
     hoursMinutes: '{h} ч {m} мин',
+    daysHoursMinutes: '{d} д {h} ч {m} мин',
     error: 'Ошибка',
+    wheelTitle: 'Колесо фортуны',
+    wheelReady: 'Бесплатный спин готов!',
+    wheelOpen: 'Крутить',
+    wheelHint: 'Бесплатно раз в 7 дней',
+    wheelSpin: 'Крутить колесо',
+    wheelSpinning: 'Крутим…',
+    wheelCooldown: 'Подождите',
+    wheelError: 'Не удалось крутить колесо',
+    couponsLabel: 'Купоны',
+    premiumWheelTitle: 'Премиум фортуна',
+    premiumWheelHint: '1 купон или 25 Telegram Stars',
+    premiumSpinCoupon: '🎟️ Купон ({n})',
+    premiumSpinStars: '⭐ {n} Stars',
+    wheelNoCoupons: 'Нет купонов',
+    wheelPayTelegramOnly: 'Оплата Stars только в Telegram',
+    wheelPayCancelled: 'Оплата отменена',
+    wheelPayUsed: 'Вращение уже использовано',
+    wheelPayPending: 'Ждём подтверждение оплаты…',
   },
   referral: {
     title: 'Реферальная программа',
@@ -413,7 +579,7 @@ const ru: Dict = {
   coin: {
     back: '‹ Игры',
     heads: 'Орёл',
-    tails: 'Решка',
+    tails: 'Звезда',
     win: 'ПОБЕДА!',
     lose: 'МИМО',
     flip: 'ПОДБРОСИТЬ  •  {bet} ★',
@@ -440,6 +606,8 @@ const ru: Dict = {
     cashout: 'Забрать',
     stake: 'Ставка: {n}',
     mines: 'Мин: {n}',
+    mult: '×{n}',
+    multLabel: 'Множитель',
     max: 'Макс: {n}',
     easy: 'Лёгкий',
     medium: 'Средний',
@@ -474,7 +642,7 @@ const uk: Dict = {
     metaluck: 'Metaluck',
     cases: 'Кейси',
     blackjack: 'Блекджек',
-    coinflip: 'Орел чи решка',
+    coinflip: 'Орел чи зірка',
     minerush: 'MineRush',
     arena: 'Арена',
     leaders: 'Лідери',
@@ -514,7 +682,7 @@ const uk: Dict = {
     casesSub: 'Випробуй удачу та виграй призи Fragment',
     bjTitle: 'Блекджек',
     bjSub: 'Класична гра проти дилера. Подвой свої зірки!',
-    coinTitle: 'Орел чи решка',
+    coinTitle: 'Орел чи зірка',
     coinSub: 'Вгадай бік монети та подвой ставку!',
     mrTitle: 'MineRush',
     mrSub: 'Сапер на зірки — відкрий поле і забери виграш!',
@@ -524,6 +692,14 @@ const uk: Dict = {
     soonPvp: 'PvP турнір і командні челенджі',
     soonArcadeTitle: 'Незабаром',
     soonArcadeSub: 'Аркада та швидкі міні-ігри',
+  },
+  demo: {
+    label: 'Демо-режим',
+    hint: 'Нагороди лише візуальні — баланс, інвентар і статистика не змінюються',
+    enable: 'Демо-режим',
+    disable: 'Вийти з демо',
+    resultNote: 'Демо — приз не зараховано',
+    close: 'Зрозуміло',
   },
   cabinet: {
     balance: 'Баланс',
@@ -541,6 +717,67 @@ const uk: Dict = {
     date: 'Дата',
     rarity: 'Рідкість',
     devMode: 'dev режим',
+    level: 'Рівень',
+    xpLabel: 'Досвід',
+    xpToNext: '{n} XP до наступного рівня',
+    tasks: 'Завдання',
+    taskDailyLogin: 'Щоденний вхід',
+    taskOpenCase: 'Відкрити кейс',
+    taskOpenPaidCase: 'Відкрити платний кейс',
+    taskWinGame: 'Виграти в будь-якій міні-грі',
+    taskClaimDaily: 'Забрати щоденний подарунок',
+    taskPlayCoinflip: 'Зіграти в Орел/Зірка',
+    taskPlayBlackjack: 'Зіграти в Блекджек',
+    taskPlayMinerush: 'Зіграти в Mine Rush',
+    taskPlayArena: 'Зробити ставку на Арені',
+    taskWinCoinflip: 'Виграти в Орел/Зірка',
+    taskWinBlackjack: 'Виграти в Блекджек',
+    taskWinMinerush: 'Виграти в Mine Rush',
+    taskWinArena: 'Виграти на Арені',
+    tasksResetIn: 'Завдання оновляться через {t}',
+    done: 'Готово',
+  },
+  rules: {
+    button: 'Правила',
+    title: 'Правила Metaluck',
+    subtitle: 'Як працюють кейси, міні-ігри та вивід зірок',
+    close: 'Зрозуміло',
+    generalTitle: 'Загальне',
+    generalBody:
+      'Metaluck — міні-застосунок Telegram. Грайте на внутрішні зірки (★): відкривайте кейси, беріть участь у міні-іграх і накопичуйте баланс. Зірки всередині — ігрова валюта сервісу.',
+    starsTitle: 'Зірки (★)',
+    starsBody:
+      'Баланс поповнюється через Telegram Stars і виграші. Зірки витрачаються на кейси та ставки. За активність нараховується XP і росте рівень у кабінеті.',
+    casesTitle: 'Кейси',
+    casesBody:
+      'Оберіть кейс і відкрийте за зірки (або безкоштовний, коли доступний). Приз випадковий за вагами предметів. Подарунок потрапляє в історію; зіркові призи — на баланс.',
+    dailyTitle: 'Щоденні нагороди',
+    dailyBody:
+      'Забирайте подарунок щодня по порядку: день 1 → 7, потім цикл знову. Безкоштовний кейс і колесо фортуни — раз на 7 днів.',
+    gamesTitle: 'Міні-ігри',
+    gamesIntro:
+      'Усі міні-ігри йдуть на ваш баланс ★. Ставка списується одразу. Виграш зараховується на баланс. Є демо-режим без зміни балансу.',
+    coinflipTitle: 'Орел чи Зірка',
+    coinflipBody:
+      'Оберіть сторону і ставку. Монета крутиться; вгадали — виграш ×2 (мінус комісія дому). Не вгадали — ставка згорає.',
+    blackjackTitle: 'Блекджек',
+    blackjackBody:
+      'Класичний блекджек проти дилера. Мета — набрати більше за дилера, не перевищивши 21. При перемозі ставка повертається з коефіцієнтом; блекджек дає підвищений виграш.',
+    minerushTitle: 'Mine Rush',
+    minerushBody:
+      'Поле 10×10 з мінами. Відкривайте безпечні клітинки, ставте прапорці. Можна забрати виграш раніше (cash out). На міну — ставка програна. Складність змінює число мін і множник.',
+    arenaTitle: 'Арена',
+    arenaBody:
+      'Спільний банк: гравці ставлять у вікні раунду. Поле ділиться на сектори пропорційно ставкам. Кулька вказує переможця — він забирає банк (з комісією дому). Ставки від 1 ★.',
+    withdrawTitle: 'Вивід',
+    withdrawBody:
+      'Для виводу на балансі має бути щонайменше 100 ★. Мінімальна сума заявки — 100 ★. Заявка обробляється вручну; після створення сума списується. Демо не дає реального виводу.',
+    demoTitle: 'Демо-режим',
+    demoBody:
+      'Умикається в лоббі ігор. Розіграші та анімації працюють, але баланс, інвентар, XP і вивід не змінюються.',
+    fairTitle: 'Важливо',
+    fairBody:
+      'Результати випадкові. Сервіс утримує комісію дому. Не грайте на суми, які не готові втратити. Актуальні правила — у цьому розділі.',
   },
   rarity: {
     gray: 'Звичайний',
@@ -570,7 +807,26 @@ const uk: Dict = {
     claimGift: '🎁 Забрати подарунок дня',
     nextGiftIn: 'Наступний подарунок через',
     hoursMinutes: '{h} год {m} хв',
+    daysHoursMinutes: '{d} д {h} год {m} хв',
     error: 'Помилка',
+    wheelTitle: 'Колесо фортуни',
+    wheelReady: 'Безкоштовний спін готовий!',
+    wheelOpen: 'Крутити',
+    wheelHint: 'Безкоштовно раз на 7 днів',
+    wheelSpin: 'Крутити колесо',
+    wheelSpinning: 'Крутимо…',
+    wheelCooldown: 'Зачекайте',
+    wheelError: 'Не вдалося крутити колесо',
+    couponsLabel: 'Купони',
+    premiumWheelTitle: 'Преміум фортуна',
+    premiumWheelHint: '1 купон або 25 Telegram Stars',
+    premiumSpinCoupon: '🎟️ Купон ({n})',
+    premiumSpinStars: '⭐ {n} Stars',
+    wheelNoCoupons: 'Немає купонів',
+    wheelPayTelegramOnly: 'Оплата Stars лише в Telegram',
+    wheelPayCancelled: 'Оплату скасовано',
+    wheelPayUsed: 'Обертання вже використано',
+    wheelPayPending: 'Чекаємо підтвердження оплати…',
   },
   referral: {
     title: 'Реферальна програма',
@@ -647,7 +903,7 @@ const uk: Dict = {
   coin: {
     back: '‹ Ігри',
     heads: 'Орел',
-    tails: 'Решка',
+    tails: 'Зірка',
     win: 'ПЕРЕМОГА!',
     lose: 'МИМО',
     flip: 'ПІДКИНУТИ  •  {bet} ★',
@@ -674,6 +930,8 @@ const uk: Dict = {
     cashout: 'Забрати',
     stake: 'Ставка: {n}',
     mines: 'Мін: {n}',
+    mult: '×{n}',
+    multLabel: 'Множник',
     max: 'Макс: {n}',
     easy: 'Легкий',
     medium: 'Середній',
@@ -708,7 +966,7 @@ const en: Dict = {
     metaluck: 'Metaluck',
     cases: 'Cases',
     blackjack: 'Blackjack',
-    coinflip: 'Coin Flip',
+    coinflip: 'Eagle or Star',
     minerush: 'MineRush',
     arena: 'Arena',
     leaders: 'Leaders',
@@ -748,7 +1006,7 @@ const en: Dict = {
     casesSub: 'Try your luck and win Fragment prizes',
     bjTitle: 'Blackjack',
     bjSub: 'Classic game vs the dealer. Double your stars!',
-    coinTitle: 'Coin Flip',
+    coinTitle: 'Eagle or Star',
     coinSub: 'Pick a side and double your bet!',
     mrTitle: 'MineRush',
     mrSub: 'Mines on stars — clear the field and cash out!',
@@ -758,6 +1016,14 @@ const en: Dict = {
     soonPvp: 'PvP tournament and team challenges',
     soonArcadeTitle: 'Coming Soon',
     soonArcadeSub: 'Arcade and quick mini-games',
+  },
+  demo: {
+    label: 'Demo mode',
+    hint: 'Rewards are visual only — balance, inventory, and stats stay unchanged',
+    enable: 'Demo mode',
+    disable: 'Exit demo',
+    resultNote: 'Demo — prize not credited',
+    close: 'Got it',
   },
   cabinet: {
     balance: 'Balance',
@@ -775,6 +1041,67 @@ const en: Dict = {
     date: 'Date',
     rarity: 'Rarity',
     devMode: 'dev mode',
+    level: 'Level',
+    xpLabel: 'XP',
+    xpToNext: '{n} XP to next level',
+    tasks: 'Tasks',
+    taskDailyLogin: 'Daily login',
+    taskOpenCase: 'Open a case',
+    taskOpenPaidCase: 'Open a paid case',
+    taskWinGame: 'Win any minigame',
+    taskClaimDaily: 'Claim the daily gift',
+    taskPlayCoinflip: 'Play Eagle or Star',
+    taskPlayBlackjack: 'Play Blackjack',
+    taskPlayMinerush: 'Play Mine Rush',
+    taskPlayArena: 'Place an Arena bet',
+    taskWinCoinflip: 'Win Eagle or Star',
+    taskWinBlackjack: 'Win Blackjack',
+    taskWinMinerush: 'Win Mine Rush',
+    taskWinArena: 'Win in Arena',
+    tasksResetIn: 'Tasks refresh in {t}',
+    done: 'Done',
+  },
+  rules: {
+    button: 'Rules',
+    title: 'Metaluck Rules',
+    subtitle: 'How cases, mini-games, and withdrawals work',
+    close: 'Got it',
+    generalTitle: 'Overview',
+    generalBody:
+      'Metaluck is a Telegram Mini App. Play with in-app stars (★): open cases, join mini-games, and grow your balance. Stars inside the app are the service’s game currency.',
+    starsTitle: 'Stars (★)',
+    starsBody:
+      'Top up via Telegram Stars or wins. Spend stars on cases and bets. Activity earns XP and levels in your profile.',
+    casesTitle: 'Cases',
+    casesBody:
+      'Pick a case and open it for stars (or a free case when available). Prizes are random by item weights. Gifts go to history; star prizes credit your balance.',
+    dailyTitle: 'Daily rewards',
+    dailyBody:
+      'Claim a gift every day in order: day 1 → 7, then the cycle restarts. Free case and fortune wheel — once every 7 days.',
+    gamesTitle: 'Mini-games',
+    gamesIntro:
+      'All mini-games use your ★ balance. The bet is taken immediately; wins are credited back. Demo mode shows the flow without changing balance.',
+    coinflipTitle: 'Eagle or Star',
+    coinflipBody:
+      'Pick a side and bet. The coin spins; correct call pays ×2 (minus house edge). Wrong call loses the bet.',
+    blackjackTitle: 'Blackjack',
+    blackjackBody:
+      'Classic blackjack vs the dealer. Beat the dealer without going over 21. Wins pay with a multiplier; blackjack pays extra.',
+    minerushTitle: 'Mine Rush',
+    minerushBody:
+      'A 10×10 field with mines. Reveal safe cells, place flags, cash out early, or clear the board. Hit a mine and the bet is lost. Difficulty changes mine count and multipliers.',
+    arenaTitle: 'Arena',
+    arenaBody:
+      'Shared pot: players bet during the round window. The wheel is split by bet size. The ball picks a winner who takes the pot (minus house fee). Bets from 1 ★.',
+    withdrawTitle: 'Withdrawals',
+    withdrawBody:
+      'You need at least 100 ★ on your balance to withdraw. Minimum order amount is 100 ★. Requests are processed manually; the amount is deducted when you submit. Demo mode has no real withdrawals.',
+    demoTitle: 'Demo mode',
+    demoBody:
+      'Toggle it in the games lobby. Animations run, but balance, inventory, XP, and withdrawals stay unchanged.',
+    fairTitle: 'Important',
+    fairBody:
+      'Outcomes are random. The house takes a fee on bets. Only play with amounts you can afford to lose. Current rules are always in this section.',
   },
   rarity: {
     gray: 'Common',
@@ -804,7 +1131,26 @@ const en: Dict = {
     claimGift: '🎁 Claim today’s gift',
     nextGiftIn: 'Next gift in',
     hoursMinutes: '{h}h {m}m',
+    daysHoursMinutes: '{d}d {h}h {m}m',
     error: 'Error',
+    wheelTitle: 'Wheel of Fortune',
+    wheelReady: 'Free spin is ready!',
+    wheelOpen: 'Spin',
+    wheelHint: 'Free once every 7 days',
+    wheelSpin: 'Spin the wheel',
+    wheelSpinning: 'Spinning…',
+    wheelCooldown: 'Please wait',
+    wheelError: 'Could not spin the wheel',
+    couponsLabel: 'Coupons',
+    premiumWheelTitle: 'Premium Fortune',
+    premiumWheelHint: '1 coupon or 25 Telegram Stars',
+    premiumSpinCoupon: '🎟️ Coupon ({n})',
+    premiumSpinStars: '⭐ {n} Stars',
+    wheelNoCoupons: 'No coupons',
+    wheelPayTelegramOnly: 'Stars payment only in Telegram',
+    wheelPayCancelled: 'Payment cancelled',
+    wheelPayUsed: 'Spin already used',
+    wheelPayPending: 'Waiting for payment…',
   },
   referral: {
     title: 'Referral program',
@@ -880,8 +1226,8 @@ const en: Dict = {
   },
   coin: {
     back: '‹ Games',
-    heads: 'Heads',
-    tails: 'Tails',
+    heads: 'Eagle',
+    tails: 'Star',
     win: 'WIN!',
     lose: 'MISS',
     flip: 'FLIP  •  {bet} ★',
@@ -908,6 +1254,8 @@ const en: Dict = {
     cashout: 'Cash out',
     stake: 'Stake: {n}',
     mines: 'Mines: {n}',
+    mult: '{n}x',
+    multLabel: 'Multiplier',
     max: 'Max: {n}',
     easy: 'Easy',
     medium: 'Medium',
@@ -942,7 +1290,7 @@ const es: Dict = {
     metaluck: 'Metaluck',
     cases: 'Cajas',
     blackjack: 'Blackjack',
-    coinflip: 'Cara o cruz',
+    coinflip: 'Águila o estrella',
     minerush: 'MineRush',
     arena: 'Arena',
     leaders: 'Líderes',
@@ -982,7 +1330,7 @@ const es: Dict = {
     casesSub: 'Prueba tu suerte y gana premios Fragment',
     bjTitle: 'Blackjack',
     bjSub: 'Clásico contra el crupier. ¡Duplica tus estrellas!',
-    coinTitle: 'Cara o cruz',
+    coinTitle: 'Águila o estrella',
     coinSub: '¡Elige un lado y duplica tu apuesta!',
     mrTitle: 'MineRush',
     mrSub: 'Buscaminas con estrellas — ¡abre el campo y cobra!',
@@ -992,6 +1340,14 @@ const es: Dict = {
     soonPvp: 'Torneo PvP y desafíos de equipo',
     soonArcadeTitle: 'Próximamente',
     soonArcadeSub: 'Arcade y minijuegos rápidos',
+  },
+  demo: {
+    label: 'Modo demo',
+    hint: 'Las recompensas son solo visuales: saldo, inventario y estadísticas no cambian',
+    enable: 'Modo demo',
+    disable: 'Salir del demo',
+    resultNote: 'Demo — premio no acreditado',
+    close: 'Entendido',
   },
   cabinet: {
     balance: 'Saldo',
@@ -1009,6 +1365,67 @@ const es: Dict = {
     date: 'Fecha',
     rarity: 'Rareza',
     devMode: 'modo dev',
+    level: 'Nivel',
+    xpLabel: 'XP',
+    xpToNext: '{n} XP para el siguiente nivel',
+    tasks: 'Misiones',
+    taskDailyLogin: 'Entrada diaria',
+    taskOpenCase: 'Abrir una caja',
+    taskOpenPaidCase: 'Abrir una caja de pago',
+    taskWinGame: 'Ganar cualquier minijuego',
+    taskClaimDaily: 'Reclamar el regalo diario',
+    taskPlayCoinflip: 'Jugar Águila o estrella',
+    taskPlayBlackjack: 'Jugar Blackjack',
+    taskPlayMinerush: 'Jugar Mine Rush',
+    taskPlayArena: 'Apostar en la Arena',
+    taskWinCoinflip: 'Ganar Águila o estrella',
+    taskWinBlackjack: 'Ganar Blackjack',
+    taskWinMinerush: 'Ganar Mine Rush',
+    taskWinArena: 'Ganar en la Arena',
+    tasksResetIn: 'Las misiones se renuevan en {t}',
+    done: 'Hecho',
+  },
+  rules: {
+    button: 'Reglas',
+    title: 'Reglas de Metaluck',
+    subtitle: 'Cómo funcionan los casos, minijuegos y retiros',
+    close: 'Entendido',
+    generalTitle: 'General',
+    generalBody:
+      'Metaluck es una Mini App de Telegram. Juega con estrellas internas (★): abre casos, participa en minijuegos y acumula saldo. Las estrellas son la moneda del servicio.',
+    starsTitle: 'Estrellas (★)',
+    starsBody:
+      'Recarga con Telegram Stars o ganancias. Gasta estrellas en casos y apuestas. La actividad da XP y sube el nivel en el perfil.',
+    casesTitle: 'Casos',
+    casesBody:
+      'Elige un caso y ábrelo con estrellas (o uno gratis si está disponible). El premio es aleatorio según pesos. Los regalos van al historial; las estrellas al saldo.',
+    dailyTitle: 'Recompensas diarias',
+    dailyBody:
+      'Reclama un regalo cada día en orden: día 1 → 7 y el ciclo se reinicia. Caja gratis y rueda de la fortuna — cada 7 días.',
+    gamesTitle: 'Minijuegos',
+    gamesIntro:
+      'Todos usan tu saldo ★. La apuesta se descuenta al instante; las ganancias se acreditan. El modo demo no cambia el saldo.',
+    coinflipTitle: 'Águila o estrella',
+    coinflipBody:
+      'Elige cara y apuesta. La moneda gira; si aciertas cobras ×2 (menos comisión). Si fallas, pierdes la apuesta.',
+    blackjackTitle: 'Blackjack',
+    blackjackBody:
+      'Blackjack clásico contra el crupier. Superar al crupier sin pasar de 21. Las victorias pagan con multiplicador; el blackjack paga más.',
+    minerushTitle: 'Mine Rush',
+    minerushBody:
+      'Campo 10×10 con minas. Revela casillas seguras, marca banderas, retira antes (cash out) o limpia el tablero. Si pisas una mina, pierdes. La dificultad cambia minas y multiplicadores.',
+    arenaTitle: 'Arena',
+    arenaBody:
+      'Bote compartido: apuestas en la ventana de la ronda. El campo se divide por tamaño de apuesta. La bola elige al ganador del bote (con comisión). Desde 1 ★.',
+    withdrawTitle: 'Retiros',
+    withdrawBody:
+      'Necesitas al menos 100 ★ en el saldo. El mínimo por solicitud es 100 ★. Se procesa manualmente; el importe se descuenta al crear la solicitud. El demo no permite retiros reales.',
+    demoTitle: 'Modo demo',
+    demoBody:
+      'Actívalo en el lobby. Las animaciones funcionan, pero saldo, inventario, XP y retiros no cambian.',
+    fairTitle: 'Importante',
+    fairBody:
+      'Los resultados son aleatorios. Hay comisión de la casa. No juegues con dinero que no puedas perder. Las reglas vigentes están aquí.',
   },
   rarity: {
     gray: 'Común',
@@ -1038,7 +1455,26 @@ const es: Dict = {
     claimGift: '🎁 Reclamar regalo del día',
     nextGiftIn: 'Próximo regalo en',
     hoursMinutes: '{h} h {m} min',
+    daysHoursMinutes: '{d} d {h} h {m} min',
     error: 'Error',
+    wheelTitle: 'Rueda de la fortuna',
+    wheelReady: '¡Giro gratis listo!',
+    wheelOpen: 'Girar',
+    wheelHint: 'Gratis una vez cada 7 días',
+    wheelSpin: 'Girar la rueda',
+    wheelSpinning: 'Girando…',
+    wheelCooldown: 'Espera',
+    wheelError: 'No se pudo girar la rueda',
+    couponsLabel: 'Cupones',
+    premiumWheelTitle: 'Fortuna premium',
+    premiumWheelHint: '1 cupón o 25 Telegram Stars',
+    premiumSpinCoupon: '🎟️ Cupón ({n})',
+    premiumSpinStars: '⭐ {n} Stars',
+    wheelNoCoupons: 'Sin cupones',
+    wheelPayTelegramOnly: 'Pago con Stars solo en Telegram',
+    wheelPayCancelled: 'Pago cancelado',
+    wheelPayUsed: 'Giro ya usado',
+    wheelPayPending: 'Esperando el pago…',
   },
   referral: {
     title: 'Programa de referidos',
@@ -1114,8 +1550,8 @@ const es: Dict = {
   },
   coin: {
     back: '‹ Juegos',
-    heads: 'Cara',
-    tails: 'Cruz',
+    heads: 'Águila',
+    tails: 'Estrella',
     win: '¡VICTORIA!',
     lose: 'FALLASTE',
     flip: 'LANZAR  •  {bet} ★',
@@ -1142,6 +1578,8 @@ const es: Dict = {
     cashout: 'Cobrar',
     stake: 'Apuesta: {n}',
     mines: 'Minas: {n}',
+    mult: '×{n}',
+    multLabel: 'Multiplicador',
     max: 'Máx: {n}',
     easy: 'Fácil',
     medium: 'Medio',
@@ -1176,7 +1614,7 @@ const de: Dict = {
     metaluck: 'Metaluck',
     cases: 'Cases',
     blackjack: 'Blackjack',
-    coinflip: 'Münzwurf',
+    coinflip: 'Adler oder Stern',
     minerush: 'MineRush',
     arena: 'Arena',
     leaders: 'Rangliste',
@@ -1216,7 +1654,7 @@ const de: Dict = {
     casesSub: 'Versuch dein Glück und gewinne Fragment-Preise',
     bjTitle: 'Blackjack',
     bjSub: 'Klassisch gegen den Dealer. Verdopple deine Sterne!',
-    coinTitle: 'Münzwurf',
+    coinTitle: 'Adler oder Stern',
     coinSub: 'Wähle eine Seite und verdopple deinen Einsatz!',
     mrTitle: 'MineRush',
     mrSub: 'Minenspiel um Sterne — öffne das Feld und cash out!',
@@ -1226,6 +1664,14 @@ const de: Dict = {
     soonPvp: 'PvP-Turnier und Team-Challenges',
     soonArcadeTitle: 'Demnächst',
     soonArcadeSub: 'Arcade und schnelle Minispiele',
+  },
+  demo: {
+    label: 'Demo-Modus',
+    hint: 'Belohnungen nur visuell — Guthaben, Inventar und Statistik bleiben unverändert',
+    enable: 'Demo-Modus',
+    disable: 'Demo beenden',
+    resultNote: 'Demo — Preis nicht gutgeschrieben',
+    close: 'Verstanden',
   },
   cabinet: {
     balance: 'Guthaben',
@@ -1243,6 +1689,67 @@ const de: Dict = {
     date: 'Datum',
     rarity: 'Seltenheit',
     devMode: 'Dev-Modus',
+    level: 'Level',
+    xpLabel: 'XP',
+    xpToNext: '{n} XP bis zum nächsten Level',
+    tasks: 'Aufgaben',
+    taskDailyLogin: 'Täglicher Login',
+    taskOpenCase: 'Eine Case öffnen',
+    taskOpenPaidCase: 'Eine bezahlte Case öffnen',
+    taskWinGame: 'Ein beliebiges Minispiel gewinnen',
+    taskClaimDaily: 'Tägliches Geschenk abholen',
+    taskPlayCoinflip: 'Adler oder Stern spielen',
+    taskPlayBlackjack: 'Blackjack spielen',
+    taskPlayMinerush: 'Mine Rush spielen',
+    taskPlayArena: 'In der Arena setzen',
+    taskWinCoinflip: 'Adler oder Stern gewinnen',
+    taskWinBlackjack: 'Blackjack gewinnen',
+    taskWinMinerush: 'Mine Rush gewinnen',
+    taskWinArena: 'In der Arena gewinnen',
+    tasksResetIn: 'Aufgaben erneuern in {t}',
+    done: 'Erledigt',
+  },
+  rules: {
+    button: 'Regeln',
+    title: 'Metaluck-Regeln',
+    subtitle: 'Fälle, Minispiele und Auszahlungen kurz erklärt',
+    close: 'Verstanden',
+    generalTitle: 'Allgemein',
+    generalBody:
+      'Metaluck ist eine Telegram-Mini-App. Spiele mit internen Sternen (★): öffne Cases, spiele Minispiele und baue dein Guthaben auf. Sterne im App sind die Spielwährung.',
+    starsTitle: 'Sterne (★)',
+    starsBody:
+      'Aufladen über Telegram Stars oder Gewinne. Sterne für Cases und Einsätze. Aktivität gibt XP und Level im Profil.',
+    casesTitle: 'Cases',
+    casesBody:
+      'Wähle ein Case und öffne es für Sterne (oder gratis, wenn verfügbar). Preise sind zufällig nach Gewichten. Geschenke in die Historie; Sternpreise aufs Guthaben.',
+    dailyTitle: 'Tägliche Belohnungen',
+    dailyBody:
+      'Hol dir jeden Tag der Reihe nach ein Geschenk: Tag 1 → 7, danach startet der Zyklus neu. Free-Case und Glücksrad — einmal alle 7 Tage.',
+    gamesTitle: 'Minispiele',
+    gamesIntro:
+      'Alle Minispiele nutzen dein ★-Guthaben. Einsatz wird sofort abgezogen; Gewinne gutgeschrieben. Demo ändert das Guthaben nicht.',
+    coinflipTitle: 'Adler oder Stern',
+    coinflipBody:
+      'Seite und Einsatz wählen. Münze dreht sich; richtig = ×2 (abzüglich Hausgebühr). Falsch = Einsatz verloren.',
+    blackjackTitle: 'Blackjack',
+    blackjackBody:
+      'Klassisches Blackjack gegen den Dealer. Mehr als der Dealer, ohne über 21. Gewinne mit Multiplikator; Blackjack zahlt extra.',
+    minerushTitle: 'Mine Rush',
+    minerushBody:
+      '10×10-Feld mit Minen. Sichere Felder öffnen, Flaggen setzen, früh auszahlen oder Feld räumen. Mine = Einsatz verloren. Schwierigkeit ändert Minenzahl und Multiplikatoren.',
+    arenaTitle: 'Arena',
+    arenaBody:
+      'Gemeinsamer Pot: Einsätze im Rundfenster. Feld nach Einsatzgröße geteilt. Die Kugel wählt den Gewinner des Pots (mit Hausgebühr). Ab 1 ★.',
+    withdrawTitle: 'Auszahlung',
+    withdrawBody:
+      'Mindestens 100 ★ auf dem Guthaben nötig. Mindestbetrag pro Antrag: 100 ★. Manuelle Bearbeitung; Betrag wird bei Antrag abgezogen. Demo ohne echte Auszahlung.',
+    demoTitle: 'Demo-Modus',
+    demoBody:
+      'Im Spiele-Lobby aktivierbar. Animationen laufen, aber Guthaben, Inventar, XP und Auszahlung bleiben unverändert.',
+    fairTitle: 'Wichtig',
+    fairBody:
+      'Ergebnisse sind zufällig. Das Haus nimmt Gebühren. Spiele nur mit Beträgen, die du verlieren kannst. Aktuelle Regeln stehen hier.',
   },
   rarity: {
     gray: 'Gewöhnlich',
@@ -1272,7 +1779,26 @@ const de: Dict = {
     claimGift: '🎁 Tagesgeschenk abholen',
     nextGiftIn: 'Nächstes Geschenk in',
     hoursMinutes: '{h} Std. {m} Min.',
+    daysHoursMinutes: '{d} T. {h} Std. {m} Min.',
     error: 'Fehler',
+    wheelTitle: 'Glücksrad',
+    wheelReady: 'Gratis-Dreh ist bereit!',
+    wheelOpen: 'Drehen',
+    wheelHint: 'Gratis einmal alle 7 Tage',
+    wheelSpin: 'Rad drehen',
+    wheelSpinning: 'Dreht…',
+    wheelCooldown: 'Bitte warten',
+    wheelError: 'Rad konnte nicht gedreht werden',
+    couponsLabel: 'Coupons',
+    premiumWheelTitle: 'Premium-Glücksrad',
+    premiumWheelHint: '1 Coupon oder 25 Telegram Stars',
+    premiumSpinCoupon: '🎟️ Coupon ({n})',
+    premiumSpinStars: '⭐ {n} Stars',
+    wheelNoCoupons: 'Keine Coupons',
+    wheelPayTelegramOnly: 'Stars-Zahlung nur in Telegram',
+    wheelPayCancelled: 'Zahlung abgebrochen',
+    wheelPayUsed: 'Dreh bereits genutzt',
+    wheelPayPending: 'Warte auf Zahlung…',
   },
   referral: {
     title: 'Empfehlungsprogramm',
@@ -1348,8 +1874,8 @@ const de: Dict = {
   },
   coin: {
     back: '‹ Spiele',
-    heads: 'Kopf',
-    tails: 'Zahl',
+    heads: 'Adler',
+    tails: 'Stern',
     win: 'GEWINN!',
     lose: 'DANEBEN',
     flip: 'WERFEN  •  {bet} ★',
@@ -1376,6 +1902,8 @@ const de: Dict = {
     cashout: 'Auszahlen',
     stake: 'Einsatz: {n}',
     mines: 'Minen: {n}',
+    mult: '×{n}',
+    multLabel: 'Multiplikator',
     max: 'Max: {n}',
     easy: 'Leicht',
     medium: 'Mittel',

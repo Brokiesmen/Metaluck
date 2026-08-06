@@ -11,6 +11,7 @@
     "start": "node dist/index.js",
     "webhook:set": "node scripts/set-telegram-webhook.mjs",
     "webhook:info": "node scripts/telegram-webhook-info.mjs",
+    "broadcast": "node scripts/broadcast.mjs",
     "data:import:frog": "node scripts/import-frog-data.mjs"
   },
   "dependencies": {
