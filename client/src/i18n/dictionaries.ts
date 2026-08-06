@@ -445,6 +445,10 @@ export type Dict = {
     googleUnavailable: string;
     telegramUnavailable: string;
     miniAppHint: string;
+    continueTelegram: string;
+    continueGoogle: string;
+    or: string;
+    openBot: string;
   };
   desktop: {
     brand: string;
@@ -917,13 +921,17 @@ const ru: Dict = {
   },
   auth: {
     title: 'Вход в Metaluck',
-    subtitle: 'Играйте с любого устройства',
+    subtitle: 'Кейсы, мини-игры и кошелёк — с любого устройства',
     signingIn: 'Входим…',
     googleError: 'Не удалось войти через Google',
     telegramError: 'Не удалось войти через Telegram',
-    googleUnavailable: 'Google-вход не настроен',
-    telegramUnavailable: 'Telegram-вход не настроен',
-    miniAppHint: 'Откройте бота в Telegram, чтобы играть внутри мессенджера.',
+    googleUnavailable: 'Google-вход скоро будет доступен',
+    telegramUnavailable: 'Telegram-вход скоро будет доступен',
+    miniAppHint: 'Уже в Telegram? Откройте мини-приложение бота — вход не нужен.',
+    continueTelegram: 'Telegram',
+    continueGoogle: 'Google',
+    or: 'или',
+    openBot: 'Открыть бота в Telegram →',
   },
   desktop: {
     brand: 'Metaluck',
@@ -1396,13 +1404,17 @@ const uk: Dict = {
   },
   auth: {
     title: 'Вхід у Metaluck',
-    subtitle: 'Грайте з будь-якого пристрою',
+    subtitle: 'Кейси, міні-ігри та гаманець — з будь-якого пристрою',
     signingIn: 'Входимо…',
     googleError: 'Не вдалося увійти через Google',
     telegramError: 'Не вдалося увійти через Telegram',
-    googleUnavailable: 'Google-вхід не налаштовано',
-    telegramUnavailable: 'Telegram-вхід не налаштовано',
-    miniAppHint: 'Відкрийте бота в Telegram, щоб грати всередині месенджера.',
+    googleUnavailable: 'Google-вхід скоро буде доступний',
+    telegramUnavailable: 'Telegram-вхід скоро буде доступний',
+    miniAppHint: 'Вже в Telegram? Відкрийте міні-застосунок бота — вхід не потрібен.',
+    continueTelegram: 'Telegram',
+    continueGoogle: 'Google',
+    or: 'або',
+    openBot: 'Відкрити бота в Telegram →',
   },
   desktop: {
     brand: 'Metaluck',
@@ -1875,13 +1887,17 @@ const en: Dict = {
   },
   auth: {
     title: 'Sign in to Metaluck',
-    subtitle: 'Play from any device',
+    subtitle: 'Cases, mini-games, and wallet — from any device',
     signingIn: 'Signing in…',
     googleError: 'Google sign-in failed',
     telegramError: 'Telegram sign-in failed',
-    googleUnavailable: 'Google sign-in is not configured',
-    telegramUnavailable: 'Telegram sign-in is not configured',
-    miniAppHint: 'Open the bot in Telegram to play inside the messenger.',
+    googleUnavailable: 'Google sign-in coming soon',
+    telegramUnavailable: 'Telegram sign-in coming soon',
+    miniAppHint: 'Already in Telegram? Open the mini app — no sign-in needed.',
+    continueTelegram: 'Telegram',
+    continueGoogle: 'Google',
+    or: 'or',
+    openBot: 'Open bot in Telegram →',
   },
   desktop: {
     brand: 'Metaluck',
@@ -2354,13 +2370,17 @@ const es: Dict = {
   },
   auth: {
     title: 'Entrar en Metaluck',
-    subtitle: 'Juega desde cualquier dispositivo',
+    subtitle: 'Casos, minijuegos y monedero — desde cualquier dispositivo',
     signingIn: 'Entrando…',
     googleError: 'No se pudo entrar con Google',
     telegramError: 'No se pudo entrar con Telegram',
-    googleUnavailable: 'El acceso con Google no está configurado',
-    telegramUnavailable: 'El acceso con Telegram no está configurado',
-    miniAppHint: 'Abre el bot en Telegram para jugar dentro del mensajero.',
+    googleUnavailable: 'El acceso con Google estará disponible pronto',
+    telegramUnavailable: 'El acceso con Telegram estará disponible pronto',
+    miniAppHint: '¿Ya estás en Telegram? Abre la mini app — no hace falta entrar.',
+    continueTelegram: 'Telegram',
+    continueGoogle: 'Google',
+    or: 'o',
+    openBot: 'Abrir el bot en Telegram →',
   },
   desktop: {
     brand: 'Metaluck',
@@ -2833,13 +2853,17 @@ const de: Dict = {
   },
   auth: {
     title: 'Bei Metaluck anmelden',
-    subtitle: 'Spiele auf jedem Gerät',
+    subtitle: 'Fälle, Minispiele und Wallet — auf jedem Gerät',
     signingIn: 'Anmeldung…',
     googleError: 'Google-Anmeldung fehlgeschlagen',
     telegramError: 'Telegram-Anmeldung fehlgeschlagen',
-    googleUnavailable: 'Google-Anmeldung ist nicht konfiguriert',
-    telegramUnavailable: 'Telegram-Anmeldung ist nicht konfiguriert',
-    miniAppHint: 'Öffne den Bot in Telegram, um im Messenger zu spielen.',
+    googleUnavailable: 'Google-Anmeldung kommt bald',
+    telegramUnavailable: 'Telegram-Anmeldung kommt bald',
+    miniAppHint: 'Schon in Telegram? Öffne die Mini-App — keine Anmeldung nötig.',
+    continueTelegram: 'Telegram',
+    continueGoogle: 'Google',
+    or: 'oder',
+    openBot: 'Bot in Telegram öffnen →',
   },
   desktop: {
     brand: 'Metaluck',

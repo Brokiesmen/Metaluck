@@ -201,6 +201,15 @@ export const api = {
       return d.user;
     }),
 
+  authConfig: () =>
+    request<{
+      telegramBot: string | null;
+      googleClientId: string | null;
+      sessionReady: boolean;
+      telegramLoginReady: boolean;
+      googleLoginReady: boolean;
+    }>('/api/auth/config'),
+
   authGoogle: (credential: string) =>
     request<AuthResponse>('/api/auth/google', {
       method: 'POST',

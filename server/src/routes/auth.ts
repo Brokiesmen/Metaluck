@@ -32,6 +32,26 @@ export function registerAuthRoutes(app: FastifyInstance): void {
     },
   };
 
+  /** Public: что можно показать на экране входа (без секретов). */
+  app.get('/api/auth/config', async () => {
+    const telegramBot = String(process.env.TELEGRAM_BOT_USERNAME ?? '')
+      .trim()
+      .replace(/^@/, '');
+    const googleClientId = String(process.env.GOOGLE_CLIENT_ID ?? '').trim();
+    const botToken = String(process.env.TELEGRAM_BOT_TOKEN ?? '').trim();
+    const sessionReady =
+      Boolean(String(process.env.SESSION_SECRET ?? '').trim()) ||
+      process.env.NODE_ENV !== 'production';
+    return {
+      telegramBot: telegramBot || null,
+      googleClientId: googleClientId || null,
+      sessionReady,
+      telegramLoginReady: Boolean(telegramBot && botToken && sessionReady),
+      googleLoginReady: Boolean(googleClientId && sessionReady),
+      miniAppPath: String(process.env.TELEGRAM_MINI_APP_PATH ?? 'app').trim() || 'app',
+    };
+  });
+
   // ── Кто я + скользящий refresh токена ─────────────────────────────────────
   app.get('/api/auth/me', async (req: FastifyRequest, reply) => {
     const claims = parseSession(bearerToken(req));

@@ -45,12 +45,21 @@ export function App() {
   // desktop_web без сессии → LoginScreen
   if (isDesktopWeb && authGate !== 'authed') {
     return (
-      <div className="app" data-client={client}>
+      <div className="app app--login" data-client={client}>
         {authGate === 'anon' ? (
           <LoginScreen onLogin={onWebLogin} />
         ) : (
           <div className="login-screen">
-            <div className="login-status">{t.common.loading}</div>
+            <div className="login-bg" aria-hidden>
+              <div className="login-bg-glow login-bg-glow--a" />
+              <div className="login-bg-glow login-bg-glow--b" />
+              <div className="login-bg-grid" />
+            </div>
+            <div className="login-panel login-panel--loading">
+              <div className="login-brand-mark">
+                <span className="login-status login-status--pulse">{t.common.loading}</span>
+              </div>
+            </div>
           </div>
         )}
       </div>
