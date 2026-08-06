@@ -3,6 +3,7 @@ import { api } from '../api';
 import { useSettings } from '../settings/SettingsContext';
 import { ModalShell } from './ModalShell';
 import { TonAddressQr } from './TonAddressQr';
+import { CryptoAssetIcon } from './CryptoAssetIcon';
 import type { CryptoChainDeposit, CryptoDepositAddress } from '../types';
 
 interface Props {
@@ -155,7 +156,8 @@ export function CryptoDepositModal({ onClose, onCredited, initialCurrency }: Pro
                 disabled={starting}
                 onClick={() => void startDeposit('TON')}
               >
-                TON
+                <CryptoAssetIcon currency="TON" size={28} />
+                <span>TON</span>
               </button>
               <button
                 type="button"
@@ -163,7 +165,8 @@ export function CryptoDepositModal({ onClose, onCredited, initialCurrency }: Pro
                 disabled={starting}
                 onClick={() => void startDeposit('USDT_TON')}
               >
-                USDT (TON)
+                <CryptoAssetIcon currency="USDT_TON" size={28} />
+                <span>USDT (TON)</span>
               </button>
             </div>
           </>
@@ -192,7 +195,10 @@ export function CryptoDepositModal({ onClose, onCredited, initialCurrency }: Pro
               </div>
               <div className="crypto-deposit-meta-row">
                 <span>{t.wallet.cryptoSelected}</span>
-                <strong>{currency === 'USDT_TON' ? 'USDT (TON)' : 'TON'}</strong>
+                <strong className="crypto-deposit-selected">
+                  <CryptoAssetIcon currency={currency === 'USDT_TON' ? 'USDT_TON' : 'TON'} size={18} />
+                  {currency === 'USDT_TON' ? 'USDT (TON)' : 'TON'}
+                </strong>
               </div>
               <div className="crypto-deposit-meta-row">
                 <span>{t.wallet.cryptoMin}</span>

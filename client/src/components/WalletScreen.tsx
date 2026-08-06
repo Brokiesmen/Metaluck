@@ -7,6 +7,7 @@ import { WithdrawModal } from './WithdrawModal';
 import { ExchangeModal } from './ExchangeModal';
 import { CryptoDepositModal } from './CryptoDepositModal';
 import { CryptoWithdrawModal } from './CryptoWithdrawModal';
+import { CryptoAssetIcon } from './CryptoAssetIcon';
 import type { WalletBalance, WalletLedgerEntry, WalletSnapshot } from '../types';
 
 interface Props {
@@ -156,9 +157,12 @@ export function WalletScreen({ onBalanceUpdate, openInvoice, isTelegram }: Props
               return (
                 <div key={c.code} className="wallet-crypto-card">
                   <div className="wallet-crypto-card-head">
-                    <div>
-                      <div className="wallet-crypto-card-title">{c.title}</div>
-                      <div className="wallet-crypto-card-network">{t.wallet.cryptoNetwork}: TON</div>
+                    <div className="wallet-crypto-card-identity">
+                      <CryptoAssetIcon currency={c.code} size={40} />
+                      <div>
+                        <div className="wallet-crypto-card-title">{c.title}</div>
+                        <div className="wallet-crypto-card-network">{t.wallet.cryptoNetwork}: TON</div>
+                      </div>
                     </div>
                     <div className="wallet-crypto-card-bal num">
                       {c.bal ? formatAmount(c.bal, locale) : '0'}{' '}

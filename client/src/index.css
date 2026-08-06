@@ -2909,6 +2909,18 @@ html[data-theme="light"] .wallet-history-btn:active {
   justify-content: space-between;
   gap: 12px;
 }
+.wallet-crypto-card-identity {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+.crypto-asset-icon {
+  display: block;
+  flex-shrink: 0;
+  border-radius: 50%;
+  object-fit: contain;
+}
 .wallet-crypto-card-title {
   font-size: 16px;
   font-weight: 700;
@@ -6478,8 +6490,22 @@ html[data-client="desktop_web"] .desk-page > * {
   gap: 8px;
 }
 .crypto-deposit-currency-btn {
-  min-height: 48px;
+  min-height: 52px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
 }
+.crypto-deposit-currency-btn .crypto-asset-icon {
+  width: 28px;
+  height: 28px;
+}
+.crypto-deposit-selected {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .crypto-status--pending { color: #e8b84a; }
 .crypto-status--confirmed { color: #3ecf8e; }
 .crypto-status--failed { color: #e85d5d; }

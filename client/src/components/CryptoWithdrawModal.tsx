@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { api } from '../api';
 import { useSettings } from '../settings/SettingsContext';
 import { ModalShell } from './ModalShell';
+import { CryptoAssetIcon } from './CryptoAssetIcon';
 import type { CryptoWithdrawal, CryptoWithdrawQuote, WalletBalance } from '../types';
 
 interface Props {
@@ -171,14 +172,16 @@ export function CryptoWithdrawModal({ balances, onClose, onDone, initialCurrency
                 className="wallet-exchange-btn crypto-deposit-currency-btn"
                 onClick={() => pick('TON')}
               >
-                TON
+                <CryptoAssetIcon currency="TON" size={28} />
+                <span>TON</span>
               </button>
               <button
                 type="button"
                 className="wallet-exchange-btn crypto-deposit-currency-btn"
                 onClick={() => pick('USDT_TON')}
               >
-                USDT (TON)
+                <CryptoAssetIcon currency="USDT_TON" size={28} />
+                <span>USDT (TON)</span>
               </button>
             </div>
           </>
