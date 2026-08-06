@@ -7,17 +7,28 @@ interface AuthResult {
   startParam: string | null;
 }
 
+function isProduction(): boolean {
+  return process.env.NODE_ENV === 'production';
+}
+
 /**
  * Validates Telegram WebApp initData using HMAC-SHA256.
- * If BOT_TOKEN is not set → dev mode (skip validation, userId = 0).
+ * Dev (no BOT_TOKEN / non-production): may skip HMAC and allow missing initData.
+ * Production: TELEGRAM_BOT_TOKEN required; invalid/missing initData → unauthorized.
  *
  * https://core.telegram.org/bots/webapps#validating-data-received-via-the-mini-app
  */
 export function validateInitData(initData: string | undefined): AuthResult {
   const DEV: AuthResult = { valid: true, userId: 0, user: null, startParam: null };
+  const FAIL: AuthResult = { valid: false, userId: 0, user: null, startParam: null };
+  const botToken = String(process.env.TELEGRAM_BOT_TOKEN ?? '').trim();
+  const prod = isProduction();
 
-  // No initData → dev mode
-  if (!initData) return DEV;
+  if (!initData) {
+    if (prod && botToken) return FAIL;
+    if (prod) return FAIL;
+    return DEV;
+  }
 
   const params = new URLSearchParams(initData);
   const userStr = params.get('user');
@@ -26,21 +37,19 @@ export function validateInitData(initData: string | undefined): AuthResult {
     try {
       user = JSON.parse(userStr) as Record<string, unknown>;
     } catch {
-      return { valid: false, userId: 0, user: null, startParam: null };
+      return FAIL;
     }
   }
   const userId = typeof user?.id === 'number' ? user.id : 0;
   const startParam = params.get('start_param');
 
-  const botToken = process.env.TELEGRAM_BOT_TOKEN;
-
-  // Bot token not configured → skip validation but use parsed ID (dev mode)
   if (!botToken) {
+    if (prod) return FAIL;
     return { valid: true, userId, user, startParam };
   }
 
   const hash = params.get('hash');
-  if (!hash) return { valid: false, userId: 0, user: null, startParam: null };
+  if (!hash) return FAIL;
 
   params.delete('hash');
 
@@ -59,7 +68,7 @@ export function validateInitData(initData: string | undefined): AuthResult {
     .update(dataCheckString)
     .digest('hex');
 
-  if (expected !== hash) return { valid: false, userId: 0, user: null, startParam: null };
+  if (expected !== hash) return FAIL;
 
   return { valid: true, userId, user, startParam };
 }

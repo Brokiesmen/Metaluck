@@ -27,10 +27,11 @@ export function registerCoinflipRoutes(
   deps: {
     getUserId: (req: FastifyRequest) => Promise<number>;
     getBalance: (userId: number) => Promise<number>;
-    setBalance: (userId: number, balance: number) => Promise<void>;
+    tryDeductBalance: (userId: number, amount: number) => Promise<number | null>;
+    addBalance: (userId: number, delta: number) => Promise<number>;
   },
 ) {
-  const { getUserId, getBalance, setBalance } = deps;
+  const { getUserId, tryDeductBalance, addBalance } = deps;
 
   function jsonError(reply: FastifyReply, statusCode: number, message: string) {
     return reply.status(statusCode).send({ message });
@@ -62,8 +63,8 @@ export function registerCoinflipRoutes(
           return jsonError(reply, 400, 'Выберите орёл или решку');
         }
 
-        const balance = await getBalance(userId);
-        if (balance < bet) {
+        const afterBet = await tryDeductBalance(userId, bet);
+        if (afterBet === null) {
           return jsonError(reply, 400, 'Недостаточно звёзд');
         }
 
@@ -71,8 +72,7 @@ export function registerCoinflipRoutes(
         const win = result === choice;
         const payout = win ? payoutForWin(bet) : 0;
 
-        const newBalance = balance - bet + payout;
-        await setBalance(userId, newBalance);
+        const newBalance = payout > 0 ? await addBalance(userId, payout) : afterBet;
 
         await onGamePlayXp(userId, 'coinflip');
         if (win) await onGameWinXp(userId, XP.COINFLIP_WIN, 'coinflip');

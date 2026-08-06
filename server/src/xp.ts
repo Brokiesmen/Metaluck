@@ -21,6 +21,7 @@ export const XP = {
   BJ_BLACKJACK: 14,
   MINERUSH_CASHOUT: (score: number) => Math.min(22, 3 + Math.floor(Math.max(0, score) / 3)),
   ARENA_WIN: 15,
+  AVIATOR_CASHOUT: (mult: number) => Math.min(24, 4 + Math.floor(Math.max(0, mult - 1) * 4)),
 } as const;
 
 export type TaskGroup = 'login' | 'case' | 'daily' | 'play' | 'win';
@@ -41,11 +42,13 @@ export const TASK_CATALOG: TaskDef[] = [
   { id: 'play_blackjack', xp: 15, group: 'play' },
   { id: 'play_minerush', xp: 15, group: 'play' },
   { id: 'play_arena', xp: 15, group: 'play' },
+  { id: 'play_aviator', xp: 15, group: 'play' },
   { id: 'win_game', xp: 22, group: 'win' },
   { id: 'win_coinflip', xp: 25, group: 'win' },
   { id: 'win_blackjack', xp: 25, group: 'win' },
   { id: 'win_minerush', xp: 25, group: 'win' },
   { id: 'win_arena', xp: 30, group: 'win' },
+  { id: 'win_aviator', xp: 28, group: 'win' },
 ];
 
 export const TASK_BY_ID: Record<string, TaskDef> = Object.fromEntries(
@@ -62,14 +65,16 @@ export const TASK_IDS = {
   PLAY_BLACKJACK: 'play_blackjack',
   PLAY_MINERUSH: 'play_minerush',
   PLAY_ARENA: 'play_arena',
+  PLAY_AVIATOR: 'play_aviator',
   WIN_GAME: 'win_game',
   WIN_COINFLIP: 'win_coinflip',
   WIN_BLACKJACK: 'win_blackjack',
   WIN_MINERUSH: 'win_minerush',
   WIN_ARENA: 'win_arena',
+  WIN_AVIATOR: 'win_aviator',
 } as const;
 
-export type GameKind = 'coinflip' | 'blackjack' | 'minerush' | 'arena';
+export type GameKind = 'coinflip' | 'blackjack' | 'minerush' | 'arena' | 'aviator';
 
 export function taskXp(taskId: string): number {
   return TASK_BY_ID[taskId]?.xp ?? 20;

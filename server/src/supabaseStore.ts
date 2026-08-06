@@ -38,6 +38,59 @@ function throwSb(error: { message?: string } | null, context: string): never {
   throw new Error(`${context}: ${error?.message ?? 'unknown Supabase error'}`);
 }
 
+const LEADERS_CACHE_TTL_MS = 45_000;
+let leadersCache: {
+  key: string;
+  expiresAt: number;
+  value: Awaited<ReturnType<typeof fetchLeadersPage>>;
+} | null = null;
+
+async function fetchLeadersPage(limit: number, offset: number) {
+  const sb = getSupabase();
+  const { count, error: countErr } = await sb
+    .from('balances')
+    .select('*', { count: 'exact', head: true });
+  if (countErr) throwSb(countErr, 'getLeadersPage count');
+
+  const { data: balances, error } = await sb
+    .from('balances')
+    .select('user_id, balance')
+    .order('balance', { ascending: false })
+    .order('user_id', { ascending: true })
+    .range(offset, offset + limit - 1);
+  if (error) throwSb(error, 'getLeadersPage balances');
+
+  const ids = (balances ?? []).map((b) => Number(b.user_id));
+  let profilesById = new Map<number, { name: string; photo_url?: string | null }>();
+  if (ids.length > 0) {
+    const { data: profiles, error: pErr } = await sb
+      .from('user_profiles')
+      .select('user_id, name, photo_url')
+      .in('user_id', ids);
+    if (pErr) throwSb(pErr, 'getLeadersPage profiles');
+    profilesById = new Map(
+      (profiles ?? []).map((p) => [
+        Number(p.user_id),
+        { name: p.name as string, photo_url: p.photo_url as string | null },
+      ]),
+    );
+  }
+
+  return {
+    total: count ?? 0,
+    leaders: (balances ?? []).map((b) => {
+      const uid = Number(b.user_id);
+      const p = profilesById.get(uid);
+      return {
+        userId: uid,
+        name: p?.name || 'Аноним',
+        photoUrl: p?.photo_url ?? undefined,
+        balance: Number(b.balance),
+      };
+    }),
+  };
+}
+
 /** Accept JSONB objects or legacy stringified JSON from SQLite-era rows. */
 export function parseJsonField<T>(value: unknown, fallback: T): T {
   if (value == null) return fallback;
@@ -53,57 +106,60 @@ export function parseJsonField<T>(value: unknown, fallback: T): T {
 
 export async function ensureBalance(userId: number): Promise<number> {
   const sb = getSupabase();
+  const { error: ensureErr } = await sb.rpc('ensure_balance_row', { p_user_id: userId });
+  if (ensureErr) throwSb(ensureErr, 'ensureBalance ensure_row');
+
   const { data, error } = await sb
     .from('balances')
     .select('balance')
     .eq('user_id', userId)
-    .maybeSingle();
-  if (error) throwSb(error, 'ensureBalance select');
-  if (data) return Number(data.balance);
-
-  const { data: inserted, error: insertErr } = await sb
-    .from('balances')
-    .upsert({ user_id: userId, balance: DEFAULT_BALANCE }, { onConflict: 'user_id', ignoreDuplicates: true })
-    .select('balance')
-    .maybeSingle();
-  if (insertErr) throwSb(insertErr, 'ensureBalance upsert');
-  if (inserted) return Number(inserted.balance);
-
-  const { data: again, error: againErr } = await sb
-    .from('balances')
-    .select('balance')
-    .eq('user_id', userId)
     .single();
-  if (againErr) throwSb(againErr, 'ensureBalance reselect');
-  return Number(again.balance);
+  if (error) throwSb(error, 'ensureBalance select');
+  return Number(data.balance);
 }
 
 export async function getBalance(userId: number): Promise<number> {
   return ensureBalance(userId);
 }
 
+/**
+ * Absolute overwrite — prefer addBalance / tryDeductBalance.
+ * Kept for rare admin tooling; not safe under concurrent bets.
+ */
 export async function setBalance(userId: number, balance: number): Promise<void> {
+  const next = Math.max(0, Math.floor(balance));
   const sb = getSupabase();
   const { error } = await sb
     .from('balances')
-    .upsert({ user_id: userId, balance }, { onConflict: 'user_id' });
+    .upsert({ user_id: userId, balance: next }, { onConflict: 'user_id' });
   if (error) throwSb(error, 'setBalance');
 }
 
+/** Atomically credit (or debit if delta < 0 with enough funds). */
 export async function addBalance(userId: number, delta: number): Promise<number> {
-  const current = await getBalance(userId);
-  const next = current + delta;
-  await setBalance(userId, next);
-  return next;
+  const amount = Math.trunc(Number(delta));
+  if (!Number.isFinite(amount)) throw new Error('addBalance: invalid delta');
+  const sb = getSupabase();
+  const { data, error } = await sb.rpc('add_balance', {
+    p_user_id: userId,
+    p_delta: amount,
+  });
+  if (error) throwSb(error, 'addBalance');
+  return Number(data);
 }
 
 /** Deduct amount if balance is sufficient. Returns new balance or null if not enough. */
 export async function tryDeductBalance(userId: number, amount: number): Promise<number | null> {
-  const current = await getBalance(userId);
-  if (current < amount) return null;
-  const next = current - amount;
-  await setBalance(userId, next);
-  return next;
+  const need = Math.trunc(Number(amount));
+  if (!Number.isFinite(need) || need < 0) throw new Error('tryDeductBalance: invalid amount');
+  const sb = getSupabase();
+  const { data, error } = await sb.rpc('try_deduct_balance', {
+    p_user_id: userId,
+    p_amount: need,
+  });
+  if (error) throwSb(error, 'tryDeductBalance');
+  if (data == null) return null;
+  return Number(data);
 }
 
 export async function createWithdrawOrder(row: {
@@ -183,57 +239,80 @@ export async function getLastWheelAt(userId: number, wheelCaseId: number): Promi
   return Number(data?.ts ?? 0);
 }
 
-/** Coupon balance from ledger rows (case_id = coupon ledger). */
-export async function getCoupons(userId: number, ledgerCaseId: number): Promise<number> {
+/** Current coupon balance (source of truth: balances.coupons). */
+export async function getCoupons(userId: number, _ledgerCaseId?: number): Promise<number> {
   const sb = getSupabase();
+  const { error: ensureErr } = await sb.rpc('ensure_balance_row', { p_user_id: userId });
+  if (ensureErr) throwSb(ensureErr, 'getCoupons ensure_row');
   const { data, error } = await sb
-    .from('histories')
-    .select('prize')
+    .from('balances')
+    .select('coupons')
     .eq('user_id', userId)
-    .eq('case_id', ledgerCaseId);
+    .single();
   if (error) throwSb(error, 'getCoupons');
-  let total = 0;
-  for (const row of data ?? []) {
-    const prize = parseJsonField<{ coupons?: unknown }>(row.prize, {});
-    const n = Number(prize.coupons);
-    if (Number.isFinite(n)) total += n;
-  }
-  return Math.max(0, Math.floor(total));
+  return Math.max(0, Math.floor(Number(data.coupons)));
 }
 
+/** Atomically change coupons; history row is log-only. */
 export async function addCouponsLedger(
   userId: number,
   delta: number,
   ledgerCaseId: number,
   ledgerCaseName: string,
 ): Promise<number> {
-  if (!Number.isFinite(delta) || delta === 0) {
-    return getCoupons(userId, ledgerCaseId);
+  const amount = Math.trunc(Number(delta));
+  if (!Number.isFinite(amount) || amount === 0) {
+    return getCoupons(userId);
   }
-  const now = Date.now();
+  const sb = getSupabase();
+  const { data, error } = await sb.rpc('add_coupons', {
+    p_user_id: userId,
+    p_delta: amount,
+  });
+  if (error) throwSb(error, 'addCouponsLedger');
+  const next = Number(data);
   await addHistory(userId, {
     caseId: ledgerCaseId,
     caseName: ledgerCaseName,
     prize: {
       id: 9210,
-      name: delta > 0 ? `+${delta} купон` : `${delta} купон`,
+      name: amount > 0 ? `+${amount} купон` : `${amount} купон`,
       rarity: 'gold',
       icon: '🎟️',
-      coupons: delta,
+      coupons: amount,
     },
-    timestamp: now,
+    timestamp: Date.now(),
   });
-  return getCoupons(userId, ledgerCaseId);
+  return next;
 }
 
+/** Spend one coupon atomically. Returns new balance or null if none left. */
 export async function trySpendCoupon(
   userId: number,
   ledgerCaseId: number,
   ledgerCaseName: string,
 ): Promise<number | null> {
-  const current = await getCoupons(userId, ledgerCaseId);
-  if (current < 1) return null;
-  return addCouponsLedger(userId, -1, ledgerCaseId, ledgerCaseName);
+  const sb = getSupabase();
+  const { data, error } = await sb.rpc('try_deduct_coupons', {
+    p_user_id: userId,
+    p_amount: 1,
+  });
+  if (error) throwSb(error, 'trySpendCoupon');
+  if (data == null) return null;
+  const next = Number(data);
+  await addHistory(userId, {
+    caseId: ledgerCaseId,
+    caseName: ledgerCaseName,
+    prize: {
+      id: 9210,
+      name: '−1 купон',
+      rarity: 'gold',
+      icon: '🎟️',
+      coupons: -1,
+    },
+    timestamp: Date.now(),
+  });
+  return next;
 }
 
 export async function setTopupOrderMeta(payload: string, meta: string): Promise<void> {
@@ -291,49 +370,13 @@ export async function getHistoryPage(userId: number, limit: number, offset: numb
 }
 
 export async function getLeadersPage(limit: number, offset: number) {
-  const sb = getSupabase();
-  const { count, error: countErr } = await sb
-    .from('balances')
-    .select('*', { count: 'exact', head: true });
-  if (countErr) throwSb(countErr, 'getLeadersPage count');
-
-  const { data: balances, error } = await sb
-    .from('balances')
-    .select('user_id, balance')
-    .order('balance', { ascending: false })
-    .order('user_id', { ascending: true })
-    .range(offset, offset + limit - 1);
-  if (error) throwSb(error, 'getLeadersPage balances');
-
-  const ids = (balances ?? []).map((b) => Number(b.user_id));
-  let profilesById = new Map<number, { name: string; photo_url?: string | null }>();
-  if (ids.length > 0) {
-    const { data: profiles, error: pErr } = await sb
-      .from('user_profiles')
-      .select('user_id, name, photo_url')
-      .in('user_id', ids);
-    if (pErr) throwSb(pErr, 'getLeadersPage profiles');
-    profilesById = new Map(
-      (profiles ?? []).map((p) => [
-        Number(p.user_id),
-        { name: p.name as string, photo_url: p.photo_url as string | null },
-      ]),
-    );
+  const cacheKey = `${limit}:${offset}`;
+  if (leadersCache && leadersCache.key === cacheKey && leadersCache.expiresAt > Date.now()) {
+    return leadersCache.value;
   }
-
-  return {
-    total: count ?? 0,
-    leaders: (balances ?? []).map((b) => {
-      const uid = Number(b.user_id);
-      const p = profilesById.get(uid);
-      return {
-        userId: uid,
-        name: p?.name || 'Аноним',
-        photoUrl: p?.photo_url ?? undefined,
-        balance: Number(b.balance),
-      };
-    }),
-  };
+  const value = await fetchLeadersPage(limit, offset);
+  leadersCache = { key: cacheKey, expiresAt: Date.now() + LEADERS_CACHE_TTL_MS, value };
+  return value;
 }
 
 export async function getProfile(userId: number) {

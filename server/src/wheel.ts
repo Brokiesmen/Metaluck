@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import type { Prize, Rarity } from './types.js';
+import { pickOne } from './random.js';
 
 /** Free Wheel of Fortune — once per 7 days. */
 export const WHEEL_INTERVAL_MS = 7 * 24 * 60 * 60 * 1000;
@@ -122,7 +123,7 @@ export function segmentToPrizeBase(
     const pool = giftPool.length > 0 ? giftPool : [];
     const prize =
       pool.length > 0
-        ? pool[Math.floor(Math.random() * pool.length)]
+        ? pickOne(pool)
         : ({ id: 1, name: 'NFT-подарок', rarity: 'gold', icon: '🎁' } as Prize);
     return {
       prize,

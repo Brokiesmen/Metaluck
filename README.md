@@ -25,14 +25,22 @@ API: **Fastify + TypeScript** (Railway)
 minigames/
 ├── client/          # фронтенд (Vite React)
 │   ├── src/
-│   └── public/gifts # картинки подарков
+│   └── public/gifts # картинки подарков (WebP)
 ├── server/          # бэкенд (Fastify)
 │   ├── src/
+│   │   ├── index.ts       # bootstrap + getUserId
+│   │   ├── routes/        # кейсы, daily, wheel, payments…
+│   │   └── supabaseStore.ts
 │   └── scripts/     # webhook, broadcast, импорт данных
 ├── scripts/         # локальные helper-скрипты
 ├── .env.example     # пример переменных окружения
 └── package.json     # корневые npm-скрипты
 ```
+
+### Надёжность экономики
+- Баланс ★ и купоны меняются атомарными SQL-функциями (`add_balance`, `try_deduct_balance`, `add_coupons`, `try_deduct_coupons`).
+- Купоны хранятся в `balances.coupons` (история — только лог).
+- Rate-limit по Telegram user id; крипто-RNG для призов; кэш лидерборда ~45 с.
 
 ---
 

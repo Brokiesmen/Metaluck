@@ -1,3 +1,5 @@
+import { randomInt } from './random.js';
+
 /** Типы карт */
 export type CardType = 'attack' | 'defense' | 'speed';
 
@@ -26,7 +28,7 @@ export function compareCards(a: CardType, b: CardType): 'win' | 'lose' | 'draw' 
 
 export function randomCard(): CardType {
   const c: CardType[] = ['attack', 'defense', 'speed'];
-  return c[Math.floor(Math.random() * 3)];
+  return c[randomInt(0, 2)];
 }
 
 /** XP needed to advance from `level` to `level+1` */

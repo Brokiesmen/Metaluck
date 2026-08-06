@@ -21,7 +21,7 @@ export function PrizesGrid({ prizes }: Props) {
               style={{ borderColor: r.border, color: r.border }}>
               <div className="prize-img-wrap">
                 {img
-                  ? <img src={img.image} alt={p.name} className="prize-img" />
+                  ? <img src={img.image} alt={p.name} className="prize-img" loading="lazy" decoding="async" />
                   : <span className="prize-icon">{p.icon}</span>}
               </div>
               <div className="prize-card-overlay">

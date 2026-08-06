@@ -213,10 +213,11 @@ export function registerBlackjackRoutes(
   deps: {
     getUserId: (req: FastifyRequest) => Promise<number>;
     getBalance: (userId: number) => Promise<number>;
-    setBalance: (userId: number, balance: number) => Promise<void>;
+    tryDeductBalance: (userId: number, amount: number) => Promise<number | null>;
+    addBalance: (userId: number, delta: number) => Promise<number>;
   },
 ) {
-  const { getUserId, getBalance, setBalance } = deps;
+  const { getUserId, getBalance, tryDeductBalance, addBalance } = deps;
 
   async function readState(userId: number): Promise<BjRowState | null> {
     const sb = getSupabase();
@@ -288,17 +289,14 @@ export function registerBlackjackRoutes(
           return jsonError(reply, 400, 'Сначала завершите текущую партию');
         }
 
-        const balance = await getBalance(userId);
-        if (balance < bet) {
+        const stakeTaken = await tryDeductBalance(userId, bet);
+        if (stakeTaken === null) {
           return jsonError(reply, 400, 'Недостаточно звёзд');
         }
 
         let deck = shuffle(buildDeck());
         const player: string[] = [popCard(deck), popCard(deck)];
         const dealer: string[] = [popCard(deck), popCard(deck)];
-
-        const stakeTaken = balance - bet;
-        await setBalance(userId, stakeTaken);
         await onGamePlayXp(userId, 'blackjack');
 
         let state: BjRowState = {
@@ -313,7 +311,7 @@ export function registerBlackjackRoutes(
         if (isNaturalBlackjack(player)) {
           state.dealerHoleHidden = false;
           if (isNaturalBlackjack(dealer)) {
-            await setBalance(userId, stakeTaken + bet);
+            await addBalance(userId, bet);
             state = {
               ...state,
               phase: 'finished',
@@ -322,7 +320,7 @@ export function registerBlackjackRoutes(
             };
           } else {
             const win = payoutForBlackjack(bet);
-            await setBalance(userId, stakeTaken + win);
+            await addBalance(userId, win);
             state = {
               ...state,
               phase: 'finished',
@@ -397,7 +395,7 @@ export function registerBlackjackRoutes(
         dk = played.deck;
         dl = played.dealer;
         const { result, payout } = settleRound(state.bet, player, dl);
-        await setBalance(userId, (await getBalance(userId)) + payout);
+        if (payout > 0) await addBalance(userId, payout);
         if (result === 'win') await onGameWinXp(userId, XP.BJ_WIN, 'blackjack');
         if (result === 'blackjack') await onGameWinXp(userId, XP.BJ_BLACKJACK, 'blackjack');
         const done: BjRowState = {
@@ -450,7 +448,7 @@ export function registerBlackjackRoutes(
       deck = played.deck;
       dealer = played.dealer;
       const { result, payout } = settleRound(state.bet, player, dealer);
-      await setBalance(userId, (await getBalance(userId)) + payout);
+      if (payout > 0) await addBalance(userId, payout);
       if (result === 'win') await onGameWinXp(userId, XP.BJ_WIN, 'blackjack');
       if (result === 'blackjack') await onGameWinXp(userId, XP.BJ_BLACKJACK, 'blackjack');
       const done: BjRowState = {
@@ -482,10 +480,9 @@ export function registerBlackjackRoutes(
       if (state.phase !== 'player') return jsonError(reply, 400, 'Нет активного хода.');
       if (state.player.length !== 2) return jsonError(reply, 400, 'Удвоение доступно только с двумя картами.');
 
-      const balance = await getBalance(userId);
-      if (balance < state.bet) return jsonError(reply, 400, 'Недостаточно звёзд для удвоения.');
+      const deducted = await tryDeductBalance(userId, state.bet);
+      if (deducted === null) return jsonError(reply, 400, 'Недостаточно звёзд для удвоения.');
 
-      await setBalance(userId, balance - state.bet);
       const totalBet = state.bet * 2;
 
       let { deck } = state;
@@ -507,7 +504,7 @@ export function registerBlackjackRoutes(
         const settled = settleRound(totalBet, player, dealer);
         result = settled.result;
         payout = settled.payout;
-        if (payout > 0) await setBalance(userId, (await getBalance(userId)) + payout);
+        if (payout > 0) await addBalance(userId, payout);
         if (result === 'win') await onGameWinXp(userId, XP.BJ_WIN, 'blackjack');
         if (result === 'blackjack') await onGameWinXp(userId, XP.BJ_BLACKJACK, 'blackjack');
       }

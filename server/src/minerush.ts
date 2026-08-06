@@ -71,10 +71,11 @@ export function registerMineRushRoutes(
   deps: {
     getUserId: (req: FastifyRequest) => Promise<number>;
     getBalance: (userId: number) => Promise<number>;
-    setBalance: (userId: number, balance: number) => Promise<void>;
+    tryDeductBalance: (userId: number, amount: number) => Promise<number | null>;
+    addBalance: (userId: number, delta: number) => Promise<number>;
   },
 ) {
-  const { getUserId, getBalance, setBalance } = deps;
+  const { getUserId, getBalance, tryDeductBalance, addBalance } = deps;
 
   async function getGame(gameId: string): Promise<GameRow | null> {
     const sb = getSupabase();
@@ -209,15 +210,14 @@ export function registerMineRushRoutes(
       const active = await getActive(userId);
       if (active) return jsonError(reply, 400, 'Завершите текущую игру');
 
-      const balance = await getBalance(userId);
-      if (balance < bet) return jsonError(reply, 400, 'Недостаточно звёзд');
+      const afterBet = await tryDeductBalance(userId, bet);
+      if (afterBet === null) return jsonError(reply, 400, 'Недостаточно звёзд');
 
       const mineCount = mineCountFor(difficulty, bet);
       const mines = generateMines(mineCount);
       const gameId = crypto.randomUUID();
       const now = Date.now();
 
-      await setBalance(userId, balance - bet);
       await insertGame({
         game_id: gameId,
         user_id: userId,
@@ -280,7 +280,7 @@ export function registerMineRushRoutes(
         if (score >= totalSafeCells(mines.size)) {
           status = 'won';
           const payout = payoutForWin(row.bet, row.difficulty as Difficulty);
-          await setBalance(userId, (await getBalance(userId)) + payout);
+          await addBalance(userId, payout);
           await onGameWinXp(userId, XP.MINERUSH_CASHOUT(score), 'minerush');
         }
       }
@@ -344,7 +344,7 @@ export function registerMineRushRoutes(
       mines.size,
       row.difficulty as Difficulty,
     );
-    await setBalance(userId, (await getBalance(userId)) + payout);
+    await addBalance(userId, payout);
     await updateGame(gameId, {
       mines_json: serializeSet(deserializeSet(row.mines_json)),
       revealed_json: serializeSet(deserializeSet(row.revealed_json)),
