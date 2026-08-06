@@ -449,6 +449,8 @@ export type Dict = {
     continueGoogle: string;
     or: string;
     openBot: string;
+    telegramWaiting: string;
+    telegramExpired: string;
   };
   desktop: {
     brand: string;
@@ -928,10 +930,12 @@ const ru: Dict = {
     googleUnavailable: 'Google-вход скоро будет доступен',
     telegramUnavailable: 'Telegram-вход скоро будет доступен',
     miniAppHint: 'Уже в Telegram? Откройте мини-приложение бота — вход не нужен.',
-    continueTelegram: 'Telegram',
-    continueGoogle: 'Google',
+    continueTelegram: 'Войти через Telegram',
+    continueGoogle: 'Войти через Google',
     or: 'или',
     openBot: 'Открыть бота в Telegram →',
+    telegramWaiting: 'Подтвердите вход в боте — затем вернитесь сюда',
+    telegramExpired: 'Ссылка входа устарела. Нажмите «Войти через Telegram» снова',
   },
   desktop: {
     brand: 'Metaluck',
@@ -1411,10 +1415,12 @@ const uk: Dict = {
     googleUnavailable: 'Google-вхід скоро буде доступний',
     telegramUnavailable: 'Telegram-вхід скоро буде доступний',
     miniAppHint: 'Вже в Telegram? Відкрийте міні-застосунок бота — вхід не потрібен.',
-    continueTelegram: 'Telegram',
-    continueGoogle: 'Google',
+    continueTelegram: 'Увійти через Telegram',
+    continueGoogle: 'Увійти через Google',
     or: 'або',
     openBot: 'Відкрити бота в Telegram →',
+    telegramWaiting: 'Підтвердіть вхід у боті — потім поверніться сюди',
+    telegramExpired: 'Посилання входу застаріло. Натисніть «Увійти через Telegram» знову',
   },
   desktop: {
     brand: 'Metaluck',
@@ -1894,10 +1900,12 @@ const en: Dict = {
     googleUnavailable: 'Google sign-in coming soon',
     telegramUnavailable: 'Telegram sign-in coming soon',
     miniAppHint: 'Already in Telegram? Open the mini app — no sign-in needed.',
-    continueTelegram: 'Telegram',
-    continueGoogle: 'Google',
+    continueTelegram: 'Continue with Telegram',
+    continueGoogle: 'Continue with Google',
     or: 'or',
     openBot: 'Open bot in Telegram →',
+    telegramWaiting: 'Confirm in the bot — then return here',
+    telegramExpired: 'Login link expired. Tap Continue with Telegram again',
   },
   desktop: {
     brand: 'Metaluck',
@@ -2377,10 +2385,12 @@ const es: Dict = {
     googleUnavailable: 'El acceso con Google estará disponible pronto',
     telegramUnavailable: 'El acceso con Telegram estará disponible pronto',
     miniAppHint: '¿Ya estás en Telegram? Abre la mini app — no hace falta entrar.',
-    continueTelegram: 'Telegram',
-    continueGoogle: 'Google',
+    continueTelegram: 'Entrar con Telegram',
+    continueGoogle: 'Entrar con Google',
     or: 'o',
     openBot: 'Abrir el bot en Telegram →',
+    telegramWaiting: 'Confirma en el bot — luego vuelve aquí',
+    telegramExpired: 'El enlace caducó. Pulsa Entrar con Telegram de nuevo',
   },
   desktop: {
     brand: 'Metaluck',
@@ -2860,10 +2870,12 @@ const de: Dict = {
     googleUnavailable: 'Google-Anmeldung kommt bald',
     telegramUnavailable: 'Telegram-Anmeldung kommt bald',
     miniAppHint: 'Schon in Telegram? Öffne die Mini-App — keine Anmeldung nötig.',
-    continueTelegram: 'Telegram',
-    continueGoogle: 'Google',
+    continueTelegram: 'Mit Telegram anmelden',
+    continueGoogle: 'Mit Google anmelden',
     or: 'oder',
     openBot: 'Bot in Telegram öffnen →',
+    telegramWaiting: 'Im Bot bestätigen — dann hierher zurückkehren',
+    telegramExpired: 'Link abgelaufen. Erneut «Mit Telegram anmelden» tippen',
   },
   desktop: {
     brand: 'Metaluck',

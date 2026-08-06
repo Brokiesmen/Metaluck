@@ -79,11 +79,20 @@ interface TelegramLoginUser {
 interface GoogleIdConfig {
   client_id: string;
   callback: (resp: { credential: string }) => void;
+  ux_mode?: 'popup' | 'redirect';
+  auto_select?: boolean;
+  cancel_on_tap_outside?: boolean;
+  use_fedcm_for_prompt?: boolean;
+}
+interface GooglePromptNotification {
+  isNotDisplayed?: () => boolean;
+  isSkippedMoment?: () => boolean;
+  isDismissedMoment?: () => boolean;
 }
 interface GoogleAccountsId {
   initialize(config: GoogleIdConfig): void;
   renderButton(parent: HTMLElement, options: Record<string, unknown>): void;
-  prompt(): void;
+  prompt(callback?: (notification: GooglePromptNotification) => void): void;
 }
 
 declare global {

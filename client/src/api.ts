@@ -208,7 +208,23 @@ export const api = {
       sessionReady: boolean;
       telegramLoginReady: boolean;
       googleLoginReady: boolean;
+      webAppUrl?: string | null;
     }>('/api/auth/config'),
+
+  authTelegramStart: () =>
+    request<{
+      challengeId: string;
+      deepLink: string;
+      expiresAt: string;
+      pollIntervalMs: number;
+    }>('/api/auth/telegram/start', { method: 'POST', body: '{}' }),
+
+  authTelegramPoll: (challengeId: string) =>
+    request<{
+      status: 'pending' | 'expired' | 'ready';
+      token?: string;
+      user?: WebUser;
+    }>(`/api/auth/telegram/poll?id=${encodeURIComponent(challengeId)}`),
 
   authGoogle: (credential: string) =>
     request<AuthResponse>('/api/auth/google', {

@@ -18,6 +18,12 @@ import {
   telegramJsonMethod,
   verifyAdminSecret,
 } from './helpers.js';
+import {
+  approveLoginChallenge,
+  parseWebLoginStartPayload,
+  WEB_LOGIN_START_PREFIX,
+  webAppPublicUrl,
+} from '../payments/webLogin/telegramChallenge.js';
 
 const TELEGRAM_WEBHOOK_SECRET_TOKEN = String(process.env.TELEGRAM_WEBHOOK_SECRET_TOKEN ?? '').trim();
 
@@ -152,6 +158,70 @@ async function handleBotStartMessage(message: any) {
   }).catch((err) => {
     console.warn('[bot_chats] upsert failed', err);
   });
+
+  const textRaw = String(message?.text ?? '').trim();
+  const challengeId = parseWebLoginStartPayload(textRaw);
+
+  // ── Web browser login via /start web_<challenge> ──────────────────────────
+  if (challengeId) {
+    const photo =
+      Array.isArray(from?.photo) && from.photo.length
+        ? null // widget uses photo_url; bot API doesn't give URL here
+        : null;
+    const result = await approveLoginChallenge(challengeId, {
+      id: userId,
+      username: from?.username ?? null,
+      firstName: from?.first_name ?? null,
+      avatar: photo,
+    }).catch((err) => {
+      console.warn('[web-login] approve failed', err);
+      return { ok: false as const, reason: 'error' };
+    });
+
+    const site = webAppPublicUrl();
+    const returnUrl = site
+      ? `${site}/?auth=tg&c=${encodeURIComponent(challengeId)}`
+      : null;
+
+    if (result.ok) {
+      const body: Record<string, unknown> = {
+        chat_id: chatId,
+        text:
+          `✅ <b>Вход подтверждён</b>\n\n` +
+          `Вернитесь на сайт Metaluck — сессия откроется автоматически.`,
+        parse_mode: 'HTML',
+        disable_web_page_preview: true,
+      };
+      if (returnUrl) {
+        body.reply_markup = {
+          inline_keyboard: [[{ text: '🌐 Открыть сайт', url: returnUrl }]],
+        };
+      }
+      await telegramJsonMethod('sendMessage', body).catch((err) => {
+        console.warn('[web-login] confirm send failed', err);
+      });
+      return;
+    }
+
+    await telegramJsonMethod('sendMessage', {
+      chat_id: chatId,
+      text:
+        result.reason === 'expired'
+          ? '⏰ Ссылка для входа устарела. Вернитесь на сайт и нажмите «Войти через Telegram» снова.'
+          : 'Не удалось подтвердить вход. Попробуйте ещё раз с сайта.',
+      parse_mode: 'HTML',
+    }).catch(() => undefined);
+    return;
+  }
+
+  // Ignore other start payloads that look like web_ but failed parse
+  if (textRaw.includes(WEB_LOGIN_START_PREFIX) && textRaw.startsWith('/start')) {
+    await telegramJsonMethod('sendMessage', {
+      chat_id: chatId,
+      text: 'Некорректная ссылка входа. Откройте сайт и нажмите «Войти через Telegram» заново.',
+    }).catch(() => undefined);
+    return;
+  }
 
   const appUrl = miniAppUrl();
   const name = String(from?.first_name ?? '').trim() || 'друг';

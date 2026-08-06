@@ -6039,24 +6039,6 @@ html[data-theme="light"] .tab-bar {
   width: 100%;
   margin-top: 8px;
 }
-.login-method {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  padding: 14px 12px;
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.07);
-}
-.login-method-label {
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--tg-hint);
-}
 .login-divider {
   display: flex;
   align-items: center;
@@ -6072,6 +6054,79 @@ html[data-theme="light"] .tab-bar {
   flex: 1;
   height: 1px;
   background: rgba(255, 255, 255, 0.1);
+}
+.login-method {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  width: 100%;
+  padding: 4px 0;
+  border-radius: 0;
+  background: transparent;
+  border: none;
+}
+.login-method-label {
+  display: none;
+}
+.login-provider-btn {
+  width: 100%;
+  min-height: 50px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 12px 18px;
+  border-radius: 14px;
+  border: 1px solid transparent;
+  font-size: 15px;
+  font-weight: 650;
+  cursor: pointer;
+  transition: transform 0.12s ease, filter 0.12s ease, background 0.12s ease;
+}
+.login-provider-btn:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+.login-provider-btn:not(:disabled):hover {
+  transform: translateY(-1px);
+  filter: brightness(1.06);
+}
+.login-provider-btn:not(:disabled):active {
+  transform: translateY(0);
+}
+.login-provider-btn--telegram {
+  color: #fff;
+  background: linear-gradient(180deg, #2AABEE 0%, #229ED9 100%);
+  border-color: rgba(255, 255, 255, 0.12);
+  box-shadow: 0 8px 22px rgba(34, 158, 217, 0.28);
+}
+.login-provider-btn--google {
+  color: #f2f2f2;
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.14);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
+}
+.login-provider-icon {
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+}
+.login-wait-hint {
+  margin: 0;
+  font-size: 12px;
+  color: var(--tg-hint);
+  line-height: 1.4;
+  text-align: center;
+}
+.login-google-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  opacity: 0;
+  pointer-events: none;
 }
 .login-tg-holder,
 .login-google-holder {
