@@ -236,6 +236,55 @@ export type Dict = {
     exchangeRate: string;
     exchangeInvalidAmount: string;
     exchangeSamePair: string;
+    exchangeAvailable: string;
+    exchangeInsufficient: string;
+    exchangeRealHint: string;
+    exchangeDepositFirst: string;
+    exchangeWithdrawTon: string;
+    exchangeDoneHint: string;
+    cryptoDeposit: string;
+    cryptoAddress: string;
+    cryptoCopy: string;
+    cryptoCopied: string;
+    cryptoSync: string;
+    cryptoListening: string;
+    cryptoMin: string;
+    cryptoDisabled: string;
+    cryptoDeposits: string;
+    cryptoEmpty: string;
+    cryptoPickCurrency: string;
+    cryptoChangeCurrency: string;
+    cryptoSelected: string;
+    cryptoConfirmations: string;
+    cryptoStatusPending: string;
+    cryptoStatusConfirmed: string;
+    cryptoStatusFailed: string;
+    cryptoWithdraw: string;
+    cryptoSection: string;
+    cryptoNetwork: string;
+    cryptoTopUp: string;
+    cryptoCashOut: string;
+    cryptoWdPickCurrency: string;
+    cryptoWdDisabled: string;
+    cryptoWdAddress: string;
+    cryptoWdAmount: string;
+    cryptoWdAvailable: string;
+    cryptoWdContinue: string;
+    cryptoWdBack: string;
+    cryptoWdConfirmHint: string;
+    cryptoWdConfirm: string;
+    cryptoWdFee: string;
+    cryptoWdNet: string;
+    cryptoWdTotal: string;
+    cryptoWdDaily: string;
+    cryptoWdHistory: string;
+    cryptoWdEmpty: string;
+    cryptoWdInvalidAmount: string;
+    cryptoWdInvalidAddress: string;
+    cryptoWdStatusPending: string;
+    cryptoWdStatusProcessing: string;
+    cryptoWdStatusCompleted: string;
+    cryptoWdStatusFailed: string;
   };
   topup: {
     title: string;
@@ -386,6 +435,34 @@ export type Dict = {
     cashError: string;
     toastWin: string;
     toastLost: string;
+  };
+  auth: {
+    title: string;
+    subtitle: string;
+    signingIn: string;
+    googleError: string;
+    telegramError: string;
+    googleUnavailable: string;
+    telegramUnavailable: string;
+    miniAppHint: string;
+  };
+  desktop: {
+    brand: string;
+    dashboard: string;
+    profile: string;
+    wallet: string;
+    games: string;
+    rewards: string;
+    settings: string;
+    logout: string;
+    notifications: string;
+    noNotifications: string;
+    welcome: string;
+    dashboardHint: string;
+    balance: string;
+    playNow: string;
+    openRewards: string;
+    openProfile: string;
   };
 };
 
@@ -638,6 +715,55 @@ const ru: Dict = {
     exchangeRate: 'Курс',
     exchangeInvalidAmount: 'Некорректная сумма',
     exchangeSamePair: 'Выберите разные валюты',
+    exchangeAvailable: 'Доступно',
+    exchangeInsufficient: 'Недостаточно средств — пополните баланс',
+    exchangeRealHint: 'Обмен по реальному балансу TON, USDT и Stars',
+    exchangeDepositFirst: 'Пополнить криптой',
+    exchangeWithdrawTon: 'Вывести TON',
+    exchangeDoneHint: 'Баланс обновлён. Можно вывести TON или продолжить обмен.',
+    cryptoDeposit: 'Крипто-депозит',
+    cryptoAddress: 'Ваш адрес TON',
+    cryptoCopy: 'Копировать',
+    cryptoCopied: 'Скопировано',
+    cryptoSync: 'Проверить сеть',
+    cryptoListening: 'Отправьте TON или USDT (TON) на этот адрес. Зачисление после подтверждений.',
+    cryptoMin: 'Минимум',
+    cryptoDisabled: 'Крипто-кошелёк временно недоступен',
+    cryptoDeposits: 'Входящие',
+    cryptoEmpty: 'Пока нет входящих переводов',
+    cryptoPickCurrency: 'Выберите валюту для пополнения',
+    cryptoChangeCurrency: '← Сменить валюту',
+    cryptoSelected: 'Валюта',
+    cryptoConfirmations: 'подтверждений',
+    cryptoStatusPending: 'ожидание',
+    cryptoStatusConfirmed: 'зачислено',
+    cryptoStatusFailed: 'ошибка',
+    cryptoWithdraw: 'Крипто-вывод',
+    cryptoSection: 'Crypto',
+    cryptoNetwork: 'Сеть',
+    cryptoTopUp: 'Пополнить',
+    cryptoCashOut: 'Вывести',
+    cryptoWdPickCurrency: 'Выберите валюту для вывода',
+    cryptoWdDisabled: 'Вывод криптовалюты временно недоступен',
+    cryptoWdAddress: 'Адрес кошелька',
+    cryptoWdAmount: 'Сумма',
+    cryptoWdAvailable: 'Доступно',
+    cryptoWdContinue: 'Далее',
+    cryptoWdBack: '← Назад',
+    cryptoWdConfirmHint: 'Проверьте данные и подтвердите вывод',
+    cryptoWdConfirm: 'Подтвердить вывод',
+    cryptoWdFee: 'Комиссия сети',
+    cryptoWdNet: 'К получению',
+    cryptoWdTotal: 'Итог',
+    cryptoWdDaily: 'Дневной лимит',
+    cryptoWdHistory: 'Заявки на вывод',
+    cryptoWdEmpty: 'Пока нет заявок',
+    cryptoWdInvalidAmount: 'Некорректная сумма',
+    cryptoWdInvalidAddress: 'Укажите адрес кошелька',
+    cryptoWdStatusPending: 'ожидание',
+    cryptoWdStatusProcessing: 'отправка',
+    cryptoWdStatusCompleted: 'выполнено',
+    cryptoWdStatusFailed: 'ошибка',
   },
   topup: {
     title: 'Пополнить звёзды',
@@ -788,6 +914,34 @@ const ru: Dict = {
     cashError: 'Ошибка кэшаута',
     toastWin: 'Забрали на {mult} — +{amount} ★',
     toastLost: 'Улетел на {mult} — ставка сгорела',
+  },
+  auth: {
+    title: 'Вход в Metaluck',
+    subtitle: 'Играйте с любого устройства',
+    signingIn: 'Входим…',
+    googleError: 'Не удалось войти через Google',
+    telegramError: 'Не удалось войти через Telegram',
+    googleUnavailable: 'Google-вход не настроен',
+    telegramUnavailable: 'Telegram-вход не настроен',
+    miniAppHint: 'Откройте бота в Telegram, чтобы играть внутри мессенджера.',
+  },
+  desktop: {
+    brand: 'Metaluck',
+    dashboard: 'Dashboard',
+    profile: 'Профиль',
+    wallet: 'Кошелёк',
+    games: 'Игры',
+    rewards: 'Награды',
+    settings: 'Настройки',
+    logout: 'Выйти',
+    notifications: 'Уведомления',
+    noNotifications: 'Пока нет уведомлений',
+    welcome: 'Привет, {name}',
+    dashboardHint: 'Баланс, игры и награды — в одном месте.',
+    balance: 'Баланс',
+    playNow: 'Играть',
+    openRewards: 'Открыть',
+    openProfile: 'Кабинет',
   },
 };
 
@@ -1040,6 +1194,55 @@ const uk: Dict = {
     exchangeRate: 'Курс',
     exchangeInvalidAmount: 'Некоректна сума',
     exchangeSamePair: 'Оберіть різні валюти',
+    exchangeAvailable: 'Доступно',
+    exchangeInsufficient: 'Недостатньо коштів — поповніть баланс',
+    exchangeRealHint: 'Обмін за реальним балансом TON, USDT і Stars',
+    exchangeDepositFirst: 'Поповнити криптою',
+    exchangeWithdrawTon: 'Вивести TON',
+    exchangeDoneHint: 'Баланс оновлено. Можна вивести TON або продовжити обмін.',
+    cryptoDeposit: 'Крипто-депозит',
+    cryptoAddress: 'Ваша адреса TON',
+    cryptoCopy: 'Копіювати',
+    cryptoCopied: 'Скопійовано',
+    cryptoSync: 'Перевірити мережу',
+    cryptoListening: 'Надішліть TON або USDT (TON) на цю адресу. Зарахування після підтверджень.',
+    cryptoMin: 'Мінімум',
+    cryptoDisabled: 'Крипто-гаманець тимчасово недоступний',
+    cryptoDeposits: 'Вхідні',
+    cryptoEmpty: 'Поки немає вхідних переказів',
+    cryptoPickCurrency: 'Оберіть валюту для поповнення',
+    cryptoChangeCurrency: '← Змінити валюту',
+    cryptoSelected: 'Валюта',
+    cryptoConfirmations: 'підтверджень',
+    cryptoStatusPending: 'очікування',
+    cryptoStatusConfirmed: 'зараховано',
+    cryptoStatusFailed: 'помилка',
+    cryptoWithdraw: 'Крипто-вивід',
+    cryptoSection: 'Crypto',
+    cryptoNetwork: 'Мережа',
+    cryptoTopUp: 'Поповнити',
+    cryptoCashOut: 'Вивести',
+    cryptoWdPickCurrency: 'Оберіть валюту для виводу',
+    cryptoWdDisabled: 'Вивід криптовалюти тимчасово недоступний',
+    cryptoWdAddress: 'Адреса гаманця',
+    cryptoWdAmount: 'Сума',
+    cryptoWdAvailable: 'Доступно',
+    cryptoWdContinue: 'Далі',
+    cryptoWdBack: '← Назад',
+    cryptoWdConfirmHint: 'Перевірте дані та підтвердіть вивід',
+    cryptoWdConfirm: 'Підтвердити вивід',
+    cryptoWdFee: 'Комісія мережі',
+    cryptoWdNet: 'До отримання',
+    cryptoWdTotal: 'Підсумок',
+    cryptoWdDaily: 'Денний ліміт',
+    cryptoWdHistory: 'Заявки на вивід',
+    cryptoWdEmpty: 'Поки немає заявок',
+    cryptoWdInvalidAmount: 'Некоректна сума',
+    cryptoWdInvalidAddress: 'Вкажіть адресу гаманця',
+    cryptoWdStatusPending: 'очікування',
+    cryptoWdStatusProcessing: 'відправка',
+    cryptoWdStatusCompleted: 'виконано',
+    cryptoWdStatusFailed: 'помилка',
   },
   topup: {
     title: 'Поповнити зірки',
@@ -1190,6 +1393,34 @@ const uk: Dict = {
     cashError: 'Помилка кешауту',
     toastWin: 'Забрали на {mult} — +{amount} ★',
     toastLost: 'Відлетів на {mult} — ставка згоріла',
+  },
+  auth: {
+    title: 'Вхід у Metaluck',
+    subtitle: 'Грайте з будь-якого пристрою',
+    signingIn: 'Входимо…',
+    googleError: 'Не вдалося увійти через Google',
+    telegramError: 'Не вдалося увійти через Telegram',
+    googleUnavailable: 'Google-вхід не налаштовано',
+    telegramUnavailable: 'Telegram-вхід не налаштовано',
+    miniAppHint: 'Відкрийте бота в Telegram, щоб грати всередині месенджера.',
+  },
+  desktop: {
+    brand: 'Metaluck',
+    dashboard: 'Dashboard',
+    profile: 'Профіль',
+    wallet: 'Гаманець',
+    games: 'Ігри',
+    rewards: 'Нагороди',
+    settings: 'Налаштування',
+    logout: 'Вийти',
+    notifications: 'Сповіщення',
+    noNotifications: 'Поки немає сповіщень',
+    welcome: 'Привіт, {name}',
+    dashboardHint: 'Баланс, ігри та нагороди — в одному місці.',
+    balance: 'Баланс',
+    playNow: 'Грати',
+    openRewards: 'Відкрити',
+    openProfile: 'Кабінет',
   },
 };
 
@@ -1442,6 +1673,55 @@ const en: Dict = {
     exchangeRate: 'Rate',
     exchangeInvalidAmount: 'Invalid amount',
     exchangeSamePair: 'Pick different currencies',
+    exchangeAvailable: 'Available',
+    exchangeInsufficient: 'Insufficient balance — deposit first',
+    exchangeRealHint: 'Exchange uses your real TON, USDT and Stars balances',
+    exchangeDepositFirst: 'Deposit crypto',
+    exchangeWithdrawTon: 'Withdraw TON',
+    exchangeDoneHint: 'Balance updated. Withdraw TON or keep exchanging.',
+    cryptoDeposit: 'Crypto deposit',
+    cryptoAddress: 'Your TON address',
+    cryptoCopy: 'Copy',
+    cryptoCopied: 'Copied',
+    cryptoSync: 'Check network',
+    cryptoListening: 'Send TON or USDT (TON) to this address. Credited after confirmations.',
+    cryptoMin: 'Minimum',
+    cryptoDisabled: 'Crypto wallet is temporarily unavailable',
+    cryptoDeposits: 'Incoming',
+    cryptoEmpty: 'No incoming transfers yet',
+    cryptoPickCurrency: 'Choose a currency to deposit',
+    cryptoChangeCurrency: '← Change currency',
+    cryptoSelected: 'Currency',
+    cryptoConfirmations: 'confirmations',
+    cryptoStatusPending: 'pending',
+    cryptoStatusConfirmed: 'confirmed',
+    cryptoStatusFailed: 'failed',
+    cryptoWithdraw: 'Crypto withdraw',
+    cryptoSection: 'Crypto',
+    cryptoNetwork: 'Network',
+    cryptoTopUp: 'Deposit',
+    cryptoCashOut: 'Withdraw',
+    cryptoWdPickCurrency: 'Choose a currency to withdraw',
+    cryptoWdDisabled: 'Crypto withdrawals are temporarily unavailable',
+    cryptoWdAddress: 'Wallet address',
+    cryptoWdAmount: 'Amount',
+    cryptoWdAvailable: 'Available',
+    cryptoWdContinue: 'Continue',
+    cryptoWdBack: '← Back',
+    cryptoWdConfirmHint: 'Review details and confirm the withdrawal',
+    cryptoWdConfirm: 'Confirm withdrawal',
+    cryptoWdFee: 'Network fee',
+    cryptoWdNet: 'You receive',
+    cryptoWdTotal: 'Total',
+    cryptoWdDaily: 'Daily limit',
+    cryptoWdHistory: 'Withdrawals',
+    cryptoWdEmpty: 'No withdrawals yet',
+    cryptoWdInvalidAmount: 'Invalid amount',
+    cryptoWdInvalidAddress: 'Enter a wallet address',
+    cryptoWdStatusPending: 'pending',
+    cryptoWdStatusProcessing: 'processing',
+    cryptoWdStatusCompleted: 'completed',
+    cryptoWdStatusFailed: 'failed',
   },
   topup: {
     title: 'Top up stars',
@@ -1592,6 +1872,34 @@ const en: Dict = {
     cashError: 'Cash out error',
     toastWin: 'Cashed out at {mult} — +{amount} ★',
     toastLost: 'Flew away at {mult} — bet lost',
+  },
+  auth: {
+    title: 'Sign in to Metaluck',
+    subtitle: 'Play from any device',
+    signingIn: 'Signing in…',
+    googleError: 'Google sign-in failed',
+    telegramError: 'Telegram sign-in failed',
+    googleUnavailable: 'Google sign-in is not configured',
+    telegramUnavailable: 'Telegram sign-in is not configured',
+    miniAppHint: 'Open the bot in Telegram to play inside the messenger.',
+  },
+  desktop: {
+    brand: 'Metaluck',
+    dashboard: 'Dashboard',
+    profile: 'Profile',
+    wallet: 'Wallet',
+    games: 'Games',
+    rewards: 'Rewards',
+    settings: 'Settings',
+    logout: 'Log out',
+    notifications: 'Notifications',
+    noNotifications: 'No notifications yet',
+    welcome: 'Hey, {name}',
+    dashboardHint: 'Balance, games, and rewards in one place.',
+    balance: 'Balance',
+    playNow: 'Play now',
+    openRewards: 'Open',
+    openProfile: 'Open profile',
   },
 };
 
@@ -1844,6 +2152,55 @@ const es: Dict = {
     exchangeRate: 'Tipo',
     exchangeInvalidAmount: 'Importe no válido',
     exchangeSamePair: 'Elige monedas distintas',
+    exchangeAvailable: 'Disponible',
+    exchangeInsufficient: 'Saldo insuficiente — deposita primero',
+    exchangeRealHint: 'El cambio usa tu saldo real de TON, USDT y Stars',
+    exchangeDepositFirst: 'Depositar crypto',
+    exchangeWithdrawTon: 'Retirar TON',
+    exchangeDoneHint: 'Saldo actualizado. Retira TON o sigue cambiando.',
+    cryptoDeposit: 'Depósito crypto',
+    cryptoAddress: 'Tu dirección TON',
+    cryptoCopy: 'Copiar',
+    cryptoCopied: 'Copiado',
+    cryptoSync: 'Comprobar red',
+    cryptoListening: 'Envía TON o USDT (TON) a esta dirección. Se acredita tras confirmaciones.',
+    cryptoMin: 'Mínimo',
+    cryptoDisabled: 'Monedero crypto temporalmente no disponible',
+    cryptoDeposits: 'Entrantes',
+    cryptoEmpty: 'Aún no hay transferencias',
+    cryptoPickCurrency: 'Elige la moneda a depositar',
+    cryptoChangeCurrency: '← Cambiar moneda',
+    cryptoSelected: 'Moneda',
+    cryptoConfirmations: 'confirmaciones',
+    cryptoStatusPending: 'pendiente',
+    cryptoStatusConfirmed: 'confirmado',
+    cryptoStatusFailed: 'fallido',
+    cryptoWithdraw: 'Retiro crypto',
+    cryptoSection: 'Crypto',
+    cryptoNetwork: 'Red',
+    cryptoTopUp: 'Depositar',
+    cryptoCashOut: 'Retirar',
+    cryptoWdPickCurrency: 'Elige la moneda a retirar',
+    cryptoWdDisabled: 'Los retiros crypto no están disponibles',
+    cryptoWdAddress: 'Dirección de billetera',
+    cryptoWdAmount: 'Cantidad',
+    cryptoWdAvailable: 'Disponible',
+    cryptoWdContinue: 'Continuar',
+    cryptoWdBack: '← Atrás',
+    cryptoWdConfirmHint: 'Revisa los datos y confirma el retiro',
+    cryptoWdConfirm: 'Confirmar retiro',
+    cryptoWdFee: 'Comisión de red',
+    cryptoWdNet: 'Recibes',
+    cryptoWdTotal: 'Total',
+    cryptoWdDaily: 'Límite diario',
+    cryptoWdHistory: 'Retiros',
+    cryptoWdEmpty: 'Aún no hay retiros',
+    cryptoWdInvalidAmount: 'Cantidad inválida',
+    cryptoWdInvalidAddress: 'Introduce una dirección',
+    cryptoWdStatusPending: 'pendiente',
+    cryptoWdStatusProcessing: 'procesando',
+    cryptoWdStatusCompleted: 'completado',
+    cryptoWdStatusFailed: 'fallido',
   },
   topup: {
     title: 'Recargar estrellas',
@@ -1994,6 +2351,34 @@ const es: Dict = {
     cashError: 'Error al retirar',
     toastWin: 'Retirado en {mult} — +{amount} ★',
     toastLost: 'Se fue en {mult} — apuesta perdida',
+  },
+  auth: {
+    title: 'Entrar en Metaluck',
+    subtitle: 'Juega desde cualquier dispositivo',
+    signingIn: 'Entrando…',
+    googleError: 'No se pudo entrar con Google',
+    telegramError: 'No se pudo entrar con Telegram',
+    googleUnavailable: 'El acceso con Google no está configurado',
+    telegramUnavailable: 'El acceso con Telegram no está configurado',
+    miniAppHint: 'Abre el bot en Telegram para jugar dentro del mensajero.',
+  },
+  desktop: {
+    brand: 'Metaluck',
+    dashboard: 'Dashboard',
+    profile: 'Perfil',
+    wallet: 'Monedero',
+    games: 'Juegos',
+    rewards: 'Recompensas',
+    settings: 'Ajustes',
+    logout: 'Salir',
+    notifications: 'Notificaciones',
+    noNotifications: 'Sin notificaciones',
+    welcome: 'Hola, {name}',
+    dashboardHint: 'Saldo, juegos y recompensas en un solo lugar.',
+    balance: 'Saldo',
+    playNow: 'Jugar',
+    openRewards: 'Abrir',
+    openProfile: 'Perfil',
   },
 };
 
@@ -2246,6 +2631,55 @@ const de: Dict = {
     exchangeRate: 'Kurs',
     exchangeInvalidAmount: 'Ungültiger Betrag',
     exchangeSamePair: 'Andere Währungen wählen',
+    exchangeAvailable: 'Verfügbar',
+    exchangeInsufficient: 'Unzureichendes Guthaben — zuerst einzahlen',
+    exchangeRealHint: 'Tausch nutzt dein reales TON-, USDT- und Stars-Guthaben',
+    exchangeDepositFirst: 'Crypto einzahlen',
+    exchangeWithdrawTon: 'TON auszahlen',
+    exchangeDoneHint: 'Guthaben aktualisiert. TON auszahlen oder weiter tauschen.',
+    cryptoDeposit: 'Crypto-Einzahlung',
+    cryptoAddress: 'Deine TON-Adresse',
+    cryptoCopy: 'Kopieren',
+    cryptoCopied: 'Kopiert',
+    cryptoSync: 'Netz prüfen',
+    cryptoListening: 'Sende TON oder USDT (TON) an diese Adresse. Gutschrift nach Bestätigungen.',
+    cryptoMin: 'Minimum',
+    cryptoDisabled: 'Crypto-Wallet vorübergehend nicht verfügbar',
+    cryptoDeposits: 'Eingehend',
+    cryptoEmpty: 'Noch keine eingehenden Transfers',
+    cryptoPickCurrency: 'Wähle die Einzahlungswährung',
+    cryptoChangeCurrency: '← Währung wechseln',
+    cryptoSelected: 'Währung',
+    cryptoConfirmations: 'Bestätigungen',
+    cryptoStatusPending: 'ausstehend',
+    cryptoStatusConfirmed: 'bestätigt',
+    cryptoStatusFailed: 'fehlgeschlagen',
+    cryptoWithdraw: 'Crypto-Auszahlung',
+    cryptoSection: 'Crypto',
+    cryptoNetwork: 'Netzwerk',
+    cryptoTopUp: 'Einzahlen',
+    cryptoCashOut: 'Auszahlen',
+    cryptoWdPickCurrency: 'Wähle die Auszahlungswährung',
+    cryptoWdDisabled: 'Crypto-Auszahlungen sind vorübergehend nicht verfügbar',
+    cryptoWdAddress: 'Wallet-Adresse',
+    cryptoWdAmount: 'Betrag',
+    cryptoWdAvailable: 'Verfügbar',
+    cryptoWdContinue: 'Weiter',
+    cryptoWdBack: '← Zurück',
+    cryptoWdConfirmHint: 'Prüfe die Daten und bestätige die Auszahlung',
+    cryptoWdConfirm: 'Auszahlung bestätigen',
+    cryptoWdFee: 'Netzwerkgebühr',
+    cryptoWdNet: 'Du erhältst',
+    cryptoWdTotal: 'Summe',
+    cryptoWdDaily: 'Tageslimit',
+    cryptoWdHistory: 'Auszahlungen',
+    cryptoWdEmpty: 'Noch keine Auszahlungen',
+    cryptoWdInvalidAmount: 'Ungültiger Betrag',
+    cryptoWdInvalidAddress: 'Wallet-Adresse eingeben',
+    cryptoWdStatusPending: 'ausstehend',
+    cryptoWdStatusProcessing: 'in Bearbeitung',
+    cryptoWdStatusCompleted: 'abgeschlossen',
+    cryptoWdStatusFailed: 'fehlgeschlagen',
   },
   topup: {
     title: 'Sterne aufladen',
@@ -2396,6 +2830,34 @@ const de: Dict = {
     cashError: 'Fehler beim Kassieren',
     toastWin: 'Kassiert bei {mult} — +{amount} ★',
     toastLost: 'Weggeflogen bei {mult} — Einsatz verloren',
+  },
+  auth: {
+    title: 'Bei Metaluck anmelden',
+    subtitle: 'Spiele auf jedem Gerät',
+    signingIn: 'Anmeldung…',
+    googleError: 'Google-Anmeldung fehlgeschlagen',
+    telegramError: 'Telegram-Anmeldung fehlgeschlagen',
+    googleUnavailable: 'Google-Anmeldung ist nicht konfiguriert',
+    telegramUnavailable: 'Telegram-Anmeldung ist nicht konfiguriert',
+    miniAppHint: 'Öffne den Bot in Telegram, um im Messenger zu spielen.',
+  },
+  desktop: {
+    brand: 'Metaluck',
+    dashboard: 'Dashboard',
+    profile: 'Profil',
+    wallet: 'Wallet',
+    games: 'Spiele',
+    rewards: 'Belohnungen',
+    settings: 'Einstellungen',
+    logout: 'Abmelden',
+    notifications: 'Benachrichtigungen',
+    noNotifications: 'Noch keine Benachrichtigungen',
+    welcome: 'Hallo, {name}',
+    dashboardHint: 'Guthaben, Spiele und Belohnungen an einem Ort.',
+    balance: 'Guthaben',
+    playNow: 'Spielen',
+    openRewards: 'Öffnen',
+    openProfile: 'Profil',
   },
 };
 

@@ -5,6 +5,8 @@ import { StarIcon } from './StarIcon';
 import { TopUpModal } from './TopUpModal';
 import { WithdrawModal } from './WithdrawModal';
 import { ExchangeModal } from './ExchangeModal';
+import { CryptoDepositModal } from './CryptoDepositModal';
+import { CryptoWithdrawModal } from './CryptoWithdrawModal';
 import type { WalletBalance, WalletLedgerEntry, WalletSnapshot } from '../types';
 
 interface Props {
@@ -14,6 +16,7 @@ interface Props {
 }
 
 type Panel = 'balances' | 'history';
+type CryptoCurrency = 'TON' | 'USDT_TON';
 
 function formatAmount(b: WalletBalance, locale: string): string {
   if (b.decimals <= 0) return b.available.toLocaleString(locale);
@@ -35,13 +38,6 @@ function formatLedgerAmount(e: WalletLedgerEntry, locale: string): string {
   return `${sign}${body}`;
 }
 
-function currencyTitle(code: string, t: { stars: string; ton: string; usdt: string }): string {
-  if (code === 'STARS') return t.stars;
-  if (code === 'TON') return t.ton;
-  if (code === 'USDT_TON') return t.usdt;
-  return code;
-}
-
 export function WalletScreen({ onBalanceUpdate, openInvoice, isTelegram }: Props) {
   const { t, locale } = useSettings();
   const [snapshot, setSnapshot] = useState<WalletSnapshot | null>(null);
@@ -52,6 +48,8 @@ export function WalletScreen({ onBalanceUpdate, openInvoice, isTelegram }: Props
   const [showTopUp, setShowTopUp] = useState(false);
   const [showWithdraw, setShowWithdraw] = useState(false);
   const [showExchange, setShowExchange] = useState(false);
+  const [cryptoDeposit, setCryptoDeposit] = useState<CryptoCurrency | null>(null);
+  const [cryptoWithdraw, setCryptoWithdraw] = useState<CryptoCurrency | null>(null);
 
   const reload = useCallback(async () => {
     setError(null);
@@ -75,7 +73,19 @@ export function WalletScreen({ onBalanceUpdate, openInvoice, isTelegram }: Props
   }, [reload]);
 
   const starsBal = snapshot?.balances.find((b) => b.currency === 'STARS');
-  const canWithdraw = (starsBal?.available ?? 0) > 0;
+  const tonBal = snapshot?.balances.find((b) => b.currency === 'TON');
+  const usdtBal = snapshot?.balances.find((b) => b.currency === 'USDT_TON');
+  const canWithdrawStars = (starsBal?.available ?? 0) > 0;
+
+  const cryptoCards: Array<{
+    code: CryptoCurrency;
+    title: string;
+    bal: WalletBalance | undefined;
+    symbol: string;
+  }> = [
+    { code: 'TON', title: 'TON', bal: tonBal, symbol: 'TON' },
+    { code: 'USDT_TON', title: 'USDT TON', bal: usdtBal, symbol: 'USDT' },
+  ];
 
   return (
     <div className="wallet-screen">
@@ -83,15 +93,15 @@ export function WalletScreen({ onBalanceUpdate, openInvoice, isTelegram }: Props
 
       <div className="wallet-actions">
         <button type="button" className="topup-inline-btn" onClick={() => setShowTopUp(true)}>
-          {t.wallet.deposit}
+          {t.wallet.deposit} ★
         </button>
         <button
           type="button"
           className="withdraw-inline-btn"
-          disabled={!canWithdraw}
+          disabled={!canWithdrawStars}
           onClick={() => setShowWithdraw(true)}
         >
-          {t.wallet.withdraw}
+          {t.wallet.withdraw} ★
         </button>
         <button type="button" className="wallet-exchange-btn" onClick={() => setShowExchange(true)}>
           {t.wallet.exchange}
@@ -110,41 +120,79 @@ export function WalletScreen({ onBalanceUpdate, openInvoice, isTelegram }: Props
 
       {panel === 'balances' && snapshot && (
         <>
-          <div className="tg-section-title">{t.wallet.balances}</div>
+          <div className="tg-section-title">{t.wallet.assetStars}</div>
           <div className="tg-section wallet-balances">
-            {snapshot.balances.map((b) => (
-              <div key={b.currency} className="wallet-asset">
+            {starsBal && (
+              <div className="wallet-asset">
                 <div className="wallet-asset-left">
                   <div className="wallet-asset-icon" aria-hidden>
-                    {b.currency === 'STARS' ? <StarIcon size={22} /> : b.displaySymbol.slice(0, 1)}
+                    <StarIcon size={22} />
                   </div>
                   <div>
-                    <div className="wallet-asset-name">
-                      {currencyTitle(b.currency, {
-                        stars: t.wallet.assetStars,
-                        ton: t.wallet.assetTon,
-                        usdt: t.wallet.assetUsdt,
-                      })}
-                    </div>
-                    <div className="wallet-asset-code">{b.currency}</div>
+                    <div className="wallet-asset-name">{t.wallet.assetStars}</div>
+                    <div className="wallet-asset-code">STARS</div>
                   </div>
                 </div>
                 <div className="wallet-asset-right">
                   <div className="wallet-asset-available num">
-                    {formatAmount(b, locale)}{' '}
-                    <span className="wallet-asset-unit">{b.displaySymbol}</span>
+                    {formatAmount(starsBal, locale)}{' '}
+                    <span className="wallet-asset-unit">{starsBal.displaySymbol}</span>
                   </div>
-                  {b.locked > 0 && (
+                  {starsBal.locked > 0 && (
                     <div className="wallet-asset-locked">
-                      {t.wallet.locked}:{' '}
-                      {(b.decimals > 0 ? b.locked / 10 ** b.decimals : b.locked).toLocaleString(locale, {
-                        maximumFractionDigits: 4,
-                      })}
+                      {t.wallet.locked}: {starsBal.locked.toLocaleString(locale)}
                     </div>
                   )}
                 </div>
               </div>
-            ))}
+            )}
+          </div>
+
+          <div className="tg-section-title">{t.wallet.cryptoSection}</div>
+          <div className="tg-section wallet-crypto-section">
+            {cryptoCards.map((c) => {
+              const available = c.bal?.available ?? 0;
+              const canWd = available > 0;
+              return (
+                <div key={c.code} className="wallet-crypto-card">
+                  <div className="wallet-crypto-card-head">
+                    <div>
+                      <div className="wallet-crypto-card-title">{c.title}</div>
+                      <div className="wallet-crypto-card-network">{t.wallet.cryptoNetwork}: TON</div>
+                    </div>
+                    <div className="wallet-crypto-card-bal num">
+                      {c.bal ? formatAmount(c.bal, locale) : '0'}{' '}
+                      <span className="wallet-asset-unit">{c.symbol}</span>
+                    </div>
+                  </div>
+                  {(c.bal?.locked ?? 0) > 0 && (
+                    <div className="wallet-asset-locked">
+                      {t.wallet.locked}:{' '}
+                      {((c.bal!.locked) / 10 ** c.bal!.decimals).toLocaleString(locale, {
+                        maximumFractionDigits: 4,
+                      })}
+                    </div>
+                  )}
+                  <div className="wallet-crypto-card-actions">
+                    <button
+                      type="button"
+                      className="topup-inline-btn"
+                      onClick={() => setCryptoDeposit(c.code)}
+                    >
+                      {t.wallet.cryptoTopUp}
+                    </button>
+                    <button
+                      type="button"
+                      className="withdraw-inline-btn"
+                      disabled={!canWd}
+                      onClick={() => setCryptoWithdraw(c.code)}
+                    >
+                      {t.wallet.cryptoCashOut}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </>
       )}
@@ -197,6 +245,25 @@ export function WalletScreen({ onBalanceUpdate, openInvoice, isTelegram }: Props
           openInvoice={openInvoice}
         />
       )}
+      {cryptoDeposit && (
+        <CryptoDepositModal
+          initialCurrency={cryptoDeposit}
+          onClose={() => setCryptoDeposit(null)}
+          onCredited={() => {
+            void reload();
+          }}
+        />
+      )}
+      {cryptoWithdraw && snapshot && (
+        <CryptoWithdrawModal
+          initialCurrency={cryptoWithdraw}
+          balances={snapshot.balances}
+          onClose={() => setCryptoWithdraw(null)}
+          onDone={() => {
+            void reload();
+          }}
+        />
+      )}
       {showWithdraw && (
         <WithdrawModal
           balance={starsBal?.available ?? 0}
@@ -210,8 +277,17 @@ export function WalletScreen({ onBalanceUpdate, openInvoice, isTelegram }: Props
       {showExchange && (
         <ExchangeModal
           onClose={() => setShowExchange(false)}
+          initialBalances={snapshot?.balances}
           onDone={() => {
             void reload();
+          }}
+          onDepositCrypto={() => {
+            setShowExchange(false);
+            setCryptoDeposit('TON');
+          }}
+          onWithdrawCrypto={() => {
+            setShowExchange(false);
+            setCryptoWithdraw('TON');
           }}
         />
       )}

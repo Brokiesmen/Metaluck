@@ -603,3 +603,104 @@ export async function adminExchangeProfitStats(opts: { from?: string; to?: strin
     pairKeys: EXCHANGE_PAIR_KEYS.map(([a, b]) => `${a}/${b}`),
   };
 }
+
+function toPublicDepositStatus(status: string): string {
+  if (status === 'confirmed' || status === 'credited') return 'confirmed';
+  if (status === 'failed' || status === 'ignored') return 'failed';
+  return 'pending';
+}
+
+/** Admin: list crypto wallet deposits (on-chain → wallet). */
+export async function adminListCryptoDeposits(opts: {
+  status?: string;
+  userId?: number;
+  limit?: number;
+  offset?: number;
+}) {
+  const limit = Math.min(100, Math.max(1, Math.floor(opts.limit ?? 40)));
+  const offset = Math.max(0, Math.floor(opts.offset ?? 0));
+  const sb = getSupabase();
+  let q = sb
+    .from('crypto_chain_transactions')
+    .select(
+      'id, public_id, user_id, network, currency_code, amount, tx_hash, confirmations, required_confirmations, status, to_address, error_message, detected_at, credited_at, updated_at',
+      { count: 'exact' },
+    )
+    .order('detected_at', { ascending: false })
+    .range(offset, offset + limit - 1);
+  if (opts.userId != null) q = q.eq('user_id', opts.userId);
+  if (opts.status) {
+    const s = opts.status;
+    if (s === 'confirmed') q = q.in('status', ['confirmed', 'credited']);
+    else if (s === 'failed') q = q.in('status', ['failed', 'ignored']);
+    else if (s === 'pending') q = q.in('status', ['pending', 'detected', 'confirming']);
+    else q = q.eq('status', s);
+  }
+  const { data, error, count } = await q;
+  if (error) throwSb(error, 'adminListCryptoDeposits');
+  return {
+    total: count ?? 0,
+    items: (data ?? []).map((r) => ({
+      id: Number(r.id),
+      publicId: String(r.public_id),
+      userId: Number(r.user_id),
+      network: String(r.network),
+      currency: String(r.currency_code),
+      amount: Number(r.amount),
+      txHash: String(r.tx_hash),
+      confirmations: Number(r.confirmations ?? 0),
+      requiredConfirmations: Number(r.required_confirmations ?? 1),
+      status: toPublicDepositStatus(String(r.status)),
+      rawStatus: String(r.status),
+      toAddress: String(r.to_address),
+      errorMessage: r.error_message == null ? null : String(r.error_message),
+      detectedAt: String(r.detected_at),
+      creditedAt: r.credited_at == null ? null : String(r.credited_at),
+      updatedAt: String(r.updated_at),
+    })),
+  };
+}
+
+/** Admin: list crypto wallet withdrawals. */
+export async function adminListCryptoWithdrawals(opts: {
+  status?: string;
+  userId?: number;
+  limit?: number;
+  offset?: number;
+}) {
+  const limit = Math.min(100, Math.max(1, Math.floor(opts.limit ?? 40)));
+  const offset = Math.max(0, Math.floor(opts.offset ?? 0));
+  const sb = getSupabase();
+  let q = sb
+    .from('crypto_withdrawals')
+    .select(
+      'id, public_id, user_id, network, currency_code, amount, network_fee, net_amount, to_address, status, tx_hash, error_message, created_at, completed_at, updated_at',
+      { count: 'exact' },
+    )
+    .order('created_at', { ascending: false })
+    .range(offset, offset + limit - 1);
+  if (opts.userId != null) q = q.eq('user_id', opts.userId);
+  if (opts.status) q = q.eq('status', opts.status);
+  const { data, error, count } = await q;
+  if (error) throwSb(error, 'adminListCryptoWithdrawals');
+  return {
+    total: count ?? 0,
+    items: (data ?? []).map((r) => ({
+      id: Number(r.id),
+      publicId: String(r.public_id),
+      userId: Number(r.user_id),
+      network: String(r.network),
+      currency: String(r.currency_code),
+      amount: Number(r.amount),
+      networkFee: Number(r.network_fee),
+      netAmount: Number(r.net_amount),
+      toAddress: String(r.to_address),
+      status: String(r.status),
+      txHash: r.tx_hash == null ? null : String(r.tx_hash),
+      errorMessage: r.error_message == null ? null : String(r.error_message),
+      createdAt: String(r.created_at),
+      completedAt: r.completed_at == null ? null : String(r.completed_at),
+      updatedAt: String(r.updated_at),
+    })),
+  };
+}

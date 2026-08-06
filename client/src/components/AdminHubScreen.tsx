@@ -9,6 +9,8 @@ type Section =
   | 'pairs'
   | 'deposits'
   | 'withdrawals'
+  | 'cryptoDeposits'
+  | 'cryptoWithdrawals'
   | 'exchanges'
   | 'transactions'
   | 'users'
@@ -20,8 +22,10 @@ const SECTIONS: { id: Section; label: string }[] = [
   { id: 'settings', label: 'Лимиты' },
   { id: 'rates', label: 'Курсы' },
   { id: 'pairs', label: 'Спред / комиссии' },
-  { id: 'deposits', label: 'Депозиты' },
-  { id: 'withdrawals', label: 'Выводы' },
+  { id: 'deposits', label: 'Депозиты ★' },
+  { id: 'withdrawals', label: 'Выводы ★' },
+  { id: 'cryptoDeposits', label: 'Crypto депозиты' },
+  { id: 'cryptoWithdrawals', label: 'Crypto выводы' },
   { id: 'exchanges', label: 'Обмены' },
   { id: 'transactions', label: 'Транзакции' },
   { id: 'users', label: 'Поиск' },
@@ -29,6 +33,27 @@ const SECTIONS: { id: Section; label: string }[] = [
   { id: 'profit', label: 'Прибыль' },
   { id: 'admins', label: 'Админы' },
 ];
+
+const CRYPTO_SETTING_FIELDS: { key: string; label: string }[] = [
+  { key: 'crypto_deposit_min_ton_nanotons', label: 'Мин. депозит TON (nanoton)' },
+  { key: 'crypto_deposit_min_usdt_micros', label: 'Мин. депозит USDT (micros)' },
+  { key: 'crypto_withdraw_min_ton_nanotons', label: 'Мин. вывод TON (nanoton)' },
+  { key: 'crypto_withdraw_min_usdt_micros', label: 'Мин. вывод USDT (micros)' },
+  { key: 'crypto_withdraw_fee_ton_nanotons', label: 'Комиссия вывода TON (nanoton)' },
+  { key: 'crypto_withdraw_fee_usdt_micros', label: 'Комиссия вывода USDT (micros)' },
+  { key: 'crypto_deposit_confirmations', label: 'Подтверждений (deposit)' },
+  { key: 'crypto_withdraw_max_ton_nanotons', label: 'Макс. вывод TON (nanoton)' },
+  { key: 'crypto_withdraw_max_usdt_micros', label: 'Макс. вывод USDT (micros)' },
+  { key: 'crypto_withdraw_daily_ton_nanotons', label: 'Дневной лимит TON (nanoton)' },
+  { key: 'crypto_withdraw_daily_usdt_micros', label: 'Дневной лимит USDT (micros)' },
+];
+
+function shortHash(h: unknown): string {
+  const s = String(h ?? '');
+  if (!s || s === 'null' || s === 'undefined') return '—';
+  if (s.length <= 16) return s;
+  return `${s.slice(0, 8)}…${s.slice(-6)}`;
+}
 
 interface Props {
   onBack: () => void;
@@ -61,6 +86,8 @@ export function AdminHubScreen({ onBack }: Props) {
   >([]);
   const [deposits, setDeposits] = useState<Record<string, unknown>[]>([]);
   const [withdrawals, setWithdrawals] = useState<Record<string, unknown>[]>([]);
+  const [cryptoDeposits, setCryptoDeposits] = useState<Record<string, unknown>[]>([]);
+  const [cryptoWithdrawals, setCryptoWithdrawals] = useState<Record<string, unknown>[]>([]);
   const [exchanges, setExchanges] = useState<Record<string, unknown>[]>([]);
   const [ledger, setLedger] = useState<Record<string, unknown>[]>([]);
   const [users, setUsers] = useState<
@@ -127,6 +154,12 @@ export function AdminHubScreen({ onBack }: Props) {
         } else if (s === 'withdrawals') {
           const r = await api.adminListWithdrawals({ limit: 40 });
           setWithdrawals(r.items);
+        } else if (s === 'cryptoDeposits') {
+          const r = await api.adminListCryptoDeposits({ limit: 40 });
+          setCryptoDeposits(r.items);
+        } else if (s === 'cryptoWithdrawals') {
+          const r = await api.adminListCryptoWithdrawals({ limit: 40 });
+          setCryptoWithdrawals(r.items);
         } else if (s === 'exchanges') {
           const r = await api.adminListExchanges({ limit: 40 });
           setExchanges(r.items);
@@ -154,6 +187,9 @@ export function AdminHubScreen({ onBack }: Props) {
         typeof settings.withdraw_presets === 'string'
           ? JSON.parse(String(settings.withdraw_presets))
           : settings.withdraw_presets;
+      const cryptoPatch = Object.fromEntries(
+        CRYPTO_SETTING_FIELDS.map(({ key }) => [key, Number(settings[key])]),
+      );
       const patch = {
         withdraw_min_stars: Number(settings.withdraw_min_stars),
         withdraw_presets: presets,
@@ -164,6 +200,7 @@ export function AdminHubScreen({ onBack }: Props) {
         rates_refresh_ms: Number(settings.rates_refresh_ms),
         stars_usd: Number(starsUsd),
         stars_usd_manual: starsManual,
+        ...cryptoPatch,
       };
       const r = await api.adminPutSettings(patch);
       setSettings(r.settings);
@@ -203,12 +240,25 @@ export function AdminHubScreen({ onBack }: Props) {
             [
               ['withdraw_min_stars', 'Мин. вывод ★'],
               ['deposit_min_stars', 'Мин. депозит ★'],
-              ['deposit_min_ton_nanotons', 'Мин. депозит TON (nanoton)'],
-              ['deposit_min_usdt_micros', 'Мин. депозит USDT (micros)'],
+              ['deposit_min_ton_nanotons', 'Мин. депозит TON exchange (nanoton)'],
+              ['deposit_min_usdt_micros', 'Мин. депозит USDT exchange (micros)'],
               ['exchange_quote_ttl_ms', 'TTL котировки (мс)'],
               ['rates_refresh_ms', 'Интервал курсов (мс)'],
             ] as const
           ).map(([key, label]) => (
+            <label key={key} className="admin-field">
+              <span>{label}</span>
+              <input
+                className="withdraw-input"
+                value={String(settings[key] ?? '')}
+                onChange={(e) => setSettings((s) => ({ ...s, [key]: e.target.value }))}
+              />
+            </label>
+          ))}
+          <div className="tg-section-title" style={{ marginTop: 16 }}>
+            Crypto Wallet
+          </div>
+          {CRYPTO_SETTING_FIELDS.map(({ key, label }) => (
             <label key={key} className="admin-field">
               <span>{label}</span>
               <input
@@ -483,6 +533,63 @@ export function AdminHubScreen({ onBack }: Props) {
               )}
             </div>
           ))}
+        </div>
+      )}
+
+      {section === 'cryptoDeposits' && (
+        <div className="tg-section">
+          {cryptoDeposits.length === 0 ? (
+            <div className="wallet-empty">Нет crypto депозитов</div>
+          ) : (
+            cryptoDeposits.map((d) => (
+              <div key={String(d.id)} className="admin-list-row">
+                <div>
+                  #{String(d.id)} · uid {String(d.userId)} · {String(d.currency)} ·{' '}
+                  {String(d.amount)} · {String(d.status)}
+                </div>
+                <div className="admin-list-meta">
+                  hash {shortHash(d.txHash)} · conf {String(d.confirmations)}/
+                  {String(d.requiredConfirmations)} · {String(d.detectedAt)}
+                </div>
+                {d.txHash ? (
+                  <div className="admin-list-meta" style={{ wordBreak: 'break-all' }}>
+                    {String(d.txHash)}
+                  </div>
+                ) : null}
+              </div>
+            ))
+          )}
+        </div>
+      )}
+
+      {section === 'cryptoWithdrawals' && (
+        <div className="tg-section">
+          {cryptoWithdrawals.length === 0 ? (
+            <div className="wallet-empty">Нет crypto выводов</div>
+          ) : (
+            cryptoWithdrawals.map((w) => (
+              <div key={String(w.id)} className="admin-list-row">
+                <div>
+                  #{String(w.id)} · uid {String(w.userId)} · {String(w.currency)} ·{' '}
+                  {String(w.amount)} · {String(w.status)}
+                </div>
+                <div className="admin-list-meta">
+                  fee {String(w.networkFee)} · net {String(w.netAmount)} · hash{' '}
+                  {shortHash(w.txHash)} · {String(w.createdAt)}
+                </div>
+                {w.txHash ? (
+                  <div className="admin-list-meta" style={{ wordBreak: 'break-all' }}>
+                    {String(w.txHash)}
+                  </div>
+                ) : null}
+                {w.toAddress ? (
+                  <div className="admin-list-meta" style={{ wordBreak: 'break-all' }}>
+                    → {String(w.toAddress)}
+                  </div>
+                ) : null}
+              </div>
+            ))
+          )}
         </div>
       )}
 

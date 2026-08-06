@@ -10,7 +10,10 @@ const DEV_USER: TelegramUser = {
 
 export function useTelegram() {
   const tg = window.Telegram?.WebApp ?? null;
-  const user = (tg?.initDataUnsafe?.user as TelegramUser | undefined) ?? DEV_USER;
+  const tgUser = tg?.initDataUnsafe?.user as TelegramUser | undefined;
+  // Порядок: Mini App (initData) → web-сессия → local DEV_USER.
+  // Тип клиента: см. checkClientType() / useClientType().
+  const user: TelegramUser = tgUser ?? window.__webUser ?? DEV_USER;
   const initData = tg?.initData ?? '';
   const isDev = !tg || !tg.initData;
   return { tg, user, initData, isDev };

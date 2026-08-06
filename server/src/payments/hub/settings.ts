@@ -14,7 +14,19 @@ export type HubSettingKey =
   | 'stars_usd'
   | 'stars_usd_manual'
   | 'exchange_quote_ttl_ms'
-  | 'rates_refresh_ms';
+  | 'rates_refresh_ms'
+  // Crypto Wallet (per-user TON / USDT)
+  | 'crypto_deposit_min_ton_nanotons'
+  | 'crypto_deposit_min_usdt_micros'
+  | 'crypto_withdraw_fee_ton_nanotons'
+  | 'crypto_withdraw_fee_usdt_micros'
+  | 'crypto_withdraw_min_ton_nanotons'
+  | 'crypto_withdraw_min_usdt_micros'
+  | 'crypto_withdraw_max_ton_nanotons'
+  | 'crypto_withdraw_max_usdt_micros'
+  | 'crypto_withdraw_daily_ton_nanotons'
+  | 'crypto_withdraw_daily_usdt_micros'
+  | 'crypto_deposit_confirmations';
 
 const DEFAULTS: Record<HubSettingKey, unknown> = {
   withdraw_min_stars: 100,
@@ -30,6 +42,39 @@ const DEFAULTS: Record<HubSettingKey, unknown> = {
   rates_refresh_ms: Number(process.env.RATES_REFRESH_MS) > 0
     ? Number(process.env.RATES_REFRESH_MS)
     : 60_000,
+  crypto_deposit_min_ton_nanotons: Number(process.env.DEPOSIT_MIN_TON_NANOTONS) > 0
+    ? Number(process.env.DEPOSIT_MIN_TON_NANOTONS)
+    : 100_000_000,
+  crypto_deposit_min_usdt_micros: Number(process.env.DEPOSIT_MIN_USDT_MICROS) > 0
+    ? Number(process.env.DEPOSIT_MIN_USDT_MICROS)
+    : 1_000_000,
+  crypto_withdraw_fee_ton_nanotons: Number(process.env.WITHDRAW_FEE_TON_NANOTONS) >= 0
+    ? Number(process.env.WITHDRAW_FEE_TON_NANOTONS)
+    : 50_000_000,
+  crypto_withdraw_fee_usdt_micros: Number(process.env.WITHDRAW_FEE_USDT_MICROS) >= 0
+    ? Number(process.env.WITHDRAW_FEE_USDT_MICROS)
+    : 100_000,
+  crypto_withdraw_min_ton_nanotons: Number(process.env.WITHDRAW_MIN_TON_NANOTONS) > 0
+    ? Number(process.env.WITHDRAW_MIN_TON_NANOTONS)
+    : 100_000_000,
+  crypto_withdraw_min_usdt_micros: Number(process.env.WITHDRAW_MIN_USDT_MICROS) > 0
+    ? Number(process.env.WITHDRAW_MIN_USDT_MICROS)
+    : 1_000_000,
+  crypto_withdraw_max_ton_nanotons: Number(process.env.WITHDRAW_MAX_TON_NANOTONS) > 0
+    ? Number(process.env.WITHDRAW_MAX_TON_NANOTONS)
+    : 1_000_000_000_000,
+  crypto_withdraw_max_usdt_micros: Number(process.env.WITHDRAW_MAX_USDT_MICROS) > 0
+    ? Number(process.env.WITHDRAW_MAX_USDT_MICROS)
+    : 10_000_000_000,
+  crypto_withdraw_daily_ton_nanotons: Number(process.env.WITHDRAW_DAILY_LIMIT_TON_NANOTONS) > 0
+    ? Number(process.env.WITHDRAW_DAILY_LIMIT_TON_NANOTONS)
+    : 5_000_000_000_000,
+  crypto_withdraw_daily_usdt_micros: Number(process.env.WITHDRAW_DAILY_LIMIT_USDT_MICROS) > 0
+    ? Number(process.env.WITHDRAW_DAILY_LIMIT_USDT_MICROS)
+    : 50_000_000_000,
+  crypto_deposit_confirmations: Number(process.env.TON_DEPOSIT_CONFIRMATIONS) >= 1
+    ? Number(process.env.TON_DEPOSIT_CONFIRMATIONS)
+    : 1,
 };
 
 let cache: Map<string, unknown> | null = null;
@@ -144,6 +189,62 @@ export async function getExchangeQuoteTtlMs(): Promise<number> {
 export async function getRatesRefreshMs(): Promise<number> {
   const n = Number(await getHubSetting('rates_refresh_ms'));
   return Math.max(15_000, Number.isFinite(n) ? Math.trunc(n) : 60_000);
+}
+
+function positiveInt(n: unknown, fallback: number): number {
+  const v = Number(n);
+  return Number.isFinite(v) && v > 0 ? Math.trunc(v) : fallback;
+}
+
+function nonNegInt(n: unknown, fallback: number): number {
+  const v = Number(n);
+  return Number.isFinite(v) && v >= 0 ? Math.trunc(v) : fallback;
+}
+
+/** Crypto Wallet — deposit mins */
+export async function getCryptoDepositMinTonNanotons(): Promise<number> {
+  return positiveInt(await getHubSetting('crypto_deposit_min_ton_nanotons'), 100_000_000);
+}
+
+export async function getCryptoDepositMinUsdtMicros(): Promise<number> {
+  return positiveInt(await getHubSetting('crypto_deposit_min_usdt_micros'), 1_000_000);
+}
+
+export async function getCryptoDepositConfirmations(): Promise<number> {
+  return Math.max(1, positiveInt(await getHubSetting('crypto_deposit_confirmations'), 1));
+}
+
+/** Crypto Wallet — withdraw fees / limits */
+export async function getCryptoWithdrawFeeTonNanotons(): Promise<number> {
+  return nonNegInt(await getHubSetting('crypto_withdraw_fee_ton_nanotons'), 50_000_000);
+}
+
+export async function getCryptoWithdrawFeeUsdtMicros(): Promise<number> {
+  return nonNegInt(await getHubSetting('crypto_withdraw_fee_usdt_micros'), 100_000);
+}
+
+export async function getCryptoWithdrawMinTonNanotons(): Promise<number> {
+  return positiveInt(await getHubSetting('crypto_withdraw_min_ton_nanotons'), 100_000_000);
+}
+
+export async function getCryptoWithdrawMinUsdtMicros(): Promise<number> {
+  return positiveInt(await getHubSetting('crypto_withdraw_min_usdt_micros'), 1_000_000);
+}
+
+export async function getCryptoWithdrawMaxTonNanotons(): Promise<number> {
+  return positiveInt(await getHubSetting('crypto_withdraw_max_ton_nanotons'), 1_000_000_000_000);
+}
+
+export async function getCryptoWithdrawMaxUsdtMicros(): Promise<number> {
+  return positiveInt(await getHubSetting('crypto_withdraw_max_usdt_micros'), 10_000_000_000);
+}
+
+export async function getCryptoWithdrawDailyTonNanotons(): Promise<number> {
+  return positiveInt(await getHubSetting('crypto_withdraw_daily_ton_nanotons'), 5_000_000_000_000);
+}
+
+export async function getCryptoWithdrawDailyUsdtMicros(): Promise<number> {
+  return positiveInt(await getHubSetting('crypto_withdraw_daily_usdt_micros'), 50_000_000_000);
 }
 
 export const HUB_SETTING_KEYS = Object.keys(DEFAULTS) as HubSettingKey[];

@@ -11,8 +11,13 @@ import {
   executeExchangeTransaction,
   listExchangeOrders,
   type ExchangeOrderRecord,
+  writePaymentAudit,
 } from '../transactions/index.js';
 import { getWalletSnapshot } from '../wallet/index.js';
+import {
+  isCryptoWalletEnabled,
+  isCryptoWithdrawEnabled,
+} from '../cryptoWallet/config.js';
 
 export interface ExchangeQuoteView {
   quoteId: string;
@@ -28,6 +33,35 @@ export interface ExchangeQuoteView {
   feeBps: number;
   expiresAt: string;
   createdAt: string;
+}
+
+export interface ExchangeFlowHint {
+  id: 'deposit_ton_to_stars' | 'deposit_usdt_to_ton' | 'withdraw_ton';
+  from: WalletCurrency | null;
+  to: WalletCurrency | null;
+  depositCurrency: WalletCurrency | null;
+  withdrawCurrency: WalletCurrency | null;
+}
+
+export interface ExchangeWalletContext {
+  /** Real custodial balances (same ledger crypto deposits credit into). */
+  balances: Array<{
+    currency: WalletCurrency;
+    available: number;
+    locked: number;
+    decimals: number;
+    displaySymbol: string;
+  }>;
+  deposit: {
+    enabled: boolean;
+    currencies: Array<'TON' | 'USDT_TON'>;
+  };
+  withdraw: {
+    enabled: boolean;
+    currencies: Array<'TON' | 'USDT_TON'>;
+  };
+  flows: ExchangeFlowHint[];
+  currencies: Array<'STARS' | 'TON' | 'USDT_TON'>;
 }
 
 function isRateCurrency(v: unknown): v is RateCurrency {
@@ -89,6 +123,60 @@ export async function getExchangeCatalog() {
       decimalsTo: WALLET_CATALOG[p.to].decimals,
     })),
     rates,
+    currencies: ['STARS', 'TON', 'USDT_TON'] as const,
+    rails: {
+      deposit: isCryptoWalletEnabled(),
+      withdraw: isCryptoWithdrawEnabled(),
+    },
+  };
+}
+
+/**
+ * Real TON / USDT / Stars balances + crypto deposit/withdraw rails for Exchange UI.
+ * Does not change quote/execute math.
+ */
+export async function getExchangeWalletContext(userId: number): Promise<ExchangeWalletContext> {
+  const snapshot = userId > 0 ? await getWalletSnapshot(userId) : { userId: 0, balances: [] as Awaited<ReturnType<typeof getWalletSnapshot>>['balances'] };
+  return {
+    balances: snapshot.balances.map((b) => ({
+      currency: b.currency,
+      available: b.available,
+      locked: b.locked,
+      decimals: b.decimals,
+      displaySymbol: b.displaySymbol,
+    })),
+    deposit: {
+      enabled: isCryptoWalletEnabled(),
+      currencies: ['TON', 'USDT_TON'],
+    },
+    withdraw: {
+      enabled: isCryptoWithdrawEnabled(),
+      currencies: ['TON', 'USDT_TON'],
+    },
+    flows: [
+      {
+        id: 'deposit_ton_to_stars',
+        from: 'TON',
+        to: 'STARS',
+        depositCurrency: 'TON',
+        withdrawCurrency: null,
+      },
+      {
+        id: 'deposit_usdt_to_ton',
+        from: 'USDT_TON',
+        to: 'TON',
+        depositCurrency: 'USDT_TON',
+        withdrawCurrency: null,
+      },
+      {
+        id: 'withdraw_ton',
+        from: null,
+        to: null,
+        depositCurrency: null,
+        withdrawCurrency: 'TON',
+      },
+    ],
+    currencies: ['STARS', 'TON', 'USDT_TON'],
   };
 }
 
@@ -179,10 +267,36 @@ export async function executeExchange(args: {
   const quoteId = String(args.quoteId ?? '').trim();
   if (!quoteId) throwHttp(400, 'INVALID_QUOTE');
 
-  // Transaction Service owns the mutation path (RPC → Wallet → ledger). No direct balance writes.
-  const order = await executeExchangeTransaction(quoteId, args.userId);
-  const snapshot = await getWalletSnapshot(args.userId);
-  return { order, balances: snapshot.balances };
+  // Debits/credits via Transaction Service → exchange_execute_quote RPC (Wallet ledger).
+  try {
+    const order = await executeExchangeTransaction(quoteId, args.userId);
+    await writePaymentAudit({
+      userId: args.userId,
+      operation: 'exchange_execute',
+      outcome: 'ok',
+      currency: order.fromCurrency,
+      amount: order.fromAmount,
+      refTable: 'exchange_orders',
+      refId: String(order.id),
+      meta: {
+        quoteId: order.quoteId,
+        toCurrency: order.toCurrency,
+        toAmount: order.toAmount,
+        feeAmount: order.feeAmount,
+      },
+    });
+    const snapshot = await getWalletSnapshot(args.userId);
+    return { order, balances: snapshot.balances };
+  } catch (err) {
+    await writePaymentAudit({
+      userId: args.userId,
+      operation: 'exchange_execute',
+      outcome: 'failed',
+      reason: err instanceof Error ? err.message : String(err),
+      meta: { quoteId },
+    });
+    throw err;
+  }
 }
 
 export async function getExchangeHistory(

@@ -17,6 +17,8 @@ import {
   adminRefreshRates,
   adminListDeposits,
   adminListWithdrawals,
+  adminListCryptoDeposits,
+  adminListCryptoWithdrawals,
   adminUpdateWithdrawStatus,
   adminListExchanges,
   adminListLedger,
@@ -183,6 +185,28 @@ export function registerAdminPaymentRoutes(app: FastifyInstance, deps: { getUser
     await gate(req);
     const q = req.query as { status?: string; userId?: string; limit?: string; offset?: string };
     return adminListWithdrawals({
+      status: q.status,
+      userId: q.userId != null ? Number(q.userId) : undefined,
+      limit: q.limit != null ? Number(q.limit) : undefined,
+      offset: q.offset != null ? Number(q.offset) : undefined,
+    });
+  });
+
+  app.get('/api/admin/payments/crypto/deposits', async (req) => {
+    await gate(req);
+    const q = req.query as { status?: string; userId?: string; limit?: string; offset?: string };
+    return adminListCryptoDeposits({
+      status: q.status,
+      userId: q.userId != null ? Number(q.userId) : undefined,
+      limit: q.limit != null ? Number(q.limit) : undefined,
+      offset: q.offset != null ? Number(q.offset) : undefined,
+    });
+  });
+
+  app.get('/api/admin/payments/crypto/withdrawals', async (req) => {
+    await gate(req);
+    const q = req.query as { status?: string; userId?: string; limit?: string; offset?: string };
+    return adminListCryptoWithdrawals({
       status: q.status,
       userId: q.userId != null ? Number(q.userId) : undefined,
       limit: q.limit != null ? Number(q.limit) : undefined,

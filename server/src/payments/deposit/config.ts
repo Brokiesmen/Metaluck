@@ -1,4 +1,9 @@
 import type { DepositMethod } from './types.js';
+export {
+  tonApiBase,
+  tonApiKey,
+  usdtJettonMaster,
+} from '../blockchain/config.js';
 
 function envInt(name: string, fallback: number): number {
   const n = Number(process.env[name]);
@@ -18,27 +23,12 @@ export function tonDepositAddress(): string {
   return String(process.env.TON_DEPOSIT_ADDRESS ?? '').trim();
 }
 
-export function usdtJettonMaster(): string {
-  // Official Tether USD₮ master on TON (mainnet)
-  return String(
-    process.env.USDT_TON_JETTON_MASTER ?? 'EQCxE6mUtQJKFnGfaROTKOt1lZbDiiX1kCixRv7Nw2Id_sDs',
-  ).trim();
-}
-
 export function tonConfirmationsRequired(): number {
   return Math.max(1, envInt('TON_DEPOSIT_CONFIRMATIONS', 1));
 }
 
 export function cryptoDepositTtlMs(): number {
   return envInt('TON_DEPOSIT_TTL_MS', 60 * 60 * 1000);
-}
-
-export function tonApiBase(): string {
-  return String(process.env.TON_API_BASE ?? 'https://tonapi.io').replace(/\/+$/, '');
-}
-
-export function tonApiKey(): string {
-  return String(process.env.TONAPI_KEY ?? process.env.TON_API_KEY ?? '').trim();
 }
 
 export async function listDepositMethods(): Promise<DepositMethod[]> {

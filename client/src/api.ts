@@ -15,6 +15,8 @@ import type {
   AviatorStateResponse,
   AviatorBetResponse,
   AviatorCashoutResponse,
+  WebUser,
+  AuthResponse,
   ProgressView,
   WalletBalance,
   WalletCurrency,
@@ -23,6 +25,10 @@ import type {
   WalletSnapshot,
   DepositMethod,
   DepositOrderView,
+  CryptoDepositAddress,
+  CryptoChainDeposit,
+  CryptoWithdrawQuote,
+  CryptoWithdrawal,
   ExchangePairInfo,
   ExchangeQuote,
   ExchangeExecuteResult,
@@ -53,6 +59,25 @@ import {
 
 let _initData = '';
 export function setInitData(d: string) { _initData = d; }
+
+/**
+ * Bearer-токен web-сессии (Google / Telegram Login вне Mini App).
+ * Храним в localStorage и шлём заголовком Authorization. В Mini App токена нет —
+ * там авторизация идёт через X-Telegram-Init-Data, этот слой её не трогает.
+ */
+const TOKEN_KEY = 'metaluck_session_v1';
+let _token: string | null = (() => {
+  try { return localStorage.getItem(TOKEN_KEY); } catch { return null; }
+})();
+
+export function getAuthToken(): string | null { return _token; }
+export function setAuthToken(token: string | null) {
+  _token = token;
+  try {
+    if (token) localStorage.setItem(TOKEN_KEY, token);
+    else localStorage.removeItem(TOKEN_KEY);
+  } catch { /* private mode */ }
+}
 
 /**
  * База для API. Пустая строка = относительные `/api/...` (тот же origin — правильно для туннеля,
@@ -109,6 +134,8 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
         Accept: 'application/json',
         // Send Telegram initData so server knows who is making the request
         'X-Telegram-Init-Data': _initData,
+        // Bearer только когда нет Mini App initData (иначе приоритет у Telegram).
+        ...(_token && !_initData ? { Authorization: `Bearer ${_token}` } : {}),
         ...(options?.headers ?? {}),
       },
     });
@@ -157,11 +184,52 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
     throw new Error('Некорректный JSON в ответе сервера');
   }
 
-  if (!res.ok) throw new Error(data.message ?? `Ошибка ${res.status}`);
+  if (!res.ok) {
+    if (res.status === 401 && path.startsWith('/api/auth/')) {
+      setAuthToken(null);
+    }
+    throw new Error(data.message ?? `Ошибка ${res.status}`);
+  }
   return data as T;
 }
 
 export const api = {
+  // ── Web auth ───────────────────────────────────────────────────────────────
+  authMe: () =>
+    request<{ user: WebUser; token?: string }>('/api/auth/me').then((d) => {
+      if (d.token) setAuthToken(d.token);
+      return d.user;
+    }),
+
+  authGoogle: (credential: string) =>
+    request<AuthResponse>('/api/auth/google', {
+      method: 'POST',
+      body: JSON.stringify({ credential }),
+    }).then((d) => {
+      setAuthToken(d.token);
+      return d;
+    }),
+
+  authTelegram: (payload: Record<string, string | number>) =>
+    request<AuthResponse>('/api/auth/telegram', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }).then((d) => {
+      setAuthToken(d.token);
+      return d;
+    }),
+
+  authRefresh: () =>
+    request<AuthResponse>('/api/auth/refresh', { method: 'POST' }).then((d) => {
+      setAuthToken(d.token);
+      return d;
+    }),
+
+  authLogout: () =>
+    request<{ ok: boolean }>('/api/auth/logout', { method: 'POST' }).finally(() => {
+      setAuthToken(null);
+    }),
+
   getBalance: () =>
     request<{ balance: number }>('/api/balance').then(d => d.balance),
 
@@ -315,6 +383,81 @@ export const api = {
   verifyDeposit: (id: string) =>
     request<DepositOrderView>(`/api/deposit/${encodeURIComponent(id)}/verify`, { method: 'POST' }),
 
+  getCryptoStatus: () =>
+    request<{
+      enabled: boolean;
+      network: string;
+      currencies: string[];
+      requiredConfirmations: number;
+      statuses?: string[];
+    }>('/api/crypto/status'),
+
+  getCryptoDepositAddress: (currency: 'TON' | 'USDT_TON' = 'TON') =>
+    request<{ deposit: CryptoDepositAddress | null; enabled: boolean }>(
+      `/api/crypto/deposit-address?currency=${encodeURIComponent(currency)}`,
+    ),
+
+  /** Start deposit: pick currency → personal address. */
+  startCryptoDeposit: (currency: 'TON' | 'USDT_TON') =>
+    request<{ deposit: CryptoDepositAddress }>('/api/crypto/deposit', {
+      method: 'POST',
+      body: JSON.stringify({ currency }),
+    }),
+
+  /** @deprecated prefer startCryptoDeposit */
+  createCryptoDepositAddress: (currency: 'TON' | 'USDT_TON' = 'TON') =>
+    request<{ deposit: CryptoDepositAddress }>('/api/crypto/deposit-address', {
+      method: 'POST',
+      body: JSON.stringify({ currency }),
+    }),
+
+  listCryptoDeposits: () =>
+    request<{ deposits: CryptoChainDeposit[] }>('/api/crypto/deposits').then((d) => d.deposits),
+
+  syncCryptoDeposits: () =>
+    request<{ ok: boolean; deposits: CryptoChainDeposit[]; withdrawals?: CryptoWithdrawal[] }>(
+      '/api/crypto/sync',
+      { method: 'POST' },
+    ),
+
+  getCryptoWithdrawStatus: () =>
+    request<{
+      enabled: boolean;
+      network: string;
+      currencies: string[];
+      statuses: string[];
+      fees: Record<string, number>;
+      mins: Record<string, number>;
+      maxes: Record<string, number>;
+      dailyLimits: Record<string, number>;
+    }>('/api/crypto/withdraw/status'),
+
+  quoteCryptoWithdraw: (body: {
+    currency: 'TON' | 'USDT_TON';
+    toAddress: string;
+    amount: number;
+  }) =>
+    request<{ quote: CryptoWithdrawQuote }>('/api/crypto/withdraw/quote', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }).then((d) => d.quote),
+
+  createCryptoWithdraw: (body: {
+    currency: 'TON' | 'USDT_TON';
+    toAddress: string;
+    amount: number;
+    confirm: true;
+  }) =>
+    request<{ withdrawal: CryptoWithdrawal }>('/api/crypto/withdraw', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }).then((d) => d.withdrawal),
+
+  listCryptoWithdrawals: () =>
+    request<{ withdrawals: CryptoWithdrawal[] }>('/api/crypto/withdrawals').then(
+      (d) => d.withdrawals,
+    ),
+
   listDeposits: (opts: { limit?: number; offset?: number } = {}) => {
     const q = new URLSearchParams();
     if (opts.limit != null) q.set('limit', String(opts.limit));
@@ -353,7 +496,33 @@ export const api = {
     request<MarketRate>(`/api/rates/${encodeURIComponent(from)}/${encodeURIComponent(to)}`),
 
   getExchangePairs: () =>
-    request<{ pairs: ExchangePairInfo[]; rates: MarketRate[] }>('/api/exchange/pairs'),
+    request<{
+      pairs: ExchangePairInfo[];
+      rates: MarketRate[];
+      currencies?: string[];
+      rails?: { deposit: boolean; withdraw: boolean };
+    }>('/api/exchange/pairs'),
+
+  getExchangeStatus: () =>
+    request<{
+      balances: Array<{
+        currency: WalletCurrency;
+        available: number;
+        locked: number;
+        decimals: number;
+        displaySymbol: string;
+      }>;
+      deposit: { enabled: boolean; currencies: Array<'TON' | 'USDT_TON'> };
+      withdraw: { enabled: boolean; currencies: Array<'TON' | 'USDT_TON'> };
+      flows: Array<{
+        id: string;
+        from: WalletCurrency | null;
+        to: WalletCurrency | null;
+        depositCurrency: WalletCurrency | null;
+        withdrawCurrency: WalletCurrency | null;
+      }>;
+      currencies: WalletCurrency[];
+    }>('/api/exchange/status'),
 
   createExchangeQuote: (from: WalletCurrency, to: WalletCurrency, amount: number) =>
     request<ExchangeQuote>('/api/exchange/quote', {
@@ -506,6 +675,40 @@ export const api = {
     const qs = q.toString();
     return request<{ total: number; items: Record<string, unknown>[] }>(
       `/api/admin/payments/withdrawals${qs ? `?${qs}` : ''}`,
+    );
+  },
+
+  adminListCryptoDeposits: (opts: {
+    status?: string;
+    userId?: number;
+    limit?: number;
+    offset?: number;
+  } = {}) => {
+    const q = new URLSearchParams();
+    if (opts.status) q.set('status', opts.status);
+    if (opts.userId != null) q.set('userId', String(opts.userId));
+    if (opts.limit != null) q.set('limit', String(opts.limit));
+    if (opts.offset != null) q.set('offset', String(opts.offset));
+    const qs = q.toString();
+    return request<{ total: number; items: Record<string, unknown>[] }>(
+      `/api/admin/payments/crypto/deposits${qs ? `?${qs}` : ''}`,
+    );
+  },
+
+  adminListCryptoWithdrawals: (opts: {
+    status?: string;
+    userId?: number;
+    limit?: number;
+    offset?: number;
+  } = {}) => {
+    const q = new URLSearchParams();
+    if (opts.status) q.set('status', opts.status);
+    if (opts.userId != null) q.set('userId', String(opts.userId));
+    if (opts.limit != null) q.set('limit', String(opts.limit));
+    if (opts.offset != null) q.set('offset', String(opts.offset));
+    const qs = q.toString();
+    return request<{ total: number; items: Record<string, unknown>[] }>(
+      `/api/admin/payments/crypto/withdrawals${qs ? `?${qs}` : ''}`,
     );
   },
 

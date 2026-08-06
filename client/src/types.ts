@@ -241,6 +241,22 @@ export interface AviatorCashoutResponse {
   now: number;
 }
 
+// ── Web auth (Google / Telegram Login вне Mini App) ──────────────
+export interface WebUser {
+  id: number;
+  telegramId: number | null;
+  googleId: string | null;
+  email: string | null;
+  username: string | null;
+  avatar: string | null;
+  authProvider: 'telegram' | 'google';
+}
+
+export interface AuthResponse {
+  token: string;
+  user: WebUser;
+}
+
 export type ProgressTaskId =
   | 'daily_login'
   | 'open_case'
@@ -364,6 +380,78 @@ export interface DepositOrderView {
   expiresAt: string | null;
   createdAt: string;
   newBalance?: number | null;
+}
+
+/** Per-user TON deposit address (Crypto Deposit System). */
+export interface CryptoDepositAddress {
+  network: 'ton';
+  address: string;
+  addressRaw: string;
+  currency: 'TON' | 'USDT_TON';
+  decimals: number;
+  minAmount: number;
+  symbol: string;
+  currencies: Array<{
+    code: 'TON' | 'USDT_TON';
+    decimals: number;
+    minAmount: number;
+    symbol: string;
+  }>;
+  requiredConfirmations: number;
+  memoHint: string | null;
+  createdAt: string;
+  instructions: string;
+}
+
+export type CryptoDepositStatus = 'pending' | 'confirmed' | 'failed';
+
+export interface CryptoChainDeposit {
+  id: string;
+  currency: 'TON' | 'USDT_TON';
+  network: string;
+  amount: number;
+  txHash: string;
+  confirmations: number;
+  requiredConfirmations: number;
+  status: CryptoDepositStatus | string;
+  detectedAt: string;
+  creditedAt: string | null;
+  errorMessage?: string | null;
+}
+
+export type CryptoWithdrawStatus = 'pending' | 'processing' | 'completed' | 'failed';
+
+export interface CryptoWithdrawQuote {
+  currency: 'TON' | 'USDT_TON';
+  network: 'ton';
+  toAddress: string;
+  amount: number;
+  networkFee: number;
+  netAmount: number;
+  minAmount: number;
+  maxAmount: number;
+  dailyLimit: number;
+  dailyUsed: number;
+  dailyRemaining: number;
+  available: number;
+  decimals: number;
+  symbol: string;
+  canAfford: boolean;
+}
+
+export interface CryptoWithdrawal {
+  id: string;
+  currency: 'TON' | 'USDT_TON';
+  network: 'ton';
+  toAddress: string;
+  amount: number;
+  networkFee: number;
+  netAmount: number;
+  status: CryptoWithdrawStatus;
+  txHash: string | null;
+  errorMessage: string | null;
+  createdAt: string;
+  completedAt: string | null;
 }
 
 /** Exchange / Market Rates */

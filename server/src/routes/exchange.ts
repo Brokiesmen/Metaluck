@@ -4,6 +4,7 @@ import {
   executeExchange,
   getExchangeCatalog,
   getExchangeHistory,
+  getExchangeWalletContext,
 } from '../payments/exchange/index.js';
 import {
   getMarketRate,
@@ -92,6 +93,15 @@ export function registerExchangeRoutes(app: FastifyInstance, deps: { getUserId: 
   });
 
   app.get('/api/exchange/pairs', async () => getExchangeCatalog());
+
+  /**
+   * Real wallet balances (TON / USDT / Stars) + crypto deposit/withdraw rails.
+   * Exchange quote/execute logic is unchanged — this only exposes funding context.
+   */
+  app.get('/api/exchange/status', async (req) => {
+    const userId = await getUserId(req);
+    return getExchangeWalletContext(userId);
+  });
 
   app.post<{ Body: { from: string; to: string; amount: number | string } }>(
     '/api/exchange/quote',

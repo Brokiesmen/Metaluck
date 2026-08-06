@@ -1,7 +1,8 @@
-export type { ExchangeQuoteView, ExchangeOrderRecord } from './service.js';
+export type { ExchangeQuoteView, ExchangeOrderRecord, ExchangeWalletContext, ExchangeFlowHint } from './service.js';
 export {
   computeExchangeAmounts,
   getExchangeCatalog,
+  getExchangeWalletContext,
   createExchangeQuote,
   executeExchange,
   getExchangeHistory,

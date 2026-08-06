@@ -64,11 +64,38 @@ interface TelegramWebApp {
   ): void;
 }
 
+/** Payload Telegram Login Widget (data-onauth). */
+interface TelegramLoginUser {
+  id: number;
+  first_name?: string;
+  last_name?: string;
+  username?: string;
+  photo_url?: string;
+  auth_date: number;
+  hash: string;
+}
+
+/** Минимум из Google Identity Services, который мы используем. */
+interface GoogleIdConfig {
+  client_id: string;
+  callback: (resp: { credential: string }) => void;
+}
+interface GoogleAccountsId {
+  initialize(config: GoogleIdConfig): void;
+  renderButton(parent: HTMLElement, options: Record<string, unknown>): void;
+  prompt(): void;
+}
+
 declare global {
   interface Window {
     Telegram?: { WebApp: TelegramWebApp };
     /** Срочный override базы API без пересборки (например туннель). */
     __MINIGAMES_API_BASE__?: string;
+    /** Пользователь web-сессии (вне Telegram) — подхватывается useTelegram. */
+    __webUser?: TelegramUser | null;
+    /** Глобальный колбэк для data-onauth Telegram-виджета. */
+    onTelegramAuth?: (user: TelegramLoginUser) => void;
+    google?: { accounts: { id: GoogleAccountsId } };
   }
 }
 

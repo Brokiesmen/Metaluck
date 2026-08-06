@@ -24,6 +24,8 @@ import {
   ensureReferral,
 } from './supabaseStore.js';
 import { httpError } from './routes/helpers.js';
+import { registerAuthRoutes } from './routes/auth.js';
+import { accountFromRequest } from './webAuth.js';
 import { activateReferralCode, registerReferralRoutes } from './routes/referrals.js';
 import { registerCaseRoutes } from './routes/cases.js';
 import { registerDailyRoutes } from './routes/daily.js';
@@ -34,15 +36,23 @@ import { registerWalletRoutes } from './routes/wallet.js';
 import { registerDepositRoutes } from './routes/deposit.js';
 import { registerExchangeRoutes } from './routes/exchange.js';
 import { registerAdminPaymentRoutes } from './routes/adminPayments.js';
+import { registerCryptoWalletRoutes } from './routes/cryptoWallet.js';
 import { registerTelegramRoutes } from './routes/telegram.js';
 import { startRatesAutoRefresh } from './payments/rates/index.js';
 import { getRatesRefreshMs } from './payments/hub/index.js';
+import { startCryptoDepositListener } from './payments/cryptoWallet/index.js';
 
 requireSupabase();
 
 // ── App ────────────────────────────────────────────────────────────────────────
 const isProd = process.env.NODE_ENV === 'production';
 const app = Fastify({ logger: { level: 'info' } });
+
+if (isProd && !String(process.env.SESSION_SECRET ?? '').trim()) {
+  app.log.error(
+    'SESSION_SECRET is empty — web Bearer sessions will fail to sign. Set SESSION_SECRET in Railway.',
+  );
+}
 
 const corsOrigins = String(process.env.CORS_ORIGIN ?? '')
   .split(/[,\s]+/)
@@ -122,8 +132,21 @@ app.addHook('onSend', (request, reply, payload, done) => {
 });
 
 async function getUserId(req: FastifyRequest): Promise<number> {
-  const raw = req.headers['x-telegram-init-data'] as string | undefined;
-  const result = validateInitData(raw);
+  const raw = String(req.headers['x-telegram-init-data'] ?? '').trim();
+
+  // Web-путь: нет initData Mini App, но есть Bearer-сессия (Google / Telegram
+  // Login Widget). Проверяется ТОЛЬКО когда initData отсутствует, поэтому путь
+  // Mini App ниже остаётся неизменным. account.id == telegram_id для Telegram-
+  // аккаунтов → баланс/история совпадают с Mini App.
+  if (!raw) {
+    const acc = await accountFromRequest(req);
+    if (acc) {
+      await ensureReferral(acc.id);
+      return acc.id;
+    }
+  }
+
+  const result = validateInitData(raw || undefined);
   if (!result.valid) throw httpError(401, 'Unauthorized');
 
   if (result.user && result.userId) {
@@ -155,6 +178,7 @@ async function getUserId(req: FastifyRequest): Promise<number> {
 
 // ── Routes ────────────────────────────────────────────────────────────────────
 
+registerAuthRoutes(app);
 registerCaseRoutes(app, { getUserId });
 registerDailyRoutes(app, { getUserId });
 registerWheelRoutes(app, { getUserId });
@@ -165,9 +189,11 @@ registerWalletRoutes(app, { getUserId });
 registerDepositRoutes(app, { getUserId });
 registerExchangeRoutes(app, { getUserId });
 registerAdminPaymentRoutes(app, { getUserId });
+registerCryptoWalletRoutes(app, { getUserId });
 registerTelegramRoutes(app);
 
 startRatesAutoRefresh(await getRatesRefreshMs().catch(() => 60_000));
+startCryptoDepositListener();
 
 registerBlackjackRoutes(app, { getUserId });
 registerPvpRoutes(app, { getUserId });
