@@ -4,6 +4,8 @@ import type { ArenaRoundView } from '../types';
 import { useSettings } from '../settings/SettingsContext';
 import { tf } from '../i18n/tf';
 import { StarIcon } from './StarIcon';
+import { BetCurrencyPicker } from './BetCurrencyPicker';
+import { useWagerCurrency } from '../hooks/useWagerCurrency';
 
 interface Props {
   onBack: () => void;
@@ -60,6 +62,7 @@ function Confetti() {
 
 export function ArenaGame({ onBack, onBalanceUpdate }: Props) {
   const { t, locale } = useSettings();
+  const { currency } = useWagerCurrency();
   const [round, setRound] = useState<ArenaRoundView | null>(null);
   const [bet, setBet] = useState<BetAmount>(25);
   const [busy, setBusy] = useState(false);
@@ -164,11 +167,11 @@ export function ArenaGame({ onBack, onBalanceUpdate }: Props) {
     setBusy(true);
     setErr(null);
     api
-      .arenaBet(bet)
+      .arenaBet(bet, currency)
       .then(applyState)
       .catch((e) => setErr(e instanceof Error ? e.message : t.arena.betError))
       .finally(() => setBusy(false));
-  }, [bet, busy, applyState, t.arena.betError]);
+  }, [bet, busy, currency, applyState, t.arena.betError]);
 
   /* ── Производные ───────────────────────────────────────────── */
   const players = round?.players ?? [];
@@ -287,6 +290,7 @@ export function ArenaGame({ onBack, onBalanceUpdate }: Props) {
             </button>
           ))}
         </div>
+        <BetCurrencyPicker disabled={!canBet} />
         <button className="ar-bet-btn" disabled={!canBet} onClick={placeBet}>
           {!synced
             ? t.arena.loading

@@ -4,6 +4,8 @@ import type { MineRushDifficulty, MineRushGameView } from '../types';
 import { useSettings } from '../settings/SettingsContext';
 import { tf } from '../i18n/tf';
 import { StarIcon } from './StarIcon';
+import { BetCurrencyPicker } from './BetCurrencyPicker';
+import { useWagerCurrency } from '../hooks/useWagerCurrency';
 import {
   ALLOWED_BETS,
   formatNetMult,
@@ -31,6 +33,7 @@ function parseKey(key: string): { x: number; y: number } {
 
 export function MineRushGame({ onBack, onBalanceUpdate }: Props) {
   const { t, locale } = useSettings();
+  const { currency } = useWagerCurrency();
   const [game, setGame] = useState<MineRushGameView | null>(null);
   const [difficulty, setDifficulty] = useState<MineRushDifficulty>('medium');
   const [bet, setBet] = useState<(typeof BETS)[number]>(10);
@@ -78,7 +81,7 @@ export function MineRushGame({ onBack, onBalanceUpdate }: Props) {
     setExploded(null);
     setLastPayout(null);
     try {
-      const res = await api.mineRushStart(difficulty, bet);
+      const res = await api.mineRushStart(difficulty, bet, currency);
       setGame(res);
       onBalanceUpdate(res.balance);
       setFlagMode(false);
@@ -87,7 +90,7 @@ export function MineRushGame({ onBack, onBalanceUpdate }: Props) {
     } finally {
       setBusy(false);
     }
-  }, [bet, busy, difficulty, onBalanceUpdate, t.mr.startError]);
+  }, [bet, busy, currency, difficulty, onBalanceUpdate, t.mr.startError]);
 
   const onCell = useCallback(async (x: number, y: number) => {
     if (!game || busy || game.status !== 'active') return;
@@ -299,6 +302,7 @@ export function MineRushGame({ onBack, onBalanceUpdate }: Props) {
                 </button>
               ))}
             </div>
+            <BetCurrencyPicker disabled={busy} />
             <div className="mr-odds-hint">
               <span>{tf(t.mr.mines, { n: previewMines })}</span>
               <span>{tf(t.mr.mult, { n: previewMult })}</span>

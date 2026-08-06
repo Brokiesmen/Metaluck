@@ -274,3 +274,152 @@ export interface ProgressView {
   tasksResetAt?: number;
   tasks: ProgressTask[];
 }
+
+/** Wallet Service (Payment Hub) */
+export type WalletCurrency = 'STARS' | 'TON' | 'USDT_TON';
+
+export interface WalletCurrencyInfo {
+  code: WalletCurrency;
+  kind: 'internal' | 'crypto' | 'fiat_rail';
+  decimals: number;
+  network: string | null;
+  displaySymbol: string;
+  canDeposit: boolean;
+  canWithdraw: boolean;
+  canExchange: boolean;
+  canWager: boolean;
+}
+
+export interface WalletBalance {
+  currency: WalletCurrency;
+  available: number;
+  locked: number;
+  decimals: number;
+  displaySymbol: string;
+}
+
+export interface WalletSnapshot {
+  userId: number;
+  balances: WalletBalance[];
+  /** STARS available — same as GET /api/balance */
+  balance: number;
+}
+
+export interface WalletLedgerEntry {
+  id: number;
+  userId: number;
+  currency: WalletCurrency;
+  direction: 'credit' | 'debit';
+  amount: number;
+  availableAfter: number;
+  lockedAfter: number;
+  entryType: string;
+  idempotencyKey: string | null;
+  refTable: string | null;
+  refId: string | null;
+  meta: Record<string, unknown>;
+  createdAt: string;
+}
+
+export interface WalletLedgerPage {
+  entries: WalletLedgerEntry[];
+  pagination: {
+    page: number;
+    limit: number;
+    offset: number;
+    total: number;
+    hasMore: boolean;
+  };
+}
+
+/** Deposit Service (Payment Hub) */
+export type DepositRail = 'telegram_stars' | 'ton' | 'usdt_ton';
+export type DepositStatus = 'pending' | 'confirming' | 'paid' | 'failed' | 'expired';
+
+export interface DepositMethod {
+  rail: DepositRail;
+  currency: WalletCurrency;
+  label: string;
+  network: string | null;
+  decimals: number;
+  minAmount: number;
+  enabled: boolean;
+  hint: string;
+}
+
+export interface DepositOrderView {
+  id: string;
+  rail: DepositRail;
+  currency: WalletCurrency;
+  productKind: 'wallet_credit' | 'premium_wheel';
+  status: DepositStatus;
+  expectedAmount: number;
+  receivedAmount: number | null;
+  confirmations: number;
+  requiredConfirmations: number;
+  depositAddress: string | null;
+  memo: string | null;
+  packageId: string | null;
+  invoiceLink?: string | null;
+  expiresAt: string | null;
+  createdAt: string;
+  newBalance?: number | null;
+}
+
+/** Exchange / Market Rates */
+export interface MarketRate {
+  base: WalletCurrency;
+  quote: WalletCurrency;
+  mid: number;
+  bid: number;
+  ask: number;
+  spreadBps: number;
+  source: string;
+  fetchedAt: string;
+}
+
+export interface ExchangePairInfo {
+  from: WalletCurrency;
+  to: WalletCurrency;
+  spreadBps: number;
+  feeBps: number;
+  minFromAmount: number;
+  maxFromAmount: number;
+  decimalsFrom: number;
+  decimalsTo: number;
+}
+
+export interface ExchangeQuote {
+  quoteId: string;
+  from: WalletCurrency;
+  to: WalletCurrency;
+  fromAmount: number;
+  toAmount: number;
+  feeAmount: number;
+  feeCurrency: WalletCurrency;
+  midRate: number;
+  effectiveRate: number;
+  spreadBps: number;
+  feeBps: number;
+  expiresAt: string;
+  createdAt: string;
+}
+
+export interface ExchangeOrder {
+  id: number;
+  quoteId: string;
+  userId: number;
+  fromCurrency: WalletCurrency | string;
+  toCurrency: WalletCurrency | string;
+  fromAmount: number;
+  toAmount: number;
+  feeAmount: number;
+  feeCurrency: WalletCurrency | string;
+  effectiveRate: number;
+  createdAt: string;
+}
+
+export interface ExchangeExecuteResult {
+  order: ExchangeOrder;
+  balances: WalletBalance[];
+}

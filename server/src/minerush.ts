@@ -17,6 +17,13 @@ import {
 import { getSupabase, parseJsonField } from './supabaseStore.js';
 import { onGamePlayXp, onGameWinXp } from './progressAwards.js';
 import { XP } from './xp.js';
+import {
+  CompleteTransaction,
+  CreditBalance,
+  GetPlayableBalance,
+  isPayCurrency,
+  ReserveFunds,
+} from './payments/wallet/game.js';
 
 interface GameRow {
   game_id: string;
@@ -30,6 +37,7 @@ interface GameRow {
   score: number;
   started_at: number;
   first_click: number;
+  reservation_id: string | null;
 }
 
 function isDifficulty(v: unknown): v is Difficulty {
@@ -66,16 +74,18 @@ function throwSb(error: { message?: string } | null, context: string): never {
   throw new Error(`${context}: ${error?.message ?? 'unknown Supabase error'}`);
 }
 
+function reservationIdFor(row: GameRow): string {
+  if (!row.reservation_id) throw new Error('minerush reservation not found');
+  return row.reservation_id;
+}
+
 export function registerMineRushRoutes(
   app: FastifyInstance,
   deps: {
     getUserId: (req: FastifyRequest) => Promise<number>;
-    getBalance: (userId: number) => Promise<number>;
-    tryDeductBalance: (userId: number, amount: number) => Promise<number | null>;
-    addBalance: (userId: number, delta: number) => Promise<number>;
   },
 ) {
-  const { getUserId, getBalance, tryDeductBalance, addBalance } = deps;
+  const { getUserId } = deps;
 
   async function getGame(gameId: string): Promise<GameRow | null> {
     const sb = getSupabase();
@@ -94,6 +104,7 @@ export function registerMineRushRoutes(
       score: Number(data.score),
       started_at: Number(data.started_at),
       first_click: Number(data.first_click),
+      reservation_id: data.reservation_id ? String(data.reservation_id) : null,
     };
   }
 
@@ -121,6 +132,7 @@ export function registerMineRushRoutes(
       score: Number(data.score),
       started_at: Number(data.started_at),
       first_click: Number(data.first_click),
+      reservation_id: data.reservation_id ? String(data.reservation_id) : null,
     };
   }
 
@@ -131,6 +143,7 @@ export function registerMineRushRoutes(
     difficulty: Difficulty;
     mines_json: string[];
     started_at: number;
+    reservation_id: string;
   }) {
     const sb = getSupabase();
     const { error } = await sb.from('minerush_games').insert({
@@ -145,6 +158,7 @@ export function registerMineRushRoutes(
       score: 0,
       started_at: row.started_at,
       first_click: 0,
+      reservation_id: row.reservation_id,
     });
     if (error) throwSb(error, 'minerush insertGame');
   }
@@ -191,31 +205,37 @@ export function registerMineRushRoutes(
   app.get('/api/minerush/state', async (req) => {
     const userId = await getUserId(req);
     const row = await getActive(userId);
-    const balance = await getBalance(userId);
+    const balance = await GetPlayableBalance(userId);
     if (!row) return { game: null, balance };
     return { game: toView(row, balance), balance };
   });
 
-  app.post<{ Body: { difficulty?: string; bet?: number } }>(
+  app.post<{ Body: { difficulty?: string; bet?: number; currency?: string } }>(
     '/api/minerush/start',
     async (req, reply) => {
       const userId = await getUserId(req);
       const difficulty = req.body?.difficulty;
       const bet = Number(req.body?.bet);
+      const currency = req.body?.currency ?? 'STARS';
       if (!isDifficulty(difficulty)) return jsonError(reply, 400, 'Выберите сложность');
       if (!ALLOWED_BETS.includes(bet as (typeof ALLOWED_BETS)[number])) {
         return jsonError(reply, 400, 'Некорректная ставка');
       }
+      if (!isPayCurrency(currency)) return jsonError(reply, 400, 'Некорректная валюта');
 
       const active = await getActive(userId);
       if (active) return jsonError(reply, 400, 'Завершите текущую игру');
 
-      const afterBet = await tryDeductBalance(userId, bet);
-      if (afterBet === null) return jsonError(reply, 400, 'Недостаточно звёзд');
+      const gameId = crypto.randomUUID();
+      const reservation = await ReserveFunds(userId, bet, {
+        game: 'minerush',
+        refId: gameId,
+        payCurrency: currency,
+      });
+      if (!reservation) return jsonError(reply, 400, 'Недостаточно средств');
 
       const mineCount = mineCountFor(difficulty, bet);
       const mines = generateMines(mineCount);
-      const gameId = crypto.randomUUID();
       const now = Date.now();
 
       await insertGame({
@@ -225,11 +245,12 @@ export function registerMineRushRoutes(
         difficulty,
         mines_json: serializeSet(mines),
         started_at: now,
+        reservation_id: reservation.reservationId,
       });
       await onGamePlayXp(userId, 'minerush');
 
       const row = (await getGame(gameId))!;
-      return toView(row, await getBalance(userId));
+      return toView(row, await GetPlayableBalance(userId, currency));
     },
   );
 
@@ -256,7 +277,7 @@ export function registerMineRushRoutes(
       const flags = deserializeSet(row.flags_json);
       const key = cellKey(x, y);
       if (flags.has(key)) return jsonError(reply, 400, 'Снимите флаг');
-      if (revealed.has(key)) return toView(row, await getBalance(userId));
+      if (revealed.has(key)) return toView(row, await GetPlayableBalance(userId));
 
       let firstClick = row.first_click;
       if (!firstClick) {
@@ -274,13 +295,14 @@ export function registerMineRushRoutes(
         revealed.add(key);
         status = 'lost';
         exploded = key;
+        await CompleteTransaction(reservationIdFor(row));
       } else {
         floodReveal(mines, revealed, x, y);
         score = revealed.size;
         if (score >= totalSafeCells(mines.size)) {
           status = 'won';
           const payout = payoutForWin(row.bet, row.difficulty as Difficulty);
-          await addBalance(userId, payout);
+          await CreditBalance(reservationIdFor(row), payout);
           await onGameWinXp(userId, XP.MINERUSH_CASHOUT(score), 'minerush');
         }
       }
@@ -295,7 +317,7 @@ export function registerMineRushRoutes(
       });
 
       const updated = (await getGame(gameId))!;
-      return { ...toView(updated, await getBalance(userId)), exploded };
+      return { ...toView(updated, await GetPlayableBalance(userId)), exploded };
     },
   );
 
@@ -313,7 +335,7 @@ export function registerMineRushRoutes(
       const revealed = deserializeSet(row.revealed_json);
       const flags = deserializeSet(row.flags_json);
       const key = cellKey(x, y);
-      if (revealed.has(key)) return toView(row, await getBalance(userId));
+      if (revealed.has(key)) return toView(row, await GetPlayableBalance(userId));
       if (flags.has(key)) flags.delete(key);
       else flags.add(key);
 
@@ -325,7 +347,7 @@ export function registerMineRushRoutes(
         score: row.score,
         first_click: row.first_click,
       });
-      return toView((await getGame(gameId))!, await getBalance(userId));
+      return toView((await getGame(gameId))!, await GetPlayableBalance(userId));
     },
   );
 
@@ -344,7 +366,7 @@ export function registerMineRushRoutes(
       mines.size,
       row.difficulty as Difficulty,
     );
-    await addBalance(userId, payout);
+    await CreditBalance(reservationIdFor(row), payout);
     await updateGame(gameId, {
       mines_json: serializeSet(deserializeSet(row.mines_json)),
       revealed_json: serializeSet(deserializeSet(row.revealed_json)),
@@ -355,6 +377,6 @@ export function registerMineRushRoutes(
     });
     await onGameWinXp(userId, XP.MINERUSH_CASHOUT(row.score), 'minerush');
     const updated = (await getGame(gameId))!;
-    return { ...toView(updated, await getBalance(userId)), payout };
+    return { ...toView(updated, await GetPlayableBalance(userId)), payout };
   });
 }

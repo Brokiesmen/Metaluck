@@ -5,13 +5,12 @@ import { quietAwardXp, quietClaimTask } from '../progressAwards.js';
 import { XP, TASK_IDS } from '../xp.js';
 import type { Prize } from '../types.js';
 import {
-  addBalance,
   addHistory,
-  getBalance,
   getDailyState,
   setDailyState,
 } from '../supabaseStore.js';
 import type { GetUserId, HistoryEntry } from './helpers.js';
+import { CreditWinnings, GetPlayableBalance } from '../payments/wallet/game.js';
 
 const DAILY_REWARDS = [
   { day: 1, type: 'stars' as const, stars: 1 },
@@ -83,11 +82,17 @@ export function registerDailyRoutes(app: FastifyInstance, deps: { getUserId: Get
 
     const reward = DAILY_REWARDS[dayToClaim - 1];
     let prize: Prize;
-    let newBalance = await getBalance(userId);
+    let newBalance = await GetPlayableBalance(userId);
 
     if (reward.type === 'stars') {
       const stars = reward.stars!;
-      newBalance = await addBalance(userId, stars);
+      newBalance = (
+        await CreditWinnings(userId, stars, {
+          game: 'daily',
+          refId: `${userId}:${state.last_claim_at}:${dayToClaim}`,
+          idempotencyKey: `daily:${userId}:${state.last_claim_at}:${dayToClaim}`,
+        })
+      ).balance;
       prize = { id: 900 + dayToClaim, name: `${stars} звёзд`, rarity: 'gold', icon: '⭐', stars };
     } else {
       const rarity = reward.rarity;

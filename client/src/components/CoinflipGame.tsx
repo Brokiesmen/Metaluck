@@ -5,6 +5,8 @@ import { useSettings } from '../settings/SettingsContext';
 import { tf } from '../i18n/tf';
 import { StarIcon } from './StarIcon';
 import { EagleBadge, EagleCrest, StarBadge, StarCrest } from './coinCrest';
+import { BetCurrencyPicker } from './BetCurrencyPicker';
+import { useWagerCurrency } from '../hooks/useWagerCurrency';
 
 interface Props {
   onBack: () => void;
@@ -49,6 +51,7 @@ function Confetti() {
 
 export function CoinflipGame({ onBack, onBalanceUpdate }: Props) {
   const { t, locale } = useSettings();
+  const { currency } = useWagerCurrency();
   const [bet, setBet] = useState<BetAmount>(25);
   const [choice, setChoice] = useState<CoinSide>('heads');
   const [busy, setBusy] = useState(false);
@@ -76,7 +79,7 @@ export function CoinflipGame({ onBack, onBalanceUpdate }: Props) {
 
     (async () => {
       try {
-        const res = await api.coinflipPlay(bet, choice);
+        const res = await api.coinflipPlay(bet, choice, currency);
         onBalanceUpdate(res.newBalance);
 
         const extraHalfTurn = res.result === 'tails' ? 180 : 0;
@@ -95,7 +98,7 @@ export function CoinflipGame({ onBack, onBalanceUpdate }: Props) {
         setBusy(false);
       }
     })();
-  }, [bet, choice, busy, onBalanceUpdate, t.coin.error]);
+  }, [bet, choice, currency, busy, onBalanceUpdate, t.coin.error]);
 
   const canPlay = !busy;
   const showingTails = !flipping && lastResult?.result === 'tails';
@@ -194,6 +197,8 @@ export function CoinflipGame({ onBack, onBalanceUpdate }: Props) {
             </button>
           ))}
         </div>
+
+        <BetCurrencyPicker disabled={!canPlay} />
 
         <button className="cf-play" disabled={!canPlay} onClick={play}>
           {busy ? '…' : tf(t.coin.flip, { bet })}

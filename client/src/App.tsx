@@ -20,8 +20,11 @@ import { CoinflipGame } from './components/CoinflipGame';
 import { MineRushGame } from './components/MineRushGame';
 import { ArenaGame } from './components/ArenaGame';
 import { AviatorGame } from './components/AviatorGame';
+import { WalletScreen } from './components/WalletScreen';
+import { AdminHubScreen } from './components/AdminHubScreen';
 
 type GameView = 'lobby' | 'cases' | 'blackjack' | 'coinflip' | 'minerush' | 'arena' | 'aviator';
+type CabinetView = 'main' | 'admin';
 
 export function App() {
   const { tg, user, initData, isDev } = useTelegram();
@@ -32,6 +35,8 @@ export function App() {
 
   const [tab,          setTab]          = useState<Tab>('games');
   const [gameView,     setGameView]     = useState<GameView>('lobby');
+  const [cabinetView,  setCabinetView]  = useState<CabinetView>('main');
+  const [isAdmin,      setIsAdmin]      = useState(false);
   const [freeCaseJump, setFreeCaseJump] = useState(0);
   const [balance,      setBalance]      = useState(0);
   const [cases,        setCases]        = useState<Case[]>([]);
@@ -76,6 +81,10 @@ export function App() {
         console.error('Initial load failed:', err);
         setError(t.common.serverUnavailable);
       });
+
+    api.adminMe()
+      .then((r) => setIsAdmin(Boolean(r.isAdmin)))
+      .catch(() => setIsAdmin(false));
   // eslint-disable-next-line react-hooks/exhaustive-deps -- boot once per telegram session
   }, [tg, initData]);
 
@@ -134,6 +143,7 @@ export function App() {
   const handleTabChange = useCallback((nextTab: Tab) => {
     setTab(nextTab);
     if (nextTab === 'games') setGameView('lobby');
+    if (nextTab !== 'cabinet') setCabinetView('main');
   }, []);
 
   const headerTitle =
@@ -155,7 +165,11 @@ export function App() {
         ? t.header.leaders
         : tab === 'daily'
           ? t.header.daily
-          : t.header.cabinet;
+          : tab === 'wallet'
+            ? t.header.wallet
+            : cabinetView === 'admin'
+              ? t.admin.title
+              : t.header.cabinet;
 
   return (
     <div className={`app${isDemo ? ' app--demo' : ''}`}>
@@ -163,21 +177,25 @@ export function App() {
       <header className="tg-header">
         <div className="tg-header-left">
           {tab === 'cabinet' ? (
-            <button
-              type="button"
-              className="settings-btn"
-              onClick={() => setShowSettings(true)}
-              aria-label={t.settings.ariaOpen}
-            >
-              ⚙️
-            </button>
+            cabinetView === 'admin' ? (
+              <button type="button" className="back-btn" onClick={() => setCabinetView('main')}>‹</button>
+            ) : (
+              <button
+                type="button"
+                className="settings-btn"
+                onClick={() => setShowSettings(true)}
+                aria-label={t.settings.ariaOpen}
+              >
+                ⚙️
+              </button>
+            )
           ) : tab !== 'games' ? (
             <button type="button" className="back-btn" onClick={() => setTab('games')}>‹</button>
           ) : null}
         </div>
         <div className="tg-header-title">{headerTitle}</div>
         <div className="tg-header-right">
-          {tab === 'games' && (
+          {(tab === 'games' || tab === 'wallet') && (
             <span className="header-balance num">
               {balance.toLocaleString(locale)}
               <StarIcon size={18} />
@@ -254,16 +272,28 @@ export function App() {
             openInvoice={tg?.openInvoice?.bind(tg)}
             isTelegram={!!tg}
           />
-        ) : (
-          <Cabinet
-            user={user}
-            balance={balance}
-            isDev={isDev}
+        ) : tab === 'wallet' ? (
+          <WalletScreen
             onBalanceUpdate={updateBalance}
             openInvoice={tg?.openInvoice?.bind(tg)}
             isTelegram={!!tg}
-            tg={tg}
           />
+        ) : (
+          cabinetView === 'admin' ? (
+            <AdminHubScreen onBack={() => setCabinetView('main')} />
+          ) : (
+            <Cabinet
+              user={user}
+              balance={balance}
+              isDev={isDev}
+              isAdmin={isAdmin}
+              onOpenAdmin={() => setCabinetView('admin')}
+              onBalanceUpdate={updateBalance}
+              openInvoice={tg?.openInvoice?.bind(tg)}
+              isTelegram={!!tg}
+              tg={tg}
+            />
+          )
         )}
       </main>
 

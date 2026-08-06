@@ -7,6 +7,8 @@ import { StripOpener } from './StripOpener';
 import { CaseGrid } from './CaseGrid';
 import { PrizesGrid } from './PrizesGrid';
 import { ResultModal } from './ResultModal';
+import { BetCurrencyPicker } from './BetCurrencyPicker';
+import { useWagerCurrency } from '../hooks/useWagerCurrency';
 
 interface Props {
   cases: Case[];
@@ -38,6 +40,7 @@ export function CaseGame({
   forceSelectFreeSignal,
 }: Props) {
   const { t } = useSettings();
+  const { currency } = useWagerCurrency();
   const [selectedCase, setSelectedCase] = useState<Case | null>(null);
   const [winner, setWinner] = useState<Prize | null>(null);
   const [resultPrize, setResultPrize] = useState<Prize | null>(null);
@@ -86,7 +89,7 @@ export function CaseGame({
     pendingBalanceRef.current = null;
 
     try {
-      const { prize, newBalance } = await api.openCase(selectedCase.id);
+      const { prize, newBalance } = await api.openCase(selectedCase.id, currency);
       if (!isDemoMode()) pendingBalanceRef.current = newBalance;
       setWinner(prize);
     } catch (err) {
@@ -94,7 +97,7 @@ export function CaseGame({
       setError(err instanceof Error ? err.message : t.cases.serverError);
       setIsAnimating(false);
     }
-  }, [isAnimating, selectedCase, t.cases.serverError]);
+  }, [currency, isAnimating, selectedCase, t.cases.serverError]);
 
   const handleDone = useCallback((prize: Prize) => {
     setIsAnimating(false);
@@ -125,6 +128,9 @@ export function CaseGame({
         onOpen={handleOpen}
         onDone={handleDone}
       />
+      <div className="case-game-currency">
+        <BetCurrencyPicker disabled={isAnimating} />
+      </div>
       <CaseGrid
         cases={cases}
         selected={selectedCase}

@@ -10,21 +10,23 @@ import {
 } from '../supabaseStore.js';
 import type { GetUserId } from './helpers.js';
 import { telegramJsonMethod } from './helpers.js';
-
-const MIN_WITHDRAW = 100;
-const WITHDRAW_PRESETS = [100, 250, 500, 1000, 5000] as const;
+import { getWithdrawMinStars, getWithdrawPresets } from '../payments/hub/index.js';
 
 export function registerWithdrawRoutes(app: FastifyInstance, deps: { getUserId: GetUserId }) {
   const { getUserId } = deps;
 
   app.get('/api/withdraw/info', async (req) => {
     const userId = await getUserId(req);
-    const balance = await getBalance(userId);
+    const [balance, minAmount, presets] = await Promise.all([
+      getBalance(userId),
+      getWithdrawMinStars(),
+      getWithdrawPresets(),
+    ]);
     const recent = userId > 0 ? await listWithdrawOrders(userId, 5) : [];
     return {
       balance,
-      minAmount: MIN_WITHDRAW,
-      presets: WITHDRAW_PRESETS,
+      minAmount,
+      presets,
       recent,
     };
   });
@@ -47,8 +49,9 @@ export function registerWithdrawRoutes(app: FastifyInstance, deps: { getUserId: 
       }
 
       const amount = Math.floor(Number(req.body?.amount));
-      if (!Number.isFinite(amount) || amount < MIN_WITHDRAW) {
-        return reply.status(400).send({ message: `Минимальная сумма вывода — ${MIN_WITHDRAW} ★` });
+      const minWithdraw = await getWithdrawMinStars();
+      if (!Number.isFinite(amount) || amount < minWithdraw) {
+        return reply.status(400).send({ message: `Минимальная сумма вывода — ${minWithdraw} ★` });
       }
 
       const newBalance = await tryDeductBalance(userId, amount);

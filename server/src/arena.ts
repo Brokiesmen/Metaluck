@@ -1,19 +1,28 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import crypto from 'crypto';
 import { applyHouseEdge } from './houseEdge.js';
-import { getProfile, addBalance, tryDeductBalance } from './supabaseStore.js';
+import { getProfile } from './supabaseStore.js';
 import { onGamePlayXp, onGameWinXp } from './progressAwards.js';
 import { XP } from './xp.js';
+import {
+  CompleteTransaction,
+  CreditBalance,
+  GetPlayableBalance,
+  isPayCurrency,
+  ReserveAdditional,
+  ReserveFunds,
+  type GamePayCurrency,
+} from './payments/wallet/game.js';
 
 /**
  * «Арена» — общий джекпот-раунд:
- *  - игроки ставят звёзды в окне ставок; поле делится пропорционально ставкам;
+ *  - игроки делают ставки в окне ставок; поле делится пропорционально ставкам;
  *  - шарик останавливается в случайной точке — владелец сектора забирает банк
  *    (за вычетом комиссии дома, applyHouseEdge).
  *
  * Раунд живёт в памяти процесса (один инстанс на Railway): деньги при этом
- * всегда проходят через баланс-стор — списание при ставке, зачисление при
- * победе, так что состояние баланса консистентно. Переходы фаз считаются
+ * всегда проходят через Wallet API, так что состояние баланса консистентно.
+ * Переходы фаз считаются
  * лениво в tick() при каждом запросе — отдельный таймер не нужен, а polling
  * клиентов (~1 раз/сек) двигает раунд вовремя.
  */
@@ -63,6 +72,8 @@ interface ArenaPlayer {
   bet: number;
   color: string;
   isBot: boolean;
+  reservationId?: string;
+  payCurrency?: GamePayCurrency;
 }
 
 interface ArenaRound {
@@ -117,7 +128,7 @@ function segments(round: ArenaRound): Array<{ userId: number; startDeg: number; 
   return out;
 }
 
-/** Честный выбор победителя: вес = ставка (взвешенно по целым звёздам). */
+/** Честный выбор победителя: вес пропорционален ставке. */
 function pickWinner(round: ArenaRound): ArenaPlayer {
   const total = pot(round);
   let r = crypto.randomInt(0, total);
@@ -193,13 +204,23 @@ async function tick(now = Date.now()): Promise<void> {
   }
 
   if (round.phase === 'finished' && !round.settled) {
-    round.settled = true;
     round.payout = applyHouseEdge(pot(round));
-    const winner = round.players.find((p) => p.userId === round.winnerId);
-    if (winner && !winner.isBot && round.payout > 0) {
-      await addBalance(winner.userId, round.payout);
-      await onGameWinXp(winner.userId, XP.ARENA_WIN, 'arena');
+    let allOk = true;
+    for (const player of round.players) {
+      if (player.isBot || !player.reservationId) continue;
+      try {
+        if (player.userId === round.winnerId) {
+          await CreditBalance(player.reservationId, round.payout);
+          await onGameWinXp(player.userId, XP.ARENA_WIN, 'arena');
+        } else {
+          await CompleteTransaction(player.reservationId);
+        }
+      } catch {
+        allOk = false;
+      }
     }
+    // Only mark settled when every human reservation reached a terminal wallet status.
+    if (allOk) round.settled = true;
   }
 
   if (round.phase === 'finished' && now >= round.finishedAt + RESULT_SHOW_MS) {
@@ -247,10 +268,9 @@ export function registerArenaRoutes(
   app: FastifyInstance,
   deps: {
     getUserId: (req: FastifyRequest) => Promise<number>;
-    getBalance: (userId: number) => Promise<number>;
   },
 ) {
-  const { getUserId, getBalance } = deps;
+  const { getUserId } = deps;
 
   function jsonError(reply: FastifyReply, statusCode: number, message: string) {
     return reply.status(statusCode).send({ message });
@@ -261,19 +281,22 @@ export function registerArenaRoutes(
     await tick();
     return {
       round: roundView(currentRound, userId),
-      balance: await getBalance(userId),
+      balance: await GetPlayableBalance(userId),
       now: Date.now(),
     };
   });
 
-  app.post<{ Body: { bet?: number } }>(
+  app.post<{ Body: { bet?: number; currency?: string } }>(
     '/api/arena/bet',
     {
       schema: {
         body: {
           type: 'object',
           required: ['bet'],
-          properties: { bet: { type: 'number' } },
+          properties: {
+            bet: { type: 'number' },
+            currency: { type: 'string' },
+          },
         },
       },
     },
@@ -297,22 +320,32 @@ export function registerArenaRoutes(
         const round = currentRound;
 
         const existing = round.players.find((p) => p.userId === userId);
+        const currency = req.body?.currency ?? existing?.payCurrency ?? 'STARS';
+        if (!isPayCurrency(currency)) {
+          return jsonError(reply, 400, 'Некорректная валюта');
+        }
         if (!existing && round.players.length >= MAX_PLAYERS) {
           return jsonError(reply, 400, 'Арена заполнена — дождитесь следующего раунда');
         }
         if (existing && existing.bet + bet > MAX_TOTAL_BET_PER_PLAYER) {
-          return jsonError(reply, 400, `Максимум ${MAX_TOTAL_BET_PER_PLAYER} звёзд на раунд`);
+          return jsonError(reply, 400, `Максимальная ставка на раунд: ${MAX_TOTAL_BET_PER_PLAYER}`);
         }
 
-        // Атомарное списание — при нехватке средств вернёт null
-        const newBalance = await tryDeductBalance(userId, bet);
-        if (newBalance === null) {
-          return jsonError(reply, 400, 'Недостаточно звёзд');
+        const reservation = existing?.reservationId
+          ? await ReserveAdditional(existing.reservationId, bet, { payCurrency: currency })
+          : await ReserveFunds(userId, bet, {
+              game: 'arena',
+              refId: round.id,
+              payCurrency: currency,
+            });
+        if (!reservation) {
+          return jsonError(reply, 400, 'Недостаточно средств');
         }
         await onGamePlayXp(userId, 'arena');
 
         if (existing) {
           existing.bet += bet;
+          existing.reservationId = reservation.reservationId;
         } else {
           const profile = await getProfile(userId).catch(() => null);
           round.players.push({
@@ -321,6 +354,8 @@ export function registerArenaRoutes(
             bet,
             color: PLAYER_COLORS[round.players.length % PLAYER_COLORS.length],
             isBot: false,
+            reservationId: reservation.reservationId,
+            payCurrency: currency,
           });
           // Первому живому игроку сразу подселяем ботов, чтобы колесо не было пустым
           if (round.players.filter((p) => !p.isBot).length === 1 && round.players.every((p) => !p.isBot)) {
@@ -336,7 +371,7 @@ export function registerArenaRoutes(
 
         return {
           round: roundView(round, userId),
-          balance: newBalance,
+          balance: await GetPlayableBalance(userId, currency),
           now: Date.now(),
         };
       } catch (err) {

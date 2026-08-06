@@ -21,24 +21,17 @@ import {
   type WheelSegment,
 } from '../wheel.js';
 import {
-  addBalance,
   addCouponsLedger,
   addHistory,
-  failTopupOrder,
-  getBalance,
   getCoupons,
   getLastWheelAt,
   getTopupOrderMeta,
-  insertTopupOrder,
   setTopupOrderMeta,
   trySpendCoupon,
 } from '../supabaseStore.js';
 import type { GetUserId, HistoryEntry } from './helpers.js';
-import {
-  PREMIUM_WHEEL_PACKAGE,
-  buildTopupPayload,
-  createTopupInvoiceLink,
-} from './payments.js';
+import { createPremiumWheelDeposit } from '../payments/deposit/index.js';
+import { CreditWinnings, GetPlayableBalance } from '../payments/wallet/game.js';
 
 function giftPoolForRarity(rarity: string): Prize[] {
   let giftPool = PRIZES.filter((p) => !p.stars && !p.isPremium && p.rarity === rarity);
@@ -62,10 +55,15 @@ async function applyWheelOutcome(
   empty: boolean;
 }> {
   const built = segmentToPrizeBase(segment, giftPoolForRarity('gold'));
-  let newBalance = await getBalance(userId);
+  let newBalance = await GetPlayableBalance(userId);
 
   if (built.prize.stars && built.prize.stars > 0) {
-    newBalance = await addBalance(userId, built.prize.stars);
+    newBalance = (
+      await CreditWinnings(userId, built.prize.stars, {
+        game: 'wheel',
+        refId: `${caseId}:${now}`,
+      })
+    ).balance;
   }
 
   let coupons = await getCoupons(userId);
@@ -86,7 +84,7 @@ async function applyWheelOutcome(
   } satisfies HistoryEntry);
 
   if (!built.prize.stars) {
-    newBalance = await getBalance(userId);
+    newBalance = await GetPlayableBalance(userId);
   }
 
   return {
@@ -198,24 +196,14 @@ export function registerWheelRoutes(app: FastifyInstance, deps: { getUserId: Get
       return reply.status(400).send({ message: 'Оплата доступна только внутри Telegram Mini App.' });
     }
 
-    const pkg = PREMIUM_WHEEL_PACKAGE;
-    const payload = buildTopupPayload(userId, pkg.id);
-    const now = Date.now();
-    await insertTopupOrder({
-      payload,
-      user_id: userId,
-      package_id: pkg.id,
-      xtr_amount: pkg.xtrAmount,
-      balance_amount: pkg.balanceAmount,
-      created_at: now,
-      updated_at: now,
-    });
-
     try {
-      const invoiceLink = await createTopupInvoiceLink(userId, pkg, payload);
-      return { invoiceLink, payload, xtrAmount: pkg.xtrAmount };
-    } catch (err) {
-      await failTopupOrder(payload, err instanceof Error ? err.message : 'INVOICE_CREATE_FAILED');
+      const view = await createPremiumWheelDeposit(userId);
+      return {
+        invoiceLink: view.invoiceLink,
+        payload: view.id,
+        xtrAmount: PREMIUM_WHEEL_XTR,
+      };
+    } catch {
       return reply.status(500).send({ message: 'Не удалось создать счёт. Попробуйте ещё раз.' });
     }
   });

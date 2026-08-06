@@ -14,8 +14,6 @@ import {
 } from './aviatorEngine.js';
 import {
   getProfile,
-  addBalance,
-  tryDeductBalance,
   addHistory,
   getBotChatId,
 } from './supabaseStore.js';
@@ -23,15 +21,23 @@ import { onGamePlayXp, onGameWinXp } from './progressAwards.js';
 import { XP } from './xp.js';
 import { telegramJsonMethod, miniAppUrl } from './routes/helpers.js';
 import type { Rarity } from './types.js';
+import {
+  CompleteTransaction,
+  CreditBalance,
+  GetPlayableBalance,
+  isPayCurrency,
+  ReleaseFunds,
+  ReserveAdditional,
+  ReserveFunds,
+  type GamePayCurrency,
+} from './payments/wallet/game.js';
 
 /**
  * «Aviator» — общий crash-раунд для всех игроков (паттерн arena.ts):
  *  betting → flying → crashed → betting …
  *
- *  - раунд живёт в памяти процесса (один инстанс), но деньги ВСЕГДА проходят
- *    через баланс-стор: списание при ставке (tryDeductBalance), зачисление при
- *    кэшауте (addBalance). Поэтому баланс консистентен даже при рестарте (в
- *    полёте потерянные ставки уже списаны — это корректный проигрыш).
+ *  - раунд живёт в памяти процесса (один инстанс), а ставки проходят через
+ *    Wallet API. Поэтому баланс консистентен даже при рестарте.
  *  - множитель растёт по детерминированной кривой (aviatorEngine); клиент рисует
  *    его локально от серверного времени, а сервер — единственный авторитет по
  *    точке краша и факту кэшаута. crashMultiplier НЕ раскрывается до фазы crashed.
@@ -77,6 +83,9 @@ interface AviatorBet {
   cashedOutMult: number | null;
   /** Выплата за кэшаут (0, пока не забрал). */
   payout: number;
+  /** Wallet reservation shared by stacked bets from the same player. */
+  reservationId?: string;
+  payCurrency?: GamePayCurrency;
 }
 
 interface AviatorRound {
@@ -233,7 +242,8 @@ async function settleCashout(bet: AviatorBet, mult: number): Promise<number> {
   bet.payout = payout;
   if (!bet.isBot && payout > 0) {
     try {
-      await addBalance(bet.userId, payout);
+      if (!bet.reservationId) throw new Error('reservation_not_found');
+      await CreditBalance(bet.reservationId, payout);
     } catch (err) {
       bet.cashedOutMult = null;
       bet.payout = 0;
@@ -330,6 +340,15 @@ async function doTickInner(now: number, spawn: boolean): Promise<void> {
       round.nextRoundAt = now + CRASHED_SHOW_MS;
       crashHistory.push(round.crashMult);
       if (crashHistory.length > HISTORY_LEN) crashHistory.shift();
+      for (const bet of round.bets) {
+        if (!bet.isBot && bet.cashedOutMult === null && bet.reservationId) {
+          try {
+            await CompleteTransaction(bet.reservationId);
+          } catch {
+            /* retry on next tick while round stays crashed */
+          }
+        }
+      }
       broadcast('aviator:crash', { roundId: round.id, crashMult: round.crashMult });
       broadcast('aviator:round', publicRound(round, now, round.crashMult));
     }
@@ -400,10 +419,9 @@ export async function registerAviatorRoutes(
   app: FastifyInstance,
   deps: {
     getUserId: (req: FastifyRequest) => Promise<number>;
-    getBalance: (userId: number) => Promise<number>;
   },
 ): Promise<void> {
-  const { getUserId, getBalance } = deps;
+  const { getUserId } = deps;
 
   function jsonError(reply: FastifyReply, statusCode: number, message: string) {
     return reply.status(statusCode).send({ message });
@@ -416,7 +434,7 @@ export async function registerAviatorRoutes(
     const now = Date.now();
     return {
       round: currentRound ? publicRound(currentRound, now, userId) : null,
-      balance: await getBalance(userId),
+      balance: await GetPlayableBalance(userId),
       config,
       history: [...crashHistory],
       now,
@@ -424,7 +442,7 @@ export async function registerAviatorRoutes(
   });
 
   // ── POST /api/aviator/bet — ставка в окне betting ─────────────────────────
-  app.post<{ Body: { bet?: number; autoCashout?: number | null } }>(
+  app.post<{ Body: { bet?: number; autoCashout?: number | null; currency?: string } }>(
     '/api/aviator/bet',
     {
       schema: {
@@ -434,6 +452,7 @@ export async function registerAviatorRoutes(
           properties: {
             bet: { type: 'number' },
             autoCashout: { type: ['number', 'null'] },
+            currency: { type: 'string' },
           },
         },
       },
@@ -460,20 +479,29 @@ export async function registerAviatorRoutes(
           }
 
           const existing = round.bets.find((b) => b.userId === userId && !b.isBot);
+          const currency = req.body?.currency ?? existing?.payCurrency ?? 'STARS';
+          if (!isPayCurrency(currency)) {
+            return jsonError(reply, 400, 'Некорректная валюта');
+          }
           if (existing && existing.bet + bet > MAX_TOTAL_BET_PER_PLAYER) {
-            return jsonError(reply, 400, `Максимум ${MAX_TOTAL_BET_PER_PLAYER} звёзд на раунд`);
+            return jsonError(reply, 400, `Максимальная ставка на раунд: ${MAX_TOTAL_BET_PER_PLAYER}`);
           }
 
-          // Атомарное списание — при нехватке вернёт null.
-          const newBalance = await tryDeductBalance(userId, bet);
-          if (newBalance === null) {
-            return jsonError(reply, 400, 'Недостаточно звёзд');
+          const reservation = existing?.reservationId
+            ? await ReserveAdditional(existing.reservationId, bet, { payCurrency: currency })
+            : await ReserveFunds(userId, bet, {
+                game: 'aviator',
+                refId: round.id,
+                payCurrency: currency,
+              });
+          if (!reservation) {
+            return jsonError(reply, 400, 'Недостаточно средств');
           }
 
           // После await фаза могла смениться только если кто-то обошёл очередь —
           // на всякий случай возвращаем деньги.
           if (!currentRound || currentRound.id !== round.id || currentRound.phase !== 'betting') {
-            await addBalance(userId, bet);
+            await ReleaseFunds(reservation.reservationId);
             return jsonError(reply, 400, 'Ставки закрыты — дождитесь следующего раунда');
           }
 
@@ -481,12 +509,14 @@ export async function registerAviatorRoutes(
 
           if (existing) {
             existing.bet += bet;
+            existing.reservationId = reservation.reservationId;
             if (autoCashout !== null) existing.autoCashout = autoCashout;
           } else {
             // Повторный поиск: в очереди дублей быть не должно, но защищаемся.
             const again = round.bets.find((b) => b.userId === userId && !b.isBot);
             if (again) {
               again.bet += bet;
+              again.reservationId = reservation.reservationId;
               if (autoCashout !== null) again.autoCashout = autoCashout;
             } else {
               const profile = await getProfile(userId).catch(() => null);
@@ -499,6 +529,8 @@ export async function registerAviatorRoutes(
                 autoCashout,
                 cashedOutMult: null,
                 payout: 0,
+                reservationId: reservation.reservationId,
+                payCurrency: currency,
               });
             }
           }
@@ -516,7 +548,7 @@ export async function registerAviatorRoutes(
           const now = Date.now();
           return {
             round: publicRound(round, now, userId),
-            balance: newBalance,
+            balance: await GetPlayableBalance(userId, currency),
             now,
           };
         });
@@ -565,7 +597,7 @@ export async function registerAviatorRoutes(
             const now = Date.now();
             return {
               round: publicRound(round, now, userId),
-              balance: await getBalance(userId),
+              balance: await GetPlayableBalance(userId),
               payout: bet.payout,
               multiplier: bet.cashedOutMult,
               now,
@@ -583,7 +615,7 @@ export async function registerAviatorRoutes(
           const after = Date.now();
           return {
             round: publicRound(round, after, userId),
-            balance: await getBalance(userId),
+            balance: await GetPlayableBalance(userId),
             payout,
             multiplier: mult,
             now: after,

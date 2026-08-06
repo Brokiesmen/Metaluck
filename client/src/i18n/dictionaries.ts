@@ -1,7 +1,7 @@
 import type { AppLanguage } from '../settings/types';
 
 export type Dict = {
-  tabs: { games: string; leaders: string; daily: string; cabinet: string };
+  tabs: { games: string; leaders: string; daily: string; cabinet: string; wallet: string };
   header: {
     metaluck: string;
     cases: string;
@@ -13,6 +13,7 @@ export type Dict = {
     leaders: string;
     daily: string;
     cabinet: string;
+    wallet: string;
   };
   common: {
     close: string;
@@ -144,6 +145,14 @@ export type Dict = {
     purple: string;
     gold: string;
   };
+  admin: {
+    title: string;
+    open: string;
+    hint: string;
+    save: string;
+    refreshRates: string;
+    denied: string;
+  };
   leaders: {
     title: string;
     subtitle: string;
@@ -199,6 +208,34 @@ export type Dict = {
     copied: string;
     shareBtn: string;
     shareText: string;
+  };
+  wallet: {
+    title: string;
+    balances: string;
+    deposit: string;
+    withdraw: string;
+    exchange: string;
+    history: string;
+    assetStars: string;
+    assetTon: string;
+    assetUsdt: string;
+    locked: string;
+    ledgerTitle: string;
+    ledgerEmpty: string;
+    betCurrency: string;
+    exchangeTitle: string;
+    exchangeFrom: string;
+    exchangeTo: string;
+    exchangeAmount: string;
+    exchangeQuote: string;
+    exchangeConfirm: string;
+    exchangeDone: string;
+    exchangeSwap: string;
+    exchangeYouGet: string;
+    exchangeFee: string;
+    exchangeRate: string;
+    exchangeInvalidAmount: string;
+    exchangeSamePair: string;
   };
   topup: {
     title: string;
@@ -353,7 +390,7 @@ export type Dict = {
 };
 
 const ru: Dict = {
-  tabs: { games: 'Игры', leaders: 'Лидеры', daily: 'Ежедневно', cabinet: 'Кабинет' },
+  tabs: { games: 'Игры', leaders: 'Лидеры', daily: 'Ежедневно', cabinet: 'Кабинет', wallet: 'Кошелёк' },
   header: {
     metaluck: 'Metaluck',
     cases: 'Кейсы',
@@ -365,6 +402,7 @@ const ru: Dict = {
     leaders: 'Лидеры',
     daily: 'Ежедневный подарок',
     cabinet: 'Кабинет',
+    wallet: 'Кошелёк',
   },
   common: {
     close: 'Закрыть',
@@ -503,6 +541,14 @@ const ru: Dict = {
     fairBody:
       'Исходы случайны. Сервис удерживает комиссию дома на ставках. Не играйте на суммы, которые не готовы потерять. Правила могут уточняться — актуальная версия всегда в этом разделе.',
   },
+  admin: {
+    title: 'Payment Hub',
+    open: 'Админка Payment Hub',
+    hint: 'Курсы, спред, комиссии, лимиты и операции. Изменения пишутся в БД без деплоя.',
+    save: 'Сохранить',
+    refreshRates: 'Обновить курсы',
+    denied: 'Нет доступа',
+  },
   rarity: {
     gray: 'Обычный',
     blue: 'Редкий',
@@ -564,6 +610,34 @@ const ru: Dict = {
     copied: '✓ Скопировано',
     shareBtn: '📤 Поделиться с другом',
     shareText: '🎰 Играю в Metaluck — открываю кейсы и выигрываю подарки Telegram! Присоединяйся:',
+  },
+  wallet: {
+    title: 'Кошелёк',
+    balances: 'Балансы',
+    deposit: 'Пополнить',
+    withdraw: 'Вывести',
+    exchange: 'Обменять',
+    history: 'История',
+    assetStars: 'Telegram Stars',
+    assetTon: 'TON',
+    assetUsdt: 'USDT TON',
+    locked: 'В резерве',
+    ledgerTitle: 'Операции',
+    ledgerEmpty: 'Пока нет операций',
+    betCurrency: 'Валюта ставки',
+    exchangeTitle: 'Обмен',
+    exchangeFrom: 'Отдаёте',
+    exchangeTo: 'Получаете',
+    exchangeAmount: 'Сумма',
+    exchangeQuote: 'Рассчитать',
+    exchangeConfirm: 'Обменять',
+    exchangeDone: 'Обмен выполнен',
+    exchangeSwap: 'Поменять местами',
+    exchangeYouGet: 'К зачислению',
+    exchangeFee: 'Комиссия',
+    exchangeRate: 'Курс',
+    exchangeInvalidAmount: 'Некорректная сумма',
+    exchangeSamePair: 'Выберите разные валюты',
   },
   topup: {
     title: 'Пополнить звёзды',
@@ -718,7 +792,7 @@ const ru: Dict = {
 };
 
 const uk: Dict = {
-  tabs: { games: 'Ігри', leaders: 'Лідери', daily: 'Щодня', cabinet: 'Кабінет' },
+  tabs: { games: 'Ігри', leaders: 'Лідери', daily: 'Щодня', cabinet: 'Кабінет', wallet: 'Гаманець' },
   header: {
     metaluck: 'Metaluck',
     cases: 'Кейси',
@@ -730,6 +804,7 @@ const uk: Dict = {
     leaders: 'Лідери',
     daily: 'Щоденний подарунок',
     cabinet: 'Кабінет',
+    wallet: 'Гаманець',
   },
   common: {
     close: 'Закрити',
@@ -868,6 +943,14 @@ const uk: Dict = {
     fairBody:
       'Результати випадкові. Сервіс утримує комісію дому. Не грайте на суми, які не готові втратити. Актуальні правила — у цьому розділі.',
   },
+  admin: {
+    title: 'Payment Hub',
+    open: 'Адмінка Payment Hub',
+    hint: 'Курси, спред, комісії, ліміти та операції. Зміни в БД без деплою.',
+    save: 'Зберегти',
+    refreshRates: 'Оновити курси',
+    denied: 'Немає доступу',
+  },
   rarity: {
     gray: 'Звичайний',
     blue: 'Рідкісний',
@@ -929,6 +1012,34 @@ const uk: Dict = {
     copied: '✓ Скопійовано',
     shareBtn: '📤 Поділитися з другом',
     shareText: '🎰 Граю в Metaluck — відкриваю кейси та виграю подарунки Telegram! Приєднуйся:',
+  },
+  wallet: {
+    title: 'Гаманець',
+    balances: 'Баланси',
+    deposit: 'Поповнити',
+    withdraw: 'Вивести',
+    exchange: 'Обміняти',
+    history: 'Історія',
+    assetStars: 'Telegram Stars',
+    assetTon: 'TON',
+    assetUsdt: 'USDT TON',
+    locked: 'У резерві',
+    ledgerTitle: 'Операції',
+    ledgerEmpty: 'Поки немає операцій',
+    betCurrency: 'Валюта ставки',
+    exchangeTitle: 'Обмін',
+    exchangeFrom: 'Віддаєте',
+    exchangeTo: 'Отримуєте',
+    exchangeAmount: 'Сума',
+    exchangeQuote: 'Розрахувати',
+    exchangeConfirm: 'Обміняти',
+    exchangeDone: 'Обмін виконано',
+    exchangeSwap: 'Поміняти місцями',
+    exchangeYouGet: 'До зарахування',
+    exchangeFee: 'Комісія',
+    exchangeRate: 'Курс',
+    exchangeInvalidAmount: 'Некоректна сума',
+    exchangeSamePair: 'Оберіть різні валюти',
   },
   topup: {
     title: 'Поповнити зірки',
@@ -1083,7 +1194,7 @@ const uk: Dict = {
 };
 
 const en: Dict = {
-  tabs: { games: 'Games', leaders: 'Leaders', daily: 'Daily', cabinet: 'Profile' },
+  tabs: { games: 'Games', leaders: 'Leaders', daily: 'Daily', cabinet: 'Profile', wallet: 'Wallet' },
   header: {
     metaluck: 'Metaluck',
     cases: 'Cases',
@@ -1095,6 +1206,7 @@ const en: Dict = {
     leaders: 'Leaders',
     daily: 'Daily Gift',
     cabinet: 'Profile',
+    wallet: 'Wallet',
   },
   common: {
     close: 'Close',
@@ -1233,6 +1345,14 @@ const en: Dict = {
     fairBody:
       'Outcomes are random. The house takes a fee on bets. Only play with amounts you can afford to lose. Current rules are always in this section.',
   },
+  admin: {
+    title: 'Payment Hub',
+    open: 'Payment Hub Admin',
+    hint: 'Rates, spread, fees, limits and ops. Changes persist in DB without redeploy.',
+    save: 'Save',
+    refreshRates: 'Refresh rates',
+    denied: 'Access denied',
+  },
   rarity: {
     gray: 'Common',
     blue: 'Rare',
@@ -1294,6 +1414,34 @@ const en: Dict = {
     copied: '✓ Copied',
     shareBtn: '📤 Share with a friend',
     shareText: '🎰 I’m playing Metaluck — opening cases and winning Telegram gifts! Join me:',
+  },
+  wallet: {
+    title: 'Wallet',
+    balances: 'Balances',
+    deposit: 'Deposit',
+    withdraw: 'Withdraw',
+    exchange: 'Exchange',
+    history: 'History',
+    assetStars: 'Telegram Stars',
+    assetTon: 'TON',
+    assetUsdt: 'USDT TON',
+    locked: 'Reserved',
+    ledgerTitle: 'Activity',
+    ledgerEmpty: 'No activity yet',
+    betCurrency: 'Bet currency',
+    exchangeTitle: 'Exchange',
+    exchangeFrom: 'From',
+    exchangeTo: 'To',
+    exchangeAmount: 'Amount',
+    exchangeQuote: 'Get quote',
+    exchangeConfirm: 'Exchange',
+    exchangeDone: 'Exchange complete',
+    exchangeSwap: 'Swap',
+    exchangeYouGet: 'You receive',
+    exchangeFee: 'Fee',
+    exchangeRate: 'Rate',
+    exchangeInvalidAmount: 'Invalid amount',
+    exchangeSamePair: 'Pick different currencies',
   },
   topup: {
     title: 'Top up stars',
@@ -1448,7 +1596,7 @@ const en: Dict = {
 };
 
 const es: Dict = {
-  tabs: { games: 'Juegos', leaders: 'Líderes', daily: 'Diario', cabinet: 'Perfil' },
+  tabs: { games: 'Juegos', leaders: 'Líderes', daily: 'Diario', cabinet: 'Perfil', wallet: 'Monedero' },
   header: {
     metaluck: 'Metaluck',
     cases: 'Cajas',
@@ -1460,6 +1608,7 @@ const es: Dict = {
     leaders: 'Líderes',
     daily: 'Regalo diario',
     cabinet: 'Perfil',
+    wallet: 'Monedero',
   },
   common: {
     close: 'Cerrar',
@@ -1598,6 +1747,14 @@ const es: Dict = {
     fairBody:
       'Los resultados son aleatorios. Hay comisión de la casa. No juegues con dinero que no puedas perder. Las reglas vigentes están aquí.',
   },
+  admin: {
+    title: 'Payment Hub',
+    open: 'Admin Payment Hub',
+    hint: 'Tipos, spread, comisiones, límites y operaciones. Cambios en BD sin redeploy.',
+    save: 'Guardar',
+    refreshRates: 'Actualizar tipos',
+    denied: 'Acceso denegado',
+  },
   rarity: {
     gray: 'Común',
     blue: 'Raro',
@@ -1659,6 +1816,34 @@ const es: Dict = {
     copied: '✓ Copiado',
     shareBtn: '📤 Compartir con un amigo',
     shareText: '🎰 Estoy jugando a Metaluck — abro cajas y gano regalos de Telegram! Únete:',
+  },
+  wallet: {
+    title: 'Monedero',
+    balances: 'Saldos',
+    deposit: 'Ingresar',
+    withdraw: 'Retirar',
+    exchange: 'Cambiar',
+    history: 'Historial',
+    assetStars: 'Telegram Stars',
+    assetTon: 'TON',
+    assetUsdt: 'USDT TON',
+    locked: 'Reservado',
+    ledgerTitle: 'Actividad',
+    ledgerEmpty: 'Aún no hay movimientos',
+    betCurrency: 'Moneda de apuesta',
+    exchangeTitle: 'Cambio',
+    exchangeFrom: 'Desde',
+    exchangeTo: 'Hacia',
+    exchangeAmount: 'Importe',
+    exchangeQuote: 'Calcular',
+    exchangeConfirm: 'Cambiar',
+    exchangeDone: 'Cambio completado',
+    exchangeSwap: 'Intercambiar',
+    exchangeYouGet: 'Recibes',
+    exchangeFee: 'Comisión',
+    exchangeRate: 'Tipo',
+    exchangeInvalidAmount: 'Importe no válido',
+    exchangeSamePair: 'Elige monedas distintas',
   },
   topup: {
     title: 'Recargar estrellas',
@@ -1813,7 +1998,7 @@ const es: Dict = {
 };
 
 const de: Dict = {
-  tabs: { games: 'Spiele', leaders: 'Rangliste', daily: 'Täglich', cabinet: 'Profil' },
+  tabs: { games: 'Spiele', leaders: 'Rangliste', daily: 'Täglich', cabinet: 'Profil', wallet: 'Wallet' },
   header: {
     metaluck: 'Metaluck',
     cases: 'Cases',
@@ -1825,6 +2010,7 @@ const de: Dict = {
     leaders: 'Rangliste',
     daily: 'Tägliches Geschenk',
     cabinet: 'Profil',
+    wallet: 'Wallet',
   },
   common: {
     close: 'Schließen',
@@ -1963,6 +2149,14 @@ const de: Dict = {
     fairBody:
       'Ergebnisse sind zufällig. Das Haus nimmt Gebühren. Spiele nur mit Beträgen, die du verlieren kannst. Aktuelle Regeln stehen hier.',
   },
+  admin: {
+    title: 'Payment Hub',
+    open: 'Payment Hub Admin',
+    hint: 'Kurse, Spread, Gebühren, Limits und Ops. Änderungen in der DB ohne Redeploy.',
+    save: 'Speichern',
+    refreshRates: 'Kurse aktualisieren',
+    denied: 'Kein Zugriff',
+  },
   rarity: {
     gray: 'Gewöhnlich',
     blue: 'Selten',
@@ -2024,6 +2218,34 @@ const de: Dict = {
     copied: '✓ Kopiert',
     shareBtn: '📤 Mit Freund teilen',
     shareText: '🎰 Ich spiele Metaluck — öffne Cases und gewinne Telegram-Geschenke! Mach mit:',
+  },
+  wallet: {
+    title: 'Wallet',
+    balances: 'Salden',
+    deposit: 'Einzahlen',
+    withdraw: 'Auszahlen',
+    exchange: 'Tauschen',
+    history: 'Verlauf',
+    assetStars: 'Telegram Stars',
+    assetTon: 'TON',
+    assetUsdt: 'USDT TON',
+    locked: 'Reserviert',
+    ledgerTitle: 'Aktivität',
+    ledgerEmpty: 'Noch keine Aktivität',
+    betCurrency: 'Einsatzwährung',
+    exchangeTitle: 'Tausch',
+    exchangeFrom: 'Von',
+    exchangeTo: 'Nach',
+    exchangeAmount: 'Betrag',
+    exchangeQuote: 'Kurs holen',
+    exchangeConfirm: 'Tauschen',
+    exchangeDone: 'Tausch abgeschlossen',
+    exchangeSwap: 'Tauschen',
+    exchangeYouGet: 'Sie erhalten',
+    exchangeFee: 'Gebühr',
+    exchangeRate: 'Kurs',
+    exchangeInvalidAmount: 'Ungültiger Betrag',
+    exchangeSamePair: 'Andere Währungen wählen',
   },
   topup: {
     title: 'Sterne aufladen',

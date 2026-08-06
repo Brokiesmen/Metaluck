@@ -2,9 +2,10 @@ import { TabGamesIcon } from './tab-icons/TabGamesIcon';
 import { TabCabinetIcon } from './tab-icons/TabCabinetIcon';
 import { TabLeadersIcon } from './tab-icons/TabLeadersIcon';
 import { TabDailyIcon } from './tab-icons/TabDailyIcon';
+import { TabWalletIcon } from './tab-icons/TabWalletIcon';
 import { useSettings } from '../settings/SettingsContext';
 
-export type Tab = 'games' | 'cabinet' | 'leaders' | 'daily';
+export type Tab = 'games' | 'cabinet' | 'leaders' | 'daily' | 'wallet';
 
 interface Props {
   active: Tab;
@@ -15,7 +16,7 @@ export function TabBar({ active, onChange }: Props) {
   const { t } = useSettings();
 
   return (
-    <nav className="tab-bar">
+    <nav className="tab-bar tab-bar--5">
       <button
         type="button"
         className={`tab-item${active === 'games' ? ' active' : ''}`}
@@ -25,6 +26,16 @@ export function TabBar({ active, onChange }: Props) {
           <TabGamesIcon />
         </span>
         <span className="tab-label">{t.tabs.games}</span>
+      </button>
+      <button
+        type="button"
+        className={`tab-item${active === 'wallet' ? ' active' : ''}`}
+        onClick={() => onChange('wallet')}
+      >
+        <span className="tab-icon tab-icon--wallet" aria-hidden>
+          <TabWalletIcon />
+        </span>
+        <span className="tab-label">{t.tabs.wallet}</span>
       </button>
       <button
         type="button"

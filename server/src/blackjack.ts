@@ -10,6 +10,16 @@ import { getSupabase, parseJsonField } from './supabaseStore.js';
 import { applyHouseEdge } from './houseEdge.js';
 import { onGamePlayXp, onGameWinXp } from './progressAwards.js';
 import { XP } from './xp.js';
+import {
+  CompleteTransaction,
+  CreditBalance,
+  GetPlayableBalance,
+  isPayCurrency,
+  ReleaseFunds,
+  ReserveAdditional,
+  ReserveFunds,
+  type GamePayCurrency,
+} from './payments/wallet/game.js';
 
 const ALLOWED_BETS = [5, 10, 25, 50, 100] as const;
 
@@ -27,11 +37,13 @@ export type BjPhase = 'player' | 'finished';
 
 export interface BjRowState {
   bet: number;
+  /** Wallet reservation — games never see currency. */
+  reservationId?: string;
+  payCurrency?: GamePayCurrency;
   deck: string[];
   player: string[];
   dealer: string[];
   phase: BjPhase;
-  /** пока идёт ход игрока — вторая карта дилера скрыта */
   dealerHoleHidden: boolean;
   result?: 'win' | 'lose' | 'push' | 'blackjack' | 'bust';
   payout?: number;
@@ -70,6 +82,12 @@ function parseStoredState(raw: unknown): BjRowState | null {
     phase,
     dealerHoleHidden,
   };
+  if (typeof o.reservationId === 'string' && o.reservationId.length > 0) {
+    st.reservationId = o.reservationId;
+  }
+  if (isPayCurrency(o.payCurrency)) {
+    st.payCurrency = o.payCurrency;
+  }
   if (o.result !== undefined) {
     const r = o.result;
     if (r === 'win' || r === 'lose' || r === 'push' || r === 'blackjack' || r === 'bust') {
@@ -160,6 +178,20 @@ function settleRound(
   return { result: 'push', payout: bet };
 }
 
+async function settleOutcome(
+  reservationId: string | undefined,
+  result: BjRowState['result'],
+  payout: number,
+  userId: number,
+): Promise<number> {
+  if (!reservationId) return GetPlayableBalance(userId);
+  if (result === 'push') return (await ReleaseFunds(reservationId)).balance;
+  if (result === 'win' || result === 'blackjack') {
+    return (await CreditBalance(reservationId, payout)).balance;
+  }
+  return (await CompleteTransaction(reservationId)).balance;
+}
+
 function rowToResponse(state: BjRowState, newBalance: number) {
   const playerCards = state.player.map((code) => ({
     code,
@@ -212,12 +244,9 @@ export function registerBlackjackRoutes(
   app: FastifyInstance,
   deps: {
     getUserId: (req: FastifyRequest) => Promise<number>;
-    getBalance: (userId: number) => Promise<number>;
-    tryDeductBalance: (userId: number, amount: number) => Promise<number | null>;
-    addBalance: (userId: number, delta: number) => Promise<number>;
   },
 ) {
-  const { getUserId, getBalance, tryDeductBalance, addBalance } = deps;
+  const { getUserId } = deps;
 
   async function readState(userId: number): Promise<BjRowState | null> {
     const sb = getSupabase();
@@ -232,7 +261,10 @@ export function registerBlackjackRoutes(
     return parseStoredState(parsed);
   }
 
-  async function clearState(userId: number) {
+  async function clearState(userId: number, releaseReservationId?: string | null) {
+    if (releaseReservationId) {
+      await ReleaseFunds(releaseReservationId).catch(() => undefined);
+    }
     const sb = getSupabase();
     const { error } = await sb.from('blackjack_games').delete().eq('user_id', userId);
     if (error) throw new Error(`blackjack clearState: ${error.message}`);
@@ -254,25 +286,28 @@ export function registerBlackjackRoutes(
   app.get('/api/blackjack/state', async (req) => {
     const userId = await getUserId(req);
     const s = await readState(userId);
-    const bal = await getBalance(userId);
+    const bal = await GetPlayableBalance(userId, s?.payCurrency);
     if (!s) return { newBalance: bal, round: null };
     try {
       return rowToResponse(s, bal);
     } catch (err) {
       req.log.warn({ err, userId }, 'blackjack rowToResponse failed, clearing saved game');
-      await clearState(userId);
+      await clearState(userId, s.reservationId);
       return { newBalance: bal, round: null };
     }
   });
 
-  app.post<{ Body: { bet?: number } }>(
+  app.post<{ Body: { bet?: number; currency?: string } }>(
     '/api/blackjack/deal',
     {
       schema: {
         body: {
           type: 'object',
           required: ['bet'],
-          properties: { bet: { type: 'number' } },
+          properties: {
+            bet: { type: 'number' },
+            currency: { type: 'string' },
+          },
         },
       },
     },
@@ -280,8 +315,12 @@ export function registerBlackjackRoutes(
       const userId = await getUserId(req);
       try {
         const bet = Number(req.body?.bet);
+        const currency = req.body?.currency ?? 'STARS';
         if (!ALLOWED_BETS.includes(bet as (typeof ALLOWED_BETS)[number])) {
-          return jsonError(reply, 400, 'Ставка должна быть 2, 10 или 20 звёзд');
+          return jsonError(reply, 400, 'Некорректная ставка');
+        }
+        if (!isPayCurrency(currency)) {
+          return jsonError(reply, 400, 'Некорректная валюта');
         }
 
         const existing = await readState(userId);
@@ -289,9 +328,13 @@ export function registerBlackjackRoutes(
           return jsonError(reply, 400, 'Сначала завершите текущую партию');
         }
 
-        const stakeTaken = await tryDeductBalance(userId, bet);
-        if (stakeTaken === null) {
-          return jsonError(reply, 400, 'Недостаточно звёзд');
+        const reservation = await ReserveFunds(userId, bet, {
+          game: 'blackjack',
+          refId: crypto.randomUUID(),
+          payCurrency: currency,
+        });
+        if (!reservation) {
+          return jsonError(reply, 400, 'Недостаточно средств');
         }
 
         let deck = shuffle(buildDeck());
@@ -306,21 +349,25 @@ export function registerBlackjackRoutes(
           dealer,
           phase: 'player',
           dealerHoleHidden: true,
+          reservationId: reservation.reservationId,
+          payCurrency: currency,
         };
 
         if (isNaturalBlackjack(player)) {
           state.dealerHoleHidden = false;
           if (isNaturalBlackjack(dealer)) {
-            await addBalance(userId, bet);
+            const balance = await settleOutcome(state.reservationId, 'push', bet, userId);
             state = {
               ...state,
               phase: 'finished',
               result: 'push',
               payout: bet,
             };
+            await writeState(userId, state);
+            return rowToResponse(state, balance);
           } else {
             const win = payoutForBlackjack(bet);
-            await addBalance(userId, win);
+            const balance = await settleOutcome(state.reservationId, 'blackjack', win, userId);
             state = {
               ...state,
               phase: 'finished',
@@ -329,14 +376,12 @@ export function registerBlackjackRoutes(
             };
             await writeState(userId, state);
             await onGameWinXp(userId, XP.BJ_BLACKJACK, 'blackjack');
-            return rowToResponse(state, await getBalance(userId));
+            return rowToResponse(state, balance);
           }
-          await writeState(userId, state);
-          return rowToResponse(state, await getBalance(userId));
         }
 
         await writeState(userId, state);
-        return rowToResponse(state, await getBalance(userId));
+        return rowToResponse(state, await GetPlayableBalance(userId, currency));
       } catch (err) {
         req.log.error(err);
         const msg = err instanceof Error ? err.message : String(err);
@@ -358,7 +403,7 @@ export function registerBlackjackRoutes(
 
       let { deck, player, dealer } = state;
       if (deck.length < 1) {
-        await clearState(userId);
+        await clearState(userId, state.reservationId);
         return jsonError(reply, 409, 'Колода повреждена. Нажмите «Раздать» снова.');
       }
 
@@ -376,8 +421,9 @@ export function registerBlackjackRoutes(
           result: 'bust',
           payout: 0,
         };
+        const balance = await settleOutcome(state.reservationId, 'bust', 0, userId);
         await writeState(userId, finished);
-        return rowToResponse(finished, await getBalance(userId));
+        return rowToResponse(finished, balance);
       }
 
       if (pv === 21) {
@@ -395,7 +441,7 @@ export function registerBlackjackRoutes(
         dk = played.deck;
         dl = played.dealer;
         const { result, payout } = settleRound(state.bet, player, dl);
-        if (payout > 0) await addBalance(userId, payout);
+        const balance = await settleOutcome(state.reservationId, result, payout, userId);
         if (result === 'win') await onGameWinXp(userId, XP.BJ_WIN, 'blackjack');
         if (result === 'blackjack') await onGameWinXp(userId, XP.BJ_BLACKJACK, 'blackjack');
         const done: BjRowState = {
@@ -408,12 +454,12 @@ export function registerBlackjackRoutes(
           payout,
         };
         await writeState(userId, done);
-        return rowToResponse(done, await getBalance(userId));
+        return rowToResponse(done, balance);
       }
 
       const next: BjRowState = { ...state, deck, player };
       await writeState(userId, next);
-      return rowToResponse(next, await getBalance(userId));
+      return rowToResponse(next, await GetPlayableBalance(userId, state.payCurrency));
     } catch (err) {
       req.log.error(err);
       const msg = err instanceof Error ? err.message : String(err);
@@ -448,7 +494,7 @@ export function registerBlackjackRoutes(
       deck = played.deck;
       dealer = played.dealer;
       const { result, payout } = settleRound(state.bet, player, dealer);
-      if (payout > 0) await addBalance(userId, payout);
+      const balance = await settleOutcome(state.reservationId, result, payout, userId);
       if (result === 'win') await onGameWinXp(userId, XP.BJ_WIN, 'blackjack');
       if (result === 'blackjack') await onGameWinXp(userId, XP.BJ_BLACKJACK, 'blackjack');
       const done: BjRowState = {
@@ -461,7 +507,7 @@ export function registerBlackjackRoutes(
         payout,
       };
       await writeState(userId, done);
-      return rowToResponse(done, await getBalance(userId));
+      return rowToResponse(done, balance);
     } catch (err) {
       req.log.error(err);
       const msg = err instanceof Error ? err.message : String(err);
@@ -472,7 +518,7 @@ export function registerBlackjackRoutes(
     }
   });
 
-  app.post('/api/blackjack/double', async (req, reply) => {
+  app.post<{ Body: { currency?: string } }>('/api/blackjack/double', async (req, reply) => {
     const userId = await getUserId(req);
     try {
       const state = await readState(userId);
@@ -480,14 +526,23 @@ export function registerBlackjackRoutes(
       if (state.phase !== 'player') return jsonError(reply, 400, 'Нет активного хода.');
       if (state.player.length !== 2) return jsonError(reply, 400, 'Удвоение доступно только с двумя картами.');
 
-      const deducted = await tryDeductBalance(userId, state.bet);
-      if (deducted === null) return jsonError(reply, 400, 'Недостаточно звёзд для удвоения.');
+      if (!state.reservationId) return jsonError(reply, 409, 'Бронь ставки не найдена. Начните новую партию.');
+      const currency = req.body?.currency ?? state.payCurrency ?? 'STARS';
+      if (!isPayCurrency(currency)) return jsonError(reply, 400, 'Некорректная валюта');
+
+      let { deck } = state;
+      if (deck.length < 1) {
+        return jsonError(reply, 409, 'Колода исчерпана. Начните новую партию.');
+      }
+
+      const reservation = await ReserveAdditional(state.reservationId, state.bet, {
+        payCurrency: currency,
+      });
+      if (!reservation) return jsonError(reply, 400, 'Недостаточно средств для удвоения.');
 
       const totalBet = state.bet * 2;
 
-      let { deck } = state;
       let { player, dealer } = state;
-      if (deck.length < 1) return jsonError(reply, 409, 'Колода исчерпана. Начните новую партию.');
       player = [...player, popCard(deck)];
 
       const pv = handValueFromCodes(player);
@@ -504,10 +559,10 @@ export function registerBlackjackRoutes(
         const settled = settleRound(totalBet, player, dealer);
         result = settled.result;
         payout = settled.payout;
-        if (payout > 0) await addBalance(userId, payout);
         if (result === 'win') await onGameWinXp(userId, XP.BJ_WIN, 'blackjack');
         if (result === 'blackjack') await onGameWinXp(userId, XP.BJ_BLACKJACK, 'blackjack');
       }
+      const balance = await settleOutcome(state.reservationId, result, payout, userId);
 
       const done: BjRowState = {
         ...state,
@@ -521,7 +576,7 @@ export function registerBlackjackRoutes(
         payout,
       };
       await writeState(userId, done);
-      return rowToResponse(done, await getBalance(userId));
+      return rowToResponse(done, balance);
     } catch (err) {
       req.log.error(err);
       const msg = err instanceof Error ? err.message : String(err);

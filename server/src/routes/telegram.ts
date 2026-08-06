@@ -1,25 +1,18 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import crypto from 'crypto';
-import { PREMIUM_WHEEL_PACKAGE_ID } from '../wheel.js';
 import {
-  addBalance,
-  addReferralEarned,
-  claimTopupPaid,
-  ensureReferral,
-  getReferral,
   getTopupOrderByPayload,
   getTopupOrderForCheckout,
   listBroadcastChatIds,
   markBotChatBlocked,
-  setTopupOrderMeta,
   upsertBotChat,
 } from '../supabaseStore.js';
-import { REFERRAL_CASHBACK_PERCENT } from './referrals.js';
 import {
   PRE_CHECKOUT_DEADLINE_MS,
   answerPreCheckoutQuery,
+  confirmStarsPayment,
   parseTopupPayload,
-} from './payments.js';
+} from '../payments/deposit/index.js';
 import {
   miniAppUrl,
   telegramJsonMethod,
@@ -126,32 +119,21 @@ async function applySuccessfulPayment(sp: any, payerTelegramId: number) {
     return;
   }
 
+  // Prefer Deposit Service; falls back to legacy topup_orders inside confirmStarsPayment
   const order = await getTopupOrderByPayload(payload);
-  if (!order) return;
-  if (order.status === 'paid') return;
-  if (order.user_id !== payerTelegramId) return;
-  if (order.package_id !== parsed.packageId || order.xtr_amount !== totalAmount) return;
-
-  // Claim first so concurrent webhooks cannot double-credit.
-  const claimed = await claimTopupPaid(payload, chargeId, providerChargeId);
-  if (!claimed) return;
-
-  if (claimed.package_id === PREMIUM_WHEEL_PACKAGE_ID) {
-    // Marks a paid premium spin credit — client calls /api/wheel/premium/spin { method: 'xtr' }
-    await setTopupOrderMeta(payload, 'premium_spin_credit');
-    return;
+  if (order) {
+    if (order.status === 'paid') return;
+    if (order.user_id !== payerTelegramId) return;
+    if (order.package_id !== parsed.packageId || order.xtr_amount !== totalAmount) return;
   }
 
-  await addBalance(claimed.user_id, claimed.balance_amount);
-
-  const referral = await getReferral(claimed.user_id);
-  const inviterId = Number(referral?.referred_by ?? 0);
-  const cashback = inviterId > 0 ? Math.floor((claimed.balance_amount * REFERRAL_CASHBACK_PERCENT) / 100) : 0;
-  if (cashback > 0) {
-    await ensureReferral(inviterId);
-    await addBalance(inviterId, cashback);
-    await addReferralEarned(inviterId, cashback);
-  }
+  await confirmStarsPayment({
+    payload,
+    chargeId,
+    providerChargeId,
+    totalAmountXtr: totalAmount,
+    payerTelegramId,
+  });
 }
 
 async function handleBotStartMessage(message: any) {

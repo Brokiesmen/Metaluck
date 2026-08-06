@@ -21,7 +21,7 @@ export function rateLimitUserKey(req: FastifyRequest): string {
 }
 
 const PAID_OR_GAME =
-  /^\/api\/(case\/open|wheel\/(spin|premium\/spin)|coinflip\/play|blackjack\/(deal|hit|stand|double)|minerush\/(start|reveal|cashout)|arena\/|aviator\/|daily\/claim|withdraw\/create|topup\/)/;
+  /^\/api\/(case\/open|wheel\/(spin|premium\/spin)|coinflip\/play|blackjack\/(deal|hit|stand|double)|minerush\/(start|reveal|cashout)|arena\/|aviator\/|daily\/claim|withdraw\/create|topup\/|deposit\/|exchange\/)/;
 
 export async function registerRateLimits(app: FastifyInstance): Promise<void> {
   await app.register(rateLimit, {

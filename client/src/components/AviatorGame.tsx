@@ -7,6 +7,8 @@ import { isDemoMode } from '../demo';
 import { tf } from '../i18n/tf';
 import { StarIcon } from './StarIcon';
 import { Toast, type ToastTone } from './Toast';
+import { BetCurrencyPicker } from './BetCurrencyPicker';
+import { useWagerCurrency } from '../hooks/useWagerCurrency';
 import { hapticImpact, hapticSuccess, hapticWarning } from '../lib/haptics';
 import {
   MIN_CASHOUT,
@@ -66,6 +68,7 @@ function Confetti() {
 export function AviatorGame({ onBack, onBalanceUpdate }: Props) {
   const { t, locale } = useSettings();
   const { user } = useTelegram();
+  const { currency } = useWagerCurrency();
   const myId = user?.id ?? 0;
 
   const [round, setRound] = useState<AviatorRoundView | null>(null);
@@ -470,7 +473,7 @@ export function AviatorGame({ onBack, onBalanceUpdate }: Props) {
     setBusy(true);
     setErr(null);
     api
-      .aviatorBet(bet, autoOn ? autoValue : null)
+      .aviatorBet(bet, autoOn ? autoValue : null, currency)
       .then((res) => {
         onBalanceUpdate(res.balance);
         applyRound(res.round, res.now);
@@ -478,7 +481,7 @@ export function AviatorGame({ onBack, onBalanceUpdate }: Props) {
       })
       .catch((e) => setErr(e instanceof Error ? e.message : t.av.betError))
       .finally(() => setBusy(false));
-  }, [applyRound, autoOn, autoValue, bet, busy, onBalanceUpdate, t.av.betError]);
+  }, [applyRound, autoOn, autoValue, bet, busy, currency, onBalanceUpdate, t.av.betError]);
 
   const cashOut = useCallback(() => {
     const r = roundRef.current;
@@ -680,6 +683,8 @@ export function AviatorGame({ onBack, onBalanceUpdate }: Props) {
             </button>
           ))}
         </div>
+
+        <BetCurrencyPicker disabled={!canBet} />
 
         {/* Auto Cashout */}
         <div className="av-auto">

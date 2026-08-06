@@ -18,13 +18,10 @@ import { registerAviatorRoutes } from './aviator.js';
 import { registerRateLimits } from './rateLimit.js';
 import {
   requireSupabase,
-  getBalance,
-  addBalance,
   getProfile,
   setProfile,
   upsertUserMeta,
   ensureReferral,
-  tryDeductBalance,
 } from './supabaseStore.js';
 import { httpError } from './routes/helpers.js';
 import { activateReferralCode, registerReferralRoutes } from './routes/referrals.js';
@@ -33,7 +30,13 @@ import { registerDailyRoutes } from './routes/daily.js';
 import { registerWheelRoutes } from './routes/wheel.js';
 import { registerPaymentsRoutes } from './routes/payments.js';
 import { registerWithdrawRoutes } from './routes/withdraw.js';
+import { registerWalletRoutes } from './routes/wallet.js';
+import { registerDepositRoutes } from './routes/deposit.js';
+import { registerExchangeRoutes } from './routes/exchange.js';
+import { registerAdminPaymentRoutes } from './routes/adminPayments.js';
 import { registerTelegramRoutes } from './routes/telegram.js';
+import { startRatesAutoRefresh } from './payments/rates/index.js';
+import { getRatesRefreshMs } from './payments/hub/index.js';
 
 requireSupabase();
 
@@ -158,14 +161,20 @@ registerWheelRoutes(app, { getUserId });
 registerReferralRoutes(app, { getUserId });
 registerPaymentsRoutes(app, { getUserId });
 registerWithdrawRoutes(app, { getUserId });
+registerWalletRoutes(app, { getUserId });
+registerDepositRoutes(app, { getUserId });
+registerExchangeRoutes(app, { getUserId });
+registerAdminPaymentRoutes(app, { getUserId });
 registerTelegramRoutes(app);
 
-registerBlackjackRoutes(app, { getUserId, getBalance, tryDeductBalance, addBalance });
+startRatesAutoRefresh(await getRatesRefreshMs().catch(() => 60_000));
+
+registerBlackjackRoutes(app, { getUserId });
 registerPvpRoutes(app, { getUserId });
-registerCoinflipRoutes(app, { getUserId, getBalance, tryDeductBalance, addBalance });
-registerMineRushRoutes(app, { getUserId, getBalance, tryDeductBalance, addBalance });
-registerArenaRoutes(app, { getUserId, getBalance });
-await registerAviatorRoutes(app, { getUserId, getBalance });
+registerCoinflipRoutes(app, { getUserId });
+registerMineRushRoutes(app, { getUserId });
+registerArenaRoutes(app, { getUserId });
+await registerAviatorRoutes(app, { getUserId });
 
 if (isProd && process.env.SERVE_CLIENT === '1') {
   const clientDist = path.join(__dirname, '../../client/dist');

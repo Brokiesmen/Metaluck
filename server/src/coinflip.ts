@@ -3,6 +3,13 @@ import crypto from 'crypto';
 import { applyHouseEdge } from './houseEdge.js';
 import { onGamePlayXp, onGameWinXp } from './progressAwards.js';
 import { XP } from './xp.js';
+import {
+  CompleteTransaction,
+  CreditBalance,
+  isPayCurrency,
+  ReleaseFunds,
+  ReserveFunds,
+} from './payments/wallet/game.js';
 
 const ALLOWED_BETS = [5, 10, 25, 50, 100] as const;
 const SIDES = ['heads', 'tails'] as const;
@@ -18,26 +25,22 @@ function payoutForWin(bet: number): number {
 }
 
 /**
- * Игра одноходовая и не хранит состояние между запросами — баланс
- * списывается и зачисляется атомарно в рамках одного запроса, поэтому
- * отдельная таблица в БД (как у blackjack) не нужна.
+ * Balance only via Wallet: ReserveFunds → CreditBalance | CompleteTransaction.
+ * Currency is resolved inside Wallet — this module never touches STARS/TON/USDT.
  */
 export function registerCoinflipRoutes(
   app: FastifyInstance,
   deps: {
     getUserId: (req: FastifyRequest) => Promise<number>;
-    getBalance: (userId: number) => Promise<number>;
-    tryDeductBalance: (userId: number, amount: number) => Promise<number | null>;
-    addBalance: (userId: number, delta: number) => Promise<number>;
   },
 ) {
-  const { getUserId, tryDeductBalance, addBalance } = deps;
+  const { getUserId } = deps;
 
   function jsonError(reply: FastifyReply, statusCode: number, message: string) {
     return reply.status(statusCode).send({ message });
   }
 
-  app.post<{ Body: { bet?: number; choice?: string } }>(
+  app.post<{ Body: { bet?: number; choice?: string; currency?: string } }>(
     '/api/coinflip/play',
     {
       schema: {
@@ -47,6 +50,7 @@ export function registerCoinflipRoutes(
           properties: {
             bet: { type: 'number' },
             choice: { type: 'string', enum: ['heads', 'tails'] },
+            currency: { type: 'string' },
           },
         },
       },
@@ -56,28 +60,43 @@ export function registerCoinflipRoutes(
       try {
         const bet = Number(req.body?.bet);
         const choice = req.body?.choice;
+        const currency = req.body?.currency ?? 'STARS';
         if (!ALLOWED_BETS.includes(bet as (typeof ALLOWED_BETS)[number])) {
           return jsonError(reply, 400, 'Некорректная ставка');
         }
         if (!isSide(choice)) {
           return jsonError(reply, 400, 'Выберите орёл или решку');
         }
-
-        const afterBet = await tryDeductBalance(userId, bet);
-        if (afterBet === null) {
-          return jsonError(reply, 400, 'Недостаточно звёзд');
+        if (!isPayCurrency(currency)) {
+          return jsonError(reply, 400, 'Некорректная валюта');
         }
 
-        const result: Side = SIDES[crypto.randomInt(0, 2)];
-        const win = result === choice;
-        const payout = win ? payoutForWin(bet) : 0;
+        const reservation = await ReserveFunds(userId, bet, {
+          game: 'coinflip',
+          refId: crypto.randomUUID(),
+          payCurrency: currency,
+        });
+        if (!reservation) {
+          return jsonError(reply, 400, 'Недостаточно средств');
+        }
 
-        const newBalance = payout > 0 ? await addBalance(userId, payout) : afterBet;
+        try {
+          const result: Side = SIDES[crypto.randomInt(0, 2)];
+          const win = result === choice;
+          const payout = win ? payoutForWin(bet) : 0;
 
-        await onGamePlayXp(userId, 'coinflip');
-        if (win) await onGameWinXp(userId, XP.COINFLIP_WIN, 'coinflip');
+          const settled = win
+            ? await CreditBalance(reservation.reservationId, payout)
+            : await CompleteTransaction(reservation.reservationId);
 
-        return { newBalance, bet, choice, result, win, payout };
+          await onGamePlayXp(userId, 'coinflip');
+          if (win) await onGameWinXp(userId, XP.COINFLIP_WIN, 'coinflip');
+
+          return { newBalance: settled.balance, bet, choice, result, win, payout };
+        } catch (settleErr) {
+          await ReleaseFunds(reservation.reservationId).catch(() => undefined);
+          throw settleErr;
+        }
       } catch (err) {
         req.log.error(err);
         const msg = err instanceof Error ? err.message : String(err);

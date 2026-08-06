@@ -16,6 +16,18 @@ import type {
   AviatorBetResponse,
   AviatorCashoutResponse,
   ProgressView,
+  WalletBalance,
+  WalletCurrency,
+  WalletCurrencyInfo,
+  WalletLedgerPage,
+  WalletSnapshot,
+  DepositMethod,
+  DepositOrderView,
+  ExchangePairInfo,
+  ExchangeQuote,
+  ExchangeExecuteResult,
+  ExchangeOrder,
+  MarketRate,
 } from './types';
 import {
   isDemoMode,
@@ -153,6 +165,25 @@ export const api = {
   getBalance: () =>
     request<{ balance: number }>('/api/balance').then(d => d.balance),
 
+  getWallet: () =>
+    request<WalletSnapshot>('/api/wallet'),
+
+  getWalletBalance: (currency: WalletCurrency) =>
+    request<WalletBalance>(`/api/wallet/${encodeURIComponent(currency)}`),
+
+  getWalletCurrencies: () =>
+    request<{ currencies: WalletCurrencyInfo[] }>('/api/wallet/currencies').then((d) => d.currencies),
+
+  getWalletLedger: (opts: { currency?: WalletCurrency; page?: number; limit?: number; offset?: number } = {}) => {
+    const q = new URLSearchParams();
+    if (opts.currency) q.set('currency', opts.currency);
+    if (opts.page != null) q.set('page', String(opts.page));
+    if (opts.limit != null) q.set('limit', String(opts.limit));
+    if (opts.offset != null) q.set('offset', String(opts.offset));
+    const qs = q.toString();
+    return request<WalletLedgerPage>(`/api/wallet/ledger${qs ? `?${qs}` : ''}`);
+  },
+
   getProgress: () =>
     request<ProgressView>('/api/progress'),
 
@@ -250,6 +281,111 @@ export const api = {
       `/api/topup/status/${encodeURIComponent(payload)}`
     ),
 
+  getDepositMethods: () =>
+    request<{ methods: DepositMethod[] }>('/api/deposit/methods').then((d) => d.methods),
+
+  getDepositPackages: () =>
+    request<{ packages: TopupPackage[] }>('/api/deposit/packages').then((d) => d.packages),
+
+  createStarsDepositInvoice: (packageId: string) =>
+    request<{ id: string; invoiceLink: string; payload: string; packageId: string | null; expectedAmount: number }>(
+      '/api/deposit/stars/invoice',
+      { method: 'POST', body: JSON.stringify({ packageId }) },
+    ),
+
+  getStarsDepositStatus: (id: string) =>
+    request<{
+      id: string;
+      status: string;
+      balanceAmount: number;
+      receivedAmount: number | null;
+      newBalance: number | null;
+      packageId: string | null;
+    }>(`/api/deposit/stars/status/${encodeURIComponent(id)}`),
+
+  createCryptoDepositIntent: (currency: 'TON' | 'USDT_TON', amount: number) =>
+    request<DepositOrderView>('/api/deposit/crypto/intent', {
+      method: 'POST',
+      body: JSON.stringify({ currency, amount }),
+    }),
+
+  getDeposit: (id: string) =>
+    request<DepositOrderView>(`/api/deposit/${encodeURIComponent(id)}`),
+
+  verifyDeposit: (id: string) =>
+    request<DepositOrderView>(`/api/deposit/${encodeURIComponent(id)}/verify`, { method: 'POST' }),
+
+  listDeposits: (opts: { limit?: number; offset?: number } = {}) => {
+    const q = new URLSearchParams();
+    if (opts.limit != null) q.set('limit', String(opts.limit));
+    if (opts.offset != null) q.set('offset', String(opts.offset));
+    const qs = q.toString();
+    return request<{ total: number; deposits: DepositOrderView[] }>(
+      `/api/deposit${qs ? `?${qs}` : ''}`,
+    );
+  },
+
+  getRates: () =>
+    request<{
+      usd: {
+        'TON/USD': number;
+        'USDT/USD': number;
+        'STARS/USD': number;
+        source: string;
+        fetchedAt: string;
+      };
+      rates: MarketRate[];
+      refreshedAt: string | null;
+      lastError: string | null;
+      redisConfigured: boolean;
+    }>('/api/rates'),
+
+  getUsdRates: () =>
+    request<{
+      'TON/USD': number;
+      'USDT/USD': number;
+      'STARS/USD': number;
+      source: string;
+      fetchedAt: string;
+    }>('/api/rates/usd'),
+
+  getRate: (from: WalletCurrency, to: WalletCurrency) =>
+    request<MarketRate>(`/api/rates/${encodeURIComponent(from)}/${encodeURIComponent(to)}`),
+
+  getExchangePairs: () =>
+    request<{ pairs: ExchangePairInfo[]; rates: MarketRate[] }>('/api/exchange/pairs'),
+
+  createExchangeQuote: (from: WalletCurrency, to: WalletCurrency, amount: number) =>
+    request<ExchangeQuote>('/api/exchange/quote', {
+      method: 'POST',
+      body: JSON.stringify({ from, to, amount }),
+    }),
+
+  executeExchange: (quoteId: string) =>
+    request<ExchangeExecuteResult>('/api/exchange/execute', {
+      method: 'POST',
+      body: JSON.stringify({ quoteId }),
+    }),
+
+  getExchangeHistory: (opts: { limit?: number; offset?: number } = {}) => {
+    const q = new URLSearchParams();
+    if (opts.limit != null) q.set('limit', String(opts.limit));
+    if (opts.offset != null) q.set('offset', String(opts.offset));
+    const qs = q.toString();
+    return request<{ total: number; orders: ExchangeOrder[] }>(
+      `/api/exchange/history${qs ? `?${qs}` : ''}`,
+    );
+  },
+
+  getTransactions: (opts: { limit?: number; offset?: number; kind?: 'all' | 'exchange' | 'ledger' } = {}) => {
+    const q = new URLSearchParams();
+    if (opts.limit != null) q.set('limit', String(opts.limit));
+    if (opts.offset != null) q.set('offset', String(opts.offset));
+    if (opts.kind) q.set('kind', opts.kind);
+    const qs = q.toString();
+    return request<{ total: number; items: unknown[] }>(`/api/transactions${qs ? `?${qs}` : ''}`);
+  },
+
   getWithdrawInfo: () =>
     request<{
       balance: number;
@@ -264,14 +400,192 @@ export const api = {
       { method: 'POST', body: JSON.stringify({ amount }) },
     ),
 
-  openCase: async (caseId: number) => {
+  // ── Payment Hub Admin ────────────────────────────────────────────────────
+
+  adminMe: () =>
+    request<{ isAdmin: boolean; actorId: number | null; via: 'secret' | 'user' | null }>(
+      '/api/admin/payments/me',
+    ),
+
+  adminGetSettings: () =>
+    request<{ settings: Record<string, unknown>; keys: string[] }>('/api/admin/payments/settings'),
+
+  adminPutSettings: (patch: Record<string, unknown>) =>
+    request<{ ok: boolean; settings: Record<string, unknown> }>('/api/admin/payments/settings', {
+      method: 'PUT',
+      body: JSON.stringify(patch),
+    }),
+
+  adminListAdmins: () =>
+    request<{ admins: { userId: number; note: string; createdAt: string }[] }>(
+      '/api/admin/payments/admins',
+    ),
+
+  adminAddAdmin: (userId: number, note = '') =>
+    request<{ ok: boolean; admins: { userId: number; note: string; createdAt: string }[] }>(
+      '/api/admin/payments/admins',
+      { method: 'POST', body: JSON.stringify({ userId, note }) },
+    ),
+
+  adminRemoveAdmin: (userId: number) =>
+    request<{ ok: boolean }>(`/api/admin/payments/admins/${userId}`, { method: 'DELETE' }),
+
+  adminGetRates: () => request<Record<string, unknown>>('/api/admin/payments/rates'),
+
+  adminRefreshRates: () =>
+    request<Record<string, unknown>>('/api/admin/payments/rates/refresh', {
+      method: 'POST',
+      body: '{}',
+    }),
+
+  adminSetManualRate: (base: string, quote: string, mid: number) =>
+    request<{ ok: boolean; rate: unknown }>('/api/admin/payments/rates/manual', {
+      method: 'POST',
+      body: JSON.stringify({ base, quote, mid }),
+    }),
+
+  adminSetStarsUsd: (usd: number, manual: boolean) =>
+    request<{ ok: boolean; stars: { usd: number; manual: boolean } }>(
+      '/api/admin/payments/rates/stars-usd',
+      { method: 'POST', body: JSON.stringify({ usd, manual }) },
+    ),
+
+  adminListPairs: () =>
+    request<{
+      pairs: {
+        from: string;
+        to: string;
+        spreadBps: number;
+        feeBps: number;
+        minFromAmount: number;
+        maxFromAmount: number;
+        isActive: boolean;
+        updatedAt: string;
+      }[];
+    }>('/api/admin/payments/pairs'),
+
+  adminUpdatePair: (
+    from: string,
+    to: string,
+    patch: {
+      spreadBps?: number;
+      feeBps?: number;
+      minFromAmount?: number;
+      maxFromAmount?: number;
+      isActive?: boolean;
+    },
+  ) =>
+    request<{ ok: boolean; pair: unknown }>(
+      `/api/admin/payments/pairs/${encodeURIComponent(from)}/${encodeURIComponent(to)}`,
+      { method: 'PATCH', body: JSON.stringify(patch) },
+    ),
+
+  adminListDeposits: (opts: { status?: string; userId?: number; limit?: number; offset?: number } = {}) => {
+    const q = new URLSearchParams();
+    if (opts.status) q.set('status', opts.status);
+    if (opts.userId != null) q.set('userId', String(opts.userId));
+    if (opts.limit != null) q.set('limit', String(opts.limit));
+    if (opts.offset != null) q.set('offset', String(opts.offset));
+    const qs = q.toString();
+    return request<{ total: number; items: Record<string, unknown>[] }>(
+      `/api/admin/payments/deposits${qs ? `?${qs}` : ''}`,
+    );
+  },
+
+  adminListWithdrawals: (opts: {
+    status?: string;
+    userId?: number;
+    limit?: number;
+    offset?: number;
+  } = {}) => {
+    const q = new URLSearchParams();
+    if (opts.status) q.set('status', opts.status);
+    if (opts.userId != null) q.set('userId', String(opts.userId));
+    if (opts.limit != null) q.set('limit', String(opts.limit));
+    if (opts.offset != null) q.set('offset', String(opts.offset));
+    const qs = q.toString();
+    return request<{ total: number; items: Record<string, unknown>[] }>(
+      `/api/admin/payments/withdrawals${qs ? `?${qs}` : ''}`,
+    );
+  },
+
+  adminSetWithdrawStatus: (id: number, status: 'paid' | 'rejected' | 'pending') =>
+    request<{ id: number; status: string; refunded: boolean }>(
+      `/api/admin/payments/withdrawals/${id}/status`,
+      { method: 'POST', body: JSON.stringify({ status }) },
+    ),
+
+  adminListExchanges: (opts: { userId?: number; limit?: number; offset?: number } = {}) => {
+    const q = new URLSearchParams();
+    if (opts.userId != null) q.set('userId', String(opts.userId));
+    if (opts.limit != null) q.set('limit', String(opts.limit));
+    if (opts.offset != null) q.set('offset', String(opts.offset));
+    const qs = q.toString();
+    return request<{ total: number; items: Record<string, unknown>[] }>(
+      `/api/admin/payments/exchanges${qs ? `?${qs}` : ''}`,
+    );
+  },
+
+  adminListTransactions: (opts: {
+    userId?: number;
+    currency?: string;
+    limit?: number;
+    offset?: number;
+  } = {}) => {
+    const q = new URLSearchParams();
+    if (opts.userId != null) q.set('userId', String(opts.userId));
+    if (opts.currency) q.set('currency', opts.currency);
+    if (opts.limit != null) q.set('limit', String(opts.limit));
+    if (opts.offset != null) q.set('offset', String(opts.offset));
+    const qs = q.toString();
+    return request<{ total: number; items: Record<string, unknown>[] }>(
+      `/api/admin/payments/transactions${qs ? `?${qs}` : ''}`,
+    );
+  },
+
+  adminSearchUser: (q: string) =>
+    request<{
+      users: {
+        userId: number;
+        name: string | null;
+        photoUrl: string | null;
+        username: string | null;
+        balances: WalletBalance[];
+      }[];
+    }>(`/api/admin/payments/users/search?q=${encodeURIComponent(q)}`),
+
+  adminWalletCredit: (userId: number, currency: WalletCurrency, amount: number, reason?: string) =>
+    request<{ ok: boolean; balance: WalletBalance }>('/api/admin/payments/wallet/credit', {
+      method: 'POST',
+      body: JSON.stringify({ userId, currency, amount, reason }),
+    }),
+
+  adminWalletDebit: (userId: number, currency: WalletCurrency, amount: number, reason?: string) =>
+    request<{ ok: boolean; balance: WalletBalance }>('/api/admin/payments/wallet/debit', {
+      method: 'POST',
+      body: JSON.stringify({ userId, currency, amount, reason }),
+    }),
+
+  adminExchangeProfit: (opts: { from?: string; to?: string } = {}) => {
+    const q = new URLSearchParams();
+    if (opts.from) q.set('from', opts.from);
+    if (opts.to) q.set('to', opts.to);
+    const qs = q.toString();
+    return request<{
+      orderCount: number;
+      feeTotals: Record<string, number>;
+      byPair: Record<string, { count: number; feeByCurrency: Record<string, number> }>;
+    }>(`/api/admin/payments/stats/exchange-profit${qs ? `?${qs}` : ''}`);
+  },
+
+  openCase: async (caseId: number, currency: WalletCurrency = 'STARS') => {
     if (isDemoMode()) {
       await delay(80);
       return demoOpenCase(caseId);
     }
     return request<{ prize: Prize; newBalance: number }>('/api/case/open', {
       method: 'POST',
-      body: JSON.stringify({ caseId }),
+      body: JSON.stringify({ caseId, currency }),
     });
   },
 
@@ -283,14 +597,14 @@ export const api = {
     return request<BlackjackStateResponse>('/api/blackjack/state');
   },
 
-  blackjackDeal: async (bet: number) => {
+  blackjackDeal: async (bet: number, currency: WalletCurrency = 'STARS') => {
     if (isDemoMode()) {
       await delay(60);
       return demoBlackjackDeal(bet);
     }
     return request<BlackjackStateResponse>('/api/blackjack/deal', {
       method: 'POST',
-      body: JSON.stringify({ bet }),
+      body: JSON.stringify({ bet, currency }),
     });
   },
 
@@ -316,27 +630,27 @@ export const api = {
     });
   },
 
-  blackjackDouble: async () => {
+  blackjackDouble: async (currency: WalletCurrency = 'STARS') => {
     if (isDemoMode()) {
       await delay(40);
       return demoBlackjackDouble();
     }
     return request<BlackjackStateResponse>('/api/blackjack/double', {
       method: 'POST',
-      body: '{}',
+      body: JSON.stringify({ currency }),
     });
   },
 
   // ── Coinflip ─────────────────────────────────────────────────────────────
 
-  coinflipPlay: async (bet: number, choice: CoinSide) => {
+  coinflipPlay: async (bet: number, choice: CoinSide, currency: WalletCurrency = 'STARS') => {
     if (isDemoMode()) {
       await delay(50);
       return demoCoinflipPlay(bet, choice);
     }
     return request<CoinflipResult>('/api/coinflip/play', {
       method: 'POST',
-      body: JSON.stringify({ bet, choice }),
+      body: JSON.stringify({ bet, choice, currency }),
     });
   },
 
@@ -350,14 +664,18 @@ export const api = {
     return request<{ game: MineRushGameView | null; balance: number }>('/api/minerush/state');
   },
 
-  mineRushStart: async (difficulty: MineRushDifficulty, bet: number) => {
+  mineRushStart: async (
+    difficulty: MineRushDifficulty,
+    bet: number,
+    currency: WalletCurrency = 'STARS',
+  ) => {
     if (isDemoMode()) {
       await delay(50);
       return demoMineRushStart(difficulty, bet);
     }
     return request<MineRushGameView>('/api/minerush/start', {
       method: 'POST',
-      body: JSON.stringify({ difficulty, bet }),
+      body: JSON.stringify({ difficulty, bet, currency }),
     });
   },
 
@@ -404,14 +722,14 @@ export const api = {
     return request<ArenaStateResponse>('/api/arena/state');
   },
 
-  arenaBet: async (bet: number) => {
+  arenaBet: async (bet: number, currency: WalletCurrency = 'STARS') => {
     if (isDemoMode()) {
       await delay(40);
       return demoArenaBet(bet);
     }
     return request<ArenaStateResponse>('/api/arena/bet', {
       method: 'POST',
-      body: JSON.stringify({ bet }),
+      body: JSON.stringify({ bet, currency }),
     });
   },
 
@@ -425,14 +743,18 @@ export const api = {
     return request<AviatorStateResponse>('/api/aviator/state');
   },
 
-  aviatorBet: async (bet: number, autoCashout: number | null) => {
+  aviatorBet: async (
+    bet: number,
+    autoCashout: number | null,
+    currency: WalletCurrency = 'STARS',
+  ) => {
     if (isDemoMode()) {
       await delay(40);
       return demoAviatorBet(bet, autoCashout);
     }
     return request<AviatorBetResponse>('/api/aviator/bet', {
       method: 'POST',
-      body: JSON.stringify({ bet, autoCashout }),
+      body: JSON.stringify({ bet, autoCashout, currency }),
     });
   },
 

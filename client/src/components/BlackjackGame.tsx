@@ -5,6 +5,8 @@ import { useSettings } from '../settings/SettingsContext';
 import { tf } from '../i18n/tf';
 import { StarIcon } from './StarIcon';
 import type { Dict } from '../i18n/dictionaries';
+import { BetCurrencyPicker } from './BetCurrencyPicker';
+import { useWagerCurrency } from '../hooks/useWagerCurrency';
 
 interface Props {
   onBack: () => void;
@@ -111,6 +113,7 @@ function Confetti() {
 ══════════════════════════════════════════════════════════════ */
 export function BlackjackGame({ onBack, onBalanceUpdate }: Props) {
   const { t, locale } = useSettings();
+  const { currency } = useWagerCurrency();
   const [round,   setRound]   = useState<BlackjackRound | null>(null);
   const [bet,     setBet]     = useState<BetAmount>(25);
   const [busy,    setBusy]    = useState(false);
@@ -187,7 +190,7 @@ export function BlackjackGame({ onBack, onBalanceUpdate }: Props) {
         if (pre.round?.phase === 'player') {
           throw new Error(t.bj.finishHandFirst);
         }
-        const s = await api.blackjackDeal(bet);
+        const s = await api.blackjackDeal(bet, currency);
         onBalanceUpdate(s.newBalance);
         setRound(s.round);
 
@@ -207,7 +210,7 @@ export function BlackjackGame({ onBack, onBalanceUpdate }: Props) {
         setBusy(false);
       }
     })();
-  }, [bet, clearTimers, onBalanceUpdate, startDealAnim, t.bj.dealError, t.bj.finishHandFirst]);
+  }, [bet, currency, clearTimers, onBalanceUpdate, startDealAnim, t.bj.dealError, t.bj.finishHandFirst]);
 
   /* ── Вспомогательный wrapper для HIT / STAND / DOUBLE ─────────── */
   const runAction = useCallback(
@@ -235,7 +238,7 @@ export function BlackjackGame({ onBack, onBalanceUpdate }: Props) {
 
   const hit    = useCallback(() => runAction(() => api.blackjackHit()),    [runAction]);
   const stand  = useCallback(() => runAction(() => api.blackjackStand()),  [runAction]);
-  const double = useCallback(() => runAction(() => api.blackjackDouble()), [runAction]);
+  const double = useCallback(() => runAction(() => api.blackjackDouble(currency)), [runAction, currency]);
 
   /* ── Вычисляемые флаги ────────────────────────────────────────── */
   const dealAnimPlaying = shownInDeal < 4 && shownInDeal !== 99;
@@ -339,6 +342,8 @@ export function BlackjackGame({ onBack, onBalanceUpdate }: Props) {
             </button>
           ))}
         </div>
+
+        <BetCurrencyPicker disabled={!canDeal} />
 
         {/* Ещё / Хватит / ×2 */}
         <div className="bj2-actions">

@@ -5,20 +5,27 @@ import { pickPrize, randomUnit } from '../random.js';
 import { quietAwardXp, quietTryTasks } from '../progressAwards.js';
 import { XP, TASK_IDS } from '../xp.js';
 import {
-  addBalance,
   addHistory,
-  getBalance,
   getHistoryPage,
   getLastFreeCaseAt,
   getLeadersPage,
   setLastFreeCaseAt,
-  tryDeductBalance,
   claimDailyLoginXp,
 } from '../supabaseStore.js';
 import type { GetUserId } from './helpers.js';
+import {
+  CompleteTransaction,
+  CreditBalance,
+  CreditWinnings,
+  GetPlayableBalance,
+  isPayCurrency,
+  ReleaseFunds,
+  ReserveFunds,
+} from '../payments/wallet/game.js';
 
 interface OpenBody {
   caseId: number;
+  currency?: string;
 }
 
 export function registerCaseRoutes(app: FastifyInstance, deps: { getUserId: GetUserId }) {
@@ -26,7 +33,7 @@ export function registerCaseRoutes(app: FastifyInstance, deps: { getUserId: GetU
 
   app.get('/api/balance', async (req) => {
     const userId = await getUserId(req);
-    return { balance: await getBalance(userId) };
+    return { balance: await GetPlayableBalance(userId) };
   });
 
   app.get('/api/progress', async (req) => {
@@ -85,12 +92,23 @@ export function registerCaseRoutes(app: FastifyInstance, deps: { getUserId: GetU
     '/api/case/open',
     {
       schema: {
-        body: { type: 'object', required: ['caseId'], properties: { caseId: { type: 'number' } } },
+        body: {
+          type: 'object',
+          required: ['caseId'],
+          properties: {
+            caseId: { type: 'number' },
+            currency: { type: 'string' },
+          },
+        },
       },
     },
     async (req, reply) => {
       const userId = await getUserId(req);
       const { caseId } = req.body;
+      const currency = req.body.currency ?? 'STARS';
+      if (!isPayCurrency(currency)) {
+        return reply.status(400).send({ message: 'Некорректная валюта' });
+      }
       const gameCase = CASES.find((c) => c.id === caseId);
       if (!gameCase) return reply.status(404).send({ message: 'Кейс не найден' });
 
@@ -104,15 +122,18 @@ export function registerCaseRoutes(app: FastifyInstance, deps: { getUserId: GetU
 
       const cost = gameCase.price;
 
-      let newBalance: number;
+      let reservationId: string | null = null;
       if (cost > 0) {
-        const deducted = await tryDeductBalance(userId, cost);
-        if (deducted === null) return reply.status(400).send({ message: 'Недостаточно звёзд' });
-        newBalance = deducted;
-      } else {
-        newBalance = await getBalance(userId);
+        const reservation = await ReserveFunds(userId, cost, {
+          game: 'cases',
+          refId: `${caseId}:${now}`,
+          payCurrency: currency,
+        });
+        if (!reservation) return reply.status(400).send({ message: 'Недостаточно средств' });
+        reservationId = reservation.reservationId;
       }
 
+      try {
       const pool = caseId === 3 ? PRIZES_CASE3 : caseId === 2 ? PRIZES_CASE2 : PRIZES_CASE1;
       let prize = pickPrize(pool);
 
@@ -144,10 +165,20 @@ export function registerCaseRoutes(app: FastifyInstance, deps: { getUserId: GetU
         }
       }
 
+      let newBalance: number;
       if (prize.stars) {
         const credited = applyHouseEdgeStars(prize.stars);
-        newBalance = await addBalance(userId, credited);
+        newBalance = reservationId
+          ? (await CreditBalance(reservationId, credited)).balance
+          : (await CreditWinnings(userId, credited, {
+              game: 'cases',
+              refId: `${caseId}:${now}`,
+            })).balance;
         prize = { ...prize, stars: credited, name: `${credited} звёзд` };
+      } else if (reservationId) {
+        newBalance = (await CompleteTransaction(reservationId)).balance;
+      } else {
+        newBalance = await GetPlayableBalance(userId, cost > 0 ? currency : 'STARS');
       }
       if (gameCase.isFree) {
         await setLastFreeCaseAt(userId, now);
@@ -164,6 +195,12 @@ export function registerCaseRoutes(app: FastifyInstance, deps: { getUserId: GetU
       await quietTryTasks(userId, caseTasks);
 
       return { prize, newBalance };
+      } catch (err) {
+        if (reservationId) {
+          await ReleaseFunds(reservationId).catch(() => undefined);
+        }
+        throw err;
+      }
     },
   );
 }

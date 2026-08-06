@@ -1,6 +1,5 @@
 import type { FastifyInstance } from 'fastify';
 import {
-  addBalance,
   ensureReferral,
   getUserMeta,
   parseJsonField,
@@ -10,6 +9,7 @@ import {
   type ReferralRow,
 } from '../supabaseStore.js';
 import type { GetUserId } from './helpers.js';
+import { CreditWinnings } from '../payments/wallet/game.js';
 
 export const REFERRAL_REWARD = 3;
 export const REFERRAL_CASHBACK_PERCENT = 10;
@@ -77,7 +77,11 @@ export async function activateReferralCode(
   const bonus = (await isReferralSignupBonusEligible(userId)) ? REFERRAL_REWARD : 0;
   await updateReferralReferrer(refData.user_id, referredUsers, bonus);
   if (bonus > 0) {
-    await addBalance(refData.user_id, bonus);
+    await CreditWinnings(refData.user_id, bonus, {
+      game: 'referral',
+      refId: String(userId),
+      idempotencyKey: `referral:${refData.user_id}:${userId}`,
+    });
   }
   await setReferredBy(userId, refData.user_id);
   return { activated: true, rewardGranted: bonus };
