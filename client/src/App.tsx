@@ -195,6 +195,9 @@ export function App() {
 
       {error && <div className="error-banner">{error}</div>}
 
+      {/* Контент + навигация в одном контейнере: на телефоне — колонка (вкладки
+          снизу), на десктопе — строка (вкладки уезжают в правую панель). */}
+      <div className="app-body">
       <main
         className={`page-content${
           tab === 'games' && gameView === 'blackjack'
@@ -265,6 +268,7 @@ export function App() {
       </main>
 
       <TabBar active={tab} onChange={handleTabChange} />
+      </div>
 
       {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
 

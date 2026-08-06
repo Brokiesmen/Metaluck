@@ -50,9 +50,6 @@ function syncLayoutScale(
     700;
 
   root.style.setProperty('--app-vw', px(vw));
-  if (vh && Number.isFinite(vh) && vh > 0) {
-    root.style.setProperty('--app-vh', px(vh));
-  }
 
   const finePointer =
     typeof window.matchMedia === 'function' && window.matchMedia('(pointer: fine)').matches;
@@ -61,6 +58,16 @@ function syncLayoutScale(
   const fromTg = (tg?.platform || '').toLowerCase();
   const isDesktopTg = fromTg === 'tdesktop' || fromTg === 'web' || fromTg === 'weba' || fromTg === 'webk';
   const isPc = (finePointer && !coarsePointer) || (isDesktopTg && vw >= 560);
+
+  // Высоту фиксируем в px только на мобильных, где 100dvh врёт из-за
+  // сворачивающихся панелей браузера и Telegram-вьюпорта. На десктопе пиксельное
+  // значение — источник рассинхрона: пропущенный resize оставляет оболочку не по
+  // размеру окна, поэтому там отдаём высоту нативному 100dvh из :root.
+  if (isPc) {
+    root.style.removeProperty('--app-vh');
+  } else if (vh && Number.isFinite(vh) && vh > 0) {
+    root.style.setProperty('--app-vh', px(vh));
+  }
 
   // Cap shell: phone 480 → tablet 560 → desktop 640–720
   let maxW = 480;

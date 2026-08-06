@@ -129,6 +129,15 @@ body {
   box-sizing: border-box;
 }
 
+/* Контент + навигация. На телефоне это обычная колонка (вкладки снизу),
+   на десктопе меняется на строку и вкладки становятся боковой панелью. */
+.app-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
 /* Desktop / Telegram Desktop: sharper images, roomier shell */
 html[data-device="desktop"] body {
   -webkit-font-smoothing: antialiased;
@@ -854,12 +863,6 @@ html[data-pointer="fine"] .mr-cell:not(:disabled):hover {
   width: 100%;
 }
 
-@media (max-width: 380px) {
-  .games-lobby-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
 .game-tile {
   position: relative;
   width: 100%;
@@ -947,6 +950,9 @@ html[data-pointer="fine"] .mr-cell:not(:disabled):hover {
 }
 
 .game-tile-title {
+  overflow-wrap: normal;
+  word-break: normal;
+  hyphens: none;
   font-size: 22px;
   font-weight: 800;
   letter-spacing: 0.01em;
@@ -1034,20 +1040,25 @@ html[data-platform="ios"] .games-lobby {
   padding: 10px 12px 18px;
 }
 
-html[data-platform="ios"] .games-lobby-grid {
+/* ── Лобби игр: всегда вертикальный список ─────────────────────
+   Заголовки игр не должны переноситься и рваться по слогам, поэтому
+   плитка — строка во всю ширину. Две колонки возвращаются только на
+   десктопе (см. секцию Desktop layout в конце файла). */
+.games-lobby-grid {
   display: flex;
   flex-direction: column;
   gap: 10px;
   width: 100%;
 }
 
-html[data-platform="ios"] .games-lobby-grid .game-tile,
-html[data-platform="ios"] .game-tile--cases,
-html[data-platform="ios"] .game-tile--bj,
-html[data-platform="ios"] .game-tile--coin,
-html[data-platform="ios"] .game-tile--minerush,
-html[data-platform="ios"] .game-tile--arena,
-html[data-platform="ios"] .game-tile--soon {
+.games-lobby-grid .game-tile,
+.game-tile--cases,
+.game-tile--bj,
+.game-tile--coin,
+.game-tile--minerush,
+.game-tile--arena,
+.game-tile--aviator,
+.game-tile--soon {
   display: flex;
   flex-direction: row;
   align-items: center;
@@ -1061,11 +1072,12 @@ html[data-platform="ios"] .game-tile--soon {
   text-align: left;
 }
 
-html[data-platform="ios"] .game-tile-icon,
-html[data-platform="ios"] .game-tile-icon--bj,
-html[data-platform="ios"] .game-tile-icon--coin,
-html[data-platform="ios"] .game-tile-icon--mr,
-html[data-platform="ios"] .game-tile-icon--arena {
+.game-tile-icon,
+.game-tile-icon--bj,
+.game-tile-icon--coin,
+.game-tile-icon--mr,
+.game-tile-icon--arena,
+.game-tile-icon--aviator {
   width: 56px;
   height: 56px;
   min-width: 56px;
@@ -1074,12 +1086,12 @@ html[data-platform="ios"] .game-tile-icon--arena {
   flex-shrink: 0;
 }
 
-html[data-platform="ios"] .bj-lobby-joker,
-html[data-platform="ios"] .coin-lobby-spin {
+.bj-lobby-joker,
+.coin-lobby-spin {
   font-size: 28px;
 }
 
-html[data-platform="ios"] .game-tile-body {
+.game-tile-body {
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -1091,8 +1103,8 @@ html[data-platform="ios"] .game-tile-body {
   text-align: left;
 }
 
-html[data-platform="ios"] .game-tile-title,
-html[data-platform="ios"] .game-tile-soon-title {
+.game-tile-title,
+.game-tile-soon-title {
   margin: 0;
   width: 100%;
   font-size: 17px;
@@ -1105,8 +1117,8 @@ html[data-platform="ios"] .game-tile-soon-title {
   text-overflow: ellipsis;
 }
 
-html[data-platform="ios"] .game-tile-subtitle,
-html[data-platform="ios"] .game-tile-soon-subtitle {
+.game-tile-subtitle,
+.game-tile-soon-subtitle {
   margin: 0;
   width: 100%;
   font-size: 13px;
@@ -1120,7 +1132,7 @@ html[data-platform="ios"] .game-tile-soon-subtitle {
   opacity: 0.88;
 }
 
-html[data-platform="ios"] .game-tile--soon {
+.game-tile--soon {
   min-height: 72px;
   opacity: 0.9;
 }
@@ -5228,5 +5240,90 @@ html[data-theme="light"] .tab-bar {
   .av-action--cash,
   .av-lobby-plane {
     animation: none;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   Desktop layout — полноэкранная оболочка + боковая панель
+   Мобильная вёрстка остаётся без изменений: всё ниже включается
+   только при курсоре-мыши (data-device="desktop") и широком окне.
+   ═══════════════════════════════════════════════════════════ */
+@media (min-width: 900px) {
+  /* Оболочка занимает окно целиком, а не узкую полосу 480–720px */
+  html[data-device="desktop"] .app {
+    width: 100%;
+    max-width: min(100vw, 1440px);
+    border-left: 1px solid var(--tg-sep);
+    border-right: 1px solid var(--tg-sep);
+  }
+
+  /* Вкладки из нижней полосы уходят вправо */
+  html[data-device="desktop"] .app-body {
+    flex-direction: row;
+  }
+
+  html[data-device="desktop"] .tab-bar {
+    flex: 0 0 232px;
+    width: 232px;
+    height: 100%;
+    min-height: 0;
+    flex-direction: column;
+    justify-content: flex-start;
+    gap: 4px;
+    padding: 14px 10px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    border-top: none;
+    border-left: 1px solid var(--tg-sep);
+  }
+
+  html[data-device="desktop"] .tab-item {
+    flex: 0 0 auto;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 12px;
+    width: 100%;
+    min-height: 46px;
+    padding: 11px 14px;
+    border-radius: 12px;
+    text-align: left;
+    transition: background 0.15s, color 0.15s;
+  }
+
+  html[data-device="desktop"] .tab-item:hover {
+    background: rgba(255, 255, 255, 0.06);
+  }
+  html[data-device="desktop"] .tab-item.active {
+    background: rgba(94, 174, 230, 0.14);
+  }
+  html[data-device="desktop"] .tab-label {
+    font-size: 14px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  /* Контент — центрированная колонка: секции не растягиваются во всю ширину */
+  html[data-device="desktop"] .page-content {
+    align-items: center;
+  }
+  html[data-device="desktop"] .page-content > * {
+    width: 100%;
+    max-width: 860px;
+  }
+
+  /* Места достаточно — лобби возвращается к двум колонкам */
+  html[data-device="desktop"] .games-lobby-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+  html[data-device="desktop"] .games-lobby-grid .game-tile {
+    min-height: 96px;
+  }
+
+  /* Тост поднимаем: нижней панели на десктопе больше нет */
+  html[data-device="desktop"] .toast {
+    bottom: 24px;
   }
 }
