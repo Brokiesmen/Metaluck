@@ -1,11 +1,43 @@
+# Dependencies
 node_modules/
+
+# Builds
 dist/
+build/
+*.tsbuildinfo
+
+# Env & secrets
+.env
+.env.*
+!.env.example
+client/.env*
+client/.env.local
+
+# Logs & local DB
+*.log
+*_logs.txt
+all_logs.txt
+server_logs.txt
 *.db
 *.db-shm
 *.db-wal
 db.json
 db.json.migrated
-.env
+
+# IDE / editor
+.cursor/
+.claude/
+.vscode/
+.idea/
+*.swp
 .DS_Store
+
+# Deploy tooling local state
+client/.vercel/
+.vercel/
+
+# Legacy / local helper scripts (keep out of repo if recreated)
 ecosystem.config.cjs
 dev-tunnel.sh
+start-tunnel.sh
+update-tunnel-url.sh

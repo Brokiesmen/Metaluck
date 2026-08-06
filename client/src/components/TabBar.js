@@ -1,7 +1,0 @@
-import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
-import { TabCasesIcon } from './tab-icons/TabCasesIcon';
-import { TabCabinetIcon } from './tab-icons/TabCabinetIcon';
-import { TabLeadersIcon } from './tab-icons/TabLeadersIcon';
-export function TabBar({ active, onChange }) {
-    return (_jsxs("nav", { className: "tab-bar", children: [_jsxs("button", { type: "button", className: `tab-item${active === 'cases' ? ' active' : ''}`, onClick: () => onChange('cases'), children: [_jsx("span", { className: "tab-icon tab-icon--cases", "aria-hidden": true, children: _jsx(TabCasesIcon, {}) }), _jsx("span", { className: "tab-label", children: "\u041A\u0435\u0439\u0441\u044B" })] }), _jsxs("button", { type: "button", className: `tab-item${active === 'leaders' ? ' active' : ''}`, onClick: () => onChange('leaders'), children: [_jsx("span", { className: "tab-icon tab-icon--leaders", "aria-hidden": true, children: _jsx(TabLeadersIcon, {}) }), _jsx("span", { className: "tab-label", children: "\u041B\u0438\u0434\u0435\u0440\u044B" })] }), _jsxs("button", { type: "button", className: `tab-item${active === 'cabinet' ? ' active' : ''}`, onClick: () => onChange('cabinet'), children: [_jsx("span", { className: "tab-icon tab-icon--cabinet", "aria-hidden": true, children: _jsx(TabCabinetIcon, {}) }), _jsx("span", { className: "tab-label", children: "\u041A\u0430\u0431\u0438\u043D\u0435\u0442" })] })] }));
-}
