@@ -57,7 +57,14 @@ function syncLayoutScale(
     typeof window.matchMedia === 'function' && window.matchMedia('(pointer: coarse)').matches;
   const fromTg = (tg?.platform || '').toLowerCase();
   const isDesktopTg = fromTg === 'tdesktop' || fromTg === 'web' || fromTg === 'weba' || fromTg === 'webk';
-  const isPc = (finePointer && !coarsePointer) || (isDesktopTg && vw >= 560);
+  // Десктопную оболочку включаем прежде всего по фактической ширине окна — тем же
+  // порогом 900px, что и в CSS (@media). Полагаться на pointer/платформу Telegram
+  // ненадёжно: встроенный webview Telegram Desktop нередко рапортует coarse-
+  // указатель и/или platform вне списка (или пустую, пока SDK грузится), из-за
+  // чего приложение считало себя мобильным, а «кривые» горизонтальные insets
+  // Telegram сдвигали узкую полосу контента вбок.
+  const winW = Math.max(vw, window.innerWidth || 0);
+  const isPc = winW >= 900 || (finePointer && !coarsePointer) || (isDesktopTg && vw >= 560);
 
   // Высоту фиксируем в px только на мобильных, где 100dvh врёт из-за
   // сворачивающихся панелей браузера и Telegram-вьюпорта. На десктопе пиксельное
