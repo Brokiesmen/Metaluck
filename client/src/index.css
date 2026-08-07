@@ -6119,22 +6119,28 @@ html[data-theme="light"] .tab-bar {
   line-height: 1.4;
   text-align: center;
 }
-.login-google-hidden {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip: rect(0 0 0 0);
-  opacity: 0;
-  pointer-events: none;
+.login-google-wrap {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
 }
 .login-tg-holder,
 .login-google-holder {
   min-height: 44px;
   width: 100%;
+  max-width: 320px;
   display: flex;
   justify-content: center;
   align-items: center;
+}
+.login-google-holder--busy {
+  opacity: 0.55;
+  pointer-events: none;
+}
+.login-google-holder iframe {
+  margin: 0 auto !important;
 }
 .login-disabled {
   font-size: 13px;
@@ -6750,6 +6756,9 @@ html[data-client="desktop_web"] .desk-page > * {
 .wallet-ledger-amt--out { color: #e85d5d; }
 
 /* ── Wallet linking (SettingsModal) ─────────────────────────── */
+.wallet-link-section {
+  margin-top: 8px;
+}
 .wallet-link { display: flex; flex-direction: column; gap: 10px; }
 .wallet-link-title { font-size: 15px; font-weight: 700; margin: 0; }
 .wallet-link-sub { font-size: 12px; opacity: 0.65; margin: 0 0 4px; }

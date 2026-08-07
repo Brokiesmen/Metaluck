@@ -8,6 +8,7 @@ import { ExchangeModal } from './ExchangeModal';
 import { CryptoDepositModal } from './CryptoDepositModal';
 import { CryptoWithdrawModal } from './CryptoWithdrawModal';
 import { CryptoAssetIcon } from './CryptoAssetIcon';
+import { WalletLinkPanel } from './WalletLinkPanel';
 import type { WalletBalance, WalletLedgerEntry, WalletSnapshot } from '../types';
 
 interface Props {
@@ -197,6 +198,10 @@ export function WalletScreen({ onBalanceUpdate, openInvoice, isTelegram }: Props
                 </div>
               );
             })}
+          </div>
+
+          <div className="tg-section wallet-link-section">
+            <WalletLinkPanel />
           </div>
         </>
       )}
