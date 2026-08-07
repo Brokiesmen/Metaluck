@@ -1,6 +1,6 @@
-/** Общий UI-слой: два shell'а (telegram/desktop) на одном конфиге навигации. */
+/** Общий UI-слой: два shell'а (telegram/desktop) на одном конфиге навигации + маршруты. */
 export { PlatformProvider, usePlatform, detectPlatform, type Platform } from './PlatformProvider';
-export { navItems, navLabel, type NavItem, type NavId } from './navItems';
+export { navItems, titleForPath, type NavItem, type NavId } from './navItems';
 export { AppShell } from './AppShell';
 export { TelegramShell } from './TelegramShell';
 export { DesktopShell } from './DesktopShell';
@@ -16,3 +16,8 @@ export { RewardCard } from './RewardCard';
 export { SettingRow } from './SettingRow';
 export { EmptyState } from './EmptyState';
 export { ShellDemo } from './ShellDemo';
+export { GamesLobby } from './pages/GamesLobby';
+export { ProfilePage } from './pages/ProfilePage';
+export { BalancePage } from './pages/BalancePage';
+export { RewardsPage } from './pages/RewardsPage';
+export { SettingsPage } from './pages/SettingsPage';

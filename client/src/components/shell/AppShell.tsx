@@ -1,26 +1,21 @@
-import type { ReactNode } from 'react';
+import { Outlet, useLocation } from 'react-router-dom';
 import { usePlatform } from './PlatformProvider';
 import { TelegramShell } from './TelegramShell';
 import { DesktopShell } from './DesktopShell';
-import type { NavId } from './navItems';
-
-interface Props {
-  active: NavId;
-  title: string;
-  onNavigate: (id: NavId) => void;
-  children: ReactNode;
-}
+import { titleForPath } from './navItems';
 
 /**
- * Единый вход в UI-слой: выбирает shell по платформе.
- * Оба shell'а получают одинаковый интерфейс (active/title/onNavigate/children).
+ * Layout общего UI-слоя: выбирает shell по платформе и рендерит текущий роут.
+ * Страницы (Outlet) НЕ знают о платформе — desktop/mobile разводят только shell'ы.
  */
-export function AppShell({ active, title, onNavigate, children }: Props) {
+export function AppShell() {
   const { isTelegram } = usePlatform();
+  const { pathname } = useLocation();
+  const title = titleForPath(pathname);
   const Shell = isTelegram ? TelegramShell : DesktopShell;
   return (
-    <Shell active={active} title={title} onNavigate={onNavigate}>
-      {children}
+    <Shell title={title}>
+      <Outlet />
     </Shell>
   );
 }

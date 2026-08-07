@@ -1,23 +1,32 @@
-import { useState } from 'react';
 import './shell.css';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { PlatformProvider, type Platform } from './PlatformProvider';
 import { AppShell } from './AppShell';
-import { PAGES } from './pages';
-import { navLabel, type NavId } from './navItems';
+import { GamesLobby } from './pages/GamesLobby';
+import { ProfilePage } from './pages/ProfilePage';
+import { BalancePage } from './pages/BalancePage';
+import { RewardsPage } from './pages/RewardsPage';
+import { SettingsPage } from './pages/SettingsPage';
 
 /**
- * Демонстрация общего UI-слоя со статическими данными.
- * `force` позволяет превьюить конкретный shell (telegram/desktop).
+ * Общий UI-слой как приложение: маршруты /, /profile, /balance, /rewards, /settings.
+ * AppShell (layout) выбирает Telegram/Desktop shell — страницы о платформе не знают.
+ * `force` — превью конкретного shell'а.
  */
 export function ShellDemo({ force }: { force?: Platform }) {
-  const [active, setActive] = useState<NavId>('dashboard');
-  const Page = PAGES[active];
-
   return (
     <PlatformProvider force={force}>
-      <AppShell active={active} title={navLabel(active)} onNavigate={setActive}>
-        <Page />
-      </AppShell>
+      <BrowserRouter>
+        <Routes>
+          <Route element={<AppShell />}>
+            <Route path="/" element={<GamesLobby />} />
+            <Route path="/profile" element={<ProfilePage />} />
+            <Route path="/balance" element={<BalancePage />} />
+            <Route path="/rewards" element={<RewardsPage />} />
+            <Route path="/settings" element={<SettingsPage />} />
+          </Route>
+        </Routes>
+      </BrowserRouter>
     </PlatformProvider>
   );
 }

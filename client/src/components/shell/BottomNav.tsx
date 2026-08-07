@@ -1,25 +1,22 @@
-import { navItems, type NavId } from './navItems';
+import { NavLink } from 'react-router-dom';
+import { navItems } from './navItems';
 
-interface Props {
-  active: NavId;
-  onNavigate: (id: NavId) => void;
-}
-
-/** Telegram/мобильная навигация. Тот же общий navItems, что и Sidebar. */
-export function BottomNav({ active, onNavigate }: Props) {
+/** Мобильная навигация. Тот же общий navItems, что и Sidebar. */
+export function BottomNav() {
   return (
     <nav className="sh-bottomnav">
       {navItems.map((item) => (
-        <button
+        <NavLink
           key={item.id}
-          type="button"
-          className={`sh-bottomnav-item${active === item.id ? ' sh-bottomnav-item--on' : ''}`}
-          aria-current={active === item.id ? 'page' : undefined}
-          onClick={() => onNavigate(item.id)}
+          to={item.path}
+          end={item.path === '/'}
+          className={({ isActive }) =>
+            `sh-bottomnav-item${isActive ? ' sh-bottomnav-item--on' : ''}`
+          }
         >
           <span className="sh-bottomnav-icon" aria-hidden>{item.icon}</span>
           <span className="sh-bottomnav-label">{item.label}</span>
-        </button>
+        </NavLink>
       ))}
     </nav>
   );

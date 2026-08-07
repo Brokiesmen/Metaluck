@@ -13,7 +13,7 @@ export function EmptyState({ icon = '🗂️', title, hint, actionLabel, onActio
       <div className="sh-empty-title">{title}</div>
       {hint && <div className="sh-empty-hint">{hint}</div>}
       {actionLabel && (
-        <button type="button" className="sh-empty-btn" onClick={onAction}>
+        <button type="button" className="sh-btn sh-btn--primary sh-empty-btn" onClick={onAction}>
           {actionLabel}
         </button>
       )}

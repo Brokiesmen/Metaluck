@@ -1,4 +1,4 @@
-/** Статические mock-данные для общего UI-слоя (без бэкенда). */
+/** Статические placeholder-данные для общего UI-слоя (без бэкенда). */
 
 export interface StatMock {
   id: string;
@@ -48,6 +48,8 @@ export const mockProfile = {
   joined: 'Joined Mar 2026',
 };
 
+export const mockCategories = ['Lobby', 'Originals', 'Slots', 'Live', 'New', 'Table'];
+
 export const mockStats: StatMock[] = [
   { id: 'balance', label: 'Total balance', value: '1 240 ★', delta: '+8.2%', icon: '💎' },
   { id: 'played', label: 'Games played', value: '312', delta: '+14', icon: '🎮' },
@@ -59,9 +61,11 @@ export const mockGames: GameMock[] = [
   { id: 'cases', title: 'Cases', icon: '📦', subtitle: '2.4k playing', hot: true },
   { id: 'aviator', title: 'Aviator', icon: '✈️', subtitle: '1.1k playing', hot: true },
   { id: 'coinflip', title: 'Coinflip', icon: '🪙', subtitle: '860 playing' },
-  { id: 'mines', title: 'Mine Rush', icon: '💣', subtitle: '540 playing' },
+  { id: 'mines', title: 'Mine Rush', icon: '💣', subtitle: '540 playing', hot: true },
   { id: 'wheel', title: 'Fortune Wheel', icon: '🎡', subtitle: '430 playing' },
   { id: 'blackjack', title: 'Blackjack', icon: '🃏', subtitle: '390 playing' },
+  { id: 'dice', title: 'Dice', icon: '🎲', subtitle: '780 playing' },
+  { id: 'plinko', title: 'Plinko', icon: '🔻', subtitle: '610 playing' },
 ];
 
 export const mockBalances: BalanceMock[] = [
@@ -80,8 +84,25 @@ export const mockRewards: RewardMock[] = [
 export const mockSettings: SettingMock[] = [
   { id: 'notifications', label: 'Push notifications', hint: 'Wins, bonuses, events', kind: 'toggle', value: true },
   { id: 'sound', label: 'Sound effects', kind: 'toggle', value: false },
+  { id: 'hideZero', label: 'Hide zero balances', kind: 'toggle', value: true },
   { id: 'language', label: 'Language', hint: 'English', kind: 'link' },
-  { id: 'theme', label: 'Theme', hint: 'System', kind: 'link' },
+  { id: 'theme', label: 'Theme', hint: 'Dark', kind: 'link' },
   { id: 'wallet', label: 'Linked wallets', hint: 'TON, EVM', kind: 'link' },
   { id: 'about', label: 'About Metaluck', kind: 'link' },
+];
+
+export interface ActivityMock {
+  id: string;
+  game: string;
+  icon: string;
+  when: string;
+  amount: string;
+  win: boolean;
+}
+
+export const mockActivity: ActivityMock[] = [
+  { id: 'a1', game: 'Aviator', icon: '✈️', when: '2m ago', amount: '+120 ★', win: true },
+  { id: 'a2', game: 'Mine Rush', icon: '💣', when: '18m ago', amount: '-40 ★', win: false },
+  { id: 'a3', game: 'Cases', icon: '📦', when: '1h ago', amount: '+310 ★', win: true },
+  { id: 'a4', game: 'Coinflip', icon: '🪙', when: '3h ago', amount: '-25 ★', win: false },
 ];
