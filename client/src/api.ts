@@ -295,6 +295,16 @@ export const api = {
       return d;
     }),
 
+  /** Telegram Mini App: signed initData → web-сессия (Bearer). */
+  authTelegramInitData: (initData: string) =>
+    request<AuthResponse>('/api/auth/telegram/initdata', {
+      method: 'POST',
+      body: JSON.stringify({ initData }),
+    }).then((d) => {
+      setAuthToken(d.token);
+      return d;
+    }),
+
   authRefresh: () =>
     request<AuthResponse>('/api/auth/refresh', { method: 'POST' }).then((d) => {
       setAuthToken(d.token);

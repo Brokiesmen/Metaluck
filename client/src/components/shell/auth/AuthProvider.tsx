@@ -1,39 +1,46 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { AuthContextValue, AuthStatus, AuthUser } from './types';
 import * as auth from './authService';
 
-/** Контекст авторизации — состояние + методы. Никакого UI внутри. */
+/** Контекст авторизации — состояние + методы. Логика в authService (бэкенд). Без UI. */
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [status, setStatus] = useState<AuthStatus>('loading');
+  const userRef = useRef<AuthUser | null>(null);
+  userRef.current = user;
+
+  const apply = useCallback((u: AuthUser | null) => {
+    setUser(u);
+    setStatus(u ? 'authenticated' : 'unauthenticated');
+  }, []);
 
   useEffect(() => {
-    const current = auth.getCurrentUser();
-    setUser(current);
-    setStatus(current ? 'authenticated' : 'unauthenticated');
-  }, []);
+    let alive = true;
+    auth
+      .bootstrap()
+      .then((u) => { if (alive) apply(u); })
+      .catch(() => { if (alive) apply(null); });
+    return () => { alive = false; };
+  }, [apply]);
 
   const loginTelegram = useCallback(async () => {
     const u = await auth.loginTelegram();
-    setUser(u);
-    setStatus('authenticated');
+    apply(u);
     return u;
-  }, []);
+  }, [apply]);
 
   const loginGoogle = useCallback(async () => {
     const u = await auth.loginGoogle();
-    setUser(u);
-    setStatus('authenticated');
+    apply(u);
     return u;
-  }, []);
+  }, [apply]);
 
   const logout = useCallback(() => {
-    auth.logout();
-    setUser(null);
-    setStatus('unauthenticated');
-  }, []);
+    void auth.logout();
+    apply(null);
+  }, [apply]);
 
   const value = useMemo<AuthContextValue>(
     () => ({
@@ -43,7 +50,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       loginTelegram,
       loginGoogle,
       logout,
-      getCurrentUser: auth.getCurrentUser,
+      getCurrentUser: () => userRef.current,
     }),
     [user, status, loginTelegram, loginGoogle, logout],
   );

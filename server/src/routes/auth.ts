@@ -20,6 +20,7 @@ import {
   telegramBotDeepLink,
   webAppPublicUrl,
 } from '../payments/webLogin/telegramChallenge.js';
+import { validateInitData } from '../auth.js';
 import {
   createLoginWalletChallenge,
   consumeLoginWalletChallenge,
@@ -306,6 +307,48 @@ export function registerAuthRoutes(app: FastifyInstance): void {
       return jsonError(reply, 401, 'Wallet authentication failed');
     }
   });
+
+  /**
+   * Telegram Mini App: обмен подписанного initData на web-сессию (Bearer).
+   * Валидирует HMAC (bot token), создаёт/обновляет accounts-запись, выдаёт токен.
+   * Позволяет Mini App-пользователю работать в общем UI-слое как web-сессия.
+   */
+  app.post<{ Body: { initData?: string } }>(
+    '/api/auth/telegram/initdata',
+    {
+      ...authRateLimit,
+      schema: {
+        body: {
+          type: 'object',
+          required: ['initData'],
+          properties: { initData: { type: 'string', minLength: 1, maxLength: 8192 } },
+        },
+      },
+    },
+    async (req, reply) => {
+      try {
+        const initData = String(req.body?.initData ?? '');
+        const result = validateInitData(initData);
+        if (!result.valid || !result.user || !(result.userId > 0)) {
+          return jsonError(reply, 401, 'Invalid Telegram init data');
+        }
+        const u = result.user;
+        const first = String(u.first_name ?? '').trim();
+        const last = String(u.last_name ?? '').trim();
+        const name = [first, last].filter(Boolean).join(' ') || null;
+        const acc = await upsertTelegramAccount({
+          id: result.userId,
+          username: u.username ? String(u.username) : null,
+          name,
+          avatar: u.photo_url ? String(u.photo_url) : null,
+        });
+        return { token: issueSessionToken(acc), user: publicUser(acc) };
+      } catch (err) {
+        req.log.warn({ err: err instanceof Error ? err.message : err }, '[auth] telegram initData failed');
+        return jsonError(reply, 401, 'Telegram authentication failed');
+      }
+    },
+  );
 
   app.post('/api/auth/logout', authRateLimit, async (req: FastifyRequest) => {
     const claims = parseSession(bearerToken(req));
