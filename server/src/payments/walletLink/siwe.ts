@@ -38,6 +38,25 @@ export function buildEvmLinkMessage(opts: {
   ].join('\n');
 }
 
+/** Сообщение для входа через EVM (WalletConnect / MetaMask). */
+export function buildEvmLoginMessage(opts: {
+  address: string;
+  nonce: string;
+  domain: string;
+  issuedAt: string;
+}): string {
+  return [
+    'Metaluck: sign in with this wallet.',
+    '',
+    `Address: ${getAddress(opts.address)}`,
+    `Domain: ${opts.domain}`,
+    `Nonce: ${opts.nonce}`,
+    `Issued At: ${opts.issuedAt}`,
+    '',
+    'Signing is free and does not authorize any transaction.',
+  ].join('\n');
+}
+
 export async function verifyEvmProof(input: EvmProofPayload): Promise<VerifiedEvmWallet> {
   const address = String(input.address ?? '').trim();
   if (!isAddress(address)) throw new Error('bad address');

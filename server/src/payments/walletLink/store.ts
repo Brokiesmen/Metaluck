@@ -143,3 +143,32 @@ export async function deleteLinkedWallet(accountId: number, id: number): Promise
   if (error) throw new Error(`deleteLinkedWallet: ${error.message}`);
   return Boolean(data);
 }
+
+/** Анонимный challenge для входа (account_id = 0). */
+export async function createLoginWalletChallenge(
+  chain: WalletChain,
+): Promise<{ nonce: string; expiresAt: string }> {
+  return createLinkChallenge(0, chain);
+}
+
+export async function consumeLoginWalletChallenge(
+  nonce: string,
+  chain: WalletChain,
+): Promise<boolean> {
+  return consumeLinkChallenge(nonce, 0, chain);
+}
+
+export async function findLinkedWalletByAddress(
+  chain: WalletChain,
+  address: string,
+): Promise<LinkedWallet | null> {
+  const sb = getSupabase();
+  const { data, error } = await sb
+    .from('linked_wallets')
+    .select('*')
+    .eq('chain', chain)
+    .eq('address', address)
+    .maybeSingle();
+  if (error) throw new Error(`findLinkedWalletByAddress: ${error.message}`);
+  return data ? mapWallet(data as Record<string, unknown>) : null;
+}

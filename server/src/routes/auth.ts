@@ -3,6 +3,7 @@ import {
   publicUser,
   upsertTelegramAccount,
   upsertGoogleAccount,
+  upsertWalletAccount,
   verifyGoogleCredential,
   verifyTelegramLogin,
   accountFromRequest,
@@ -19,6 +20,16 @@ import {
   telegramBotDeepLink,
   webAppPublicUrl,
 } from '../payments/webLogin/telegramChallenge.js';
+import {
+  createLoginWalletChallenge,
+  consumeLoginWalletChallenge,
+} from '../payments/walletLink/store.js';
+import { verifyTonProof, type TonProofPayload } from '../payments/walletLink/tonProof.js';
+import {
+  verifyEvmProof,
+  buildEvmLoginMessage,
+  type EvmProofPayload,
+} from '../payments/walletLink/siwe.js';
 
 /**
  * Web-логин (браузер вне Telegram). Bearer в localStorage + Authorization.
@@ -67,10 +78,13 @@ export function registerAuthRoutes(app: FastifyInstance): void {
       googleLoginReady: Boolean(googleClientId && sessionReady),
       webAppUrl: webUrl,
       miniAppPath: String(process.env.TELEGRAM_MINI_APP_PATH ?? 'app').trim() || 'app',
-      // Привязка внешних кошельков (не метод входа):
+      // Привязка внешних кошельков + вход через кошелёк:
       tonManifestUrl: webUrl ? `${webUrl}/tonconnect-manifest.json` : null,
       walletConnectProjectId: walletConnectProjectId || null,
       walletLink: { ton: true, evm: Boolean(walletConnectProjectId) },
+      tonLoginReady: Boolean(sessionReady),
+      evmLoginReady: Boolean(sessionReady), // MetaMask / injected; WC modal needs projectId
+      walletConnectReady: Boolean(walletConnectProjectId && sessionReady),
     };
   });
 
@@ -206,6 +220,92 @@ export function registerAuthRoutes(app: FastifyInstance): void {
       }
     },
   );
+
+  /** Публичный nonce для входа через TON / EVM (без сессии). */
+  app.get<{ Querystring: { chain?: string } }>(
+    '/api/auth/wallet/challenge',
+    authRateLimit,
+    async (req, reply) => {
+      const chain = String(req.query?.chain ?? '').trim();
+      if (chain !== 'ton' && chain !== 'evm') return jsonError(reply, 400, 'bad chain');
+      try {
+        const { nonce, expiresAt } = await createLoginWalletChallenge(chain);
+        return { nonce, expiresAt, chain };
+      } catch (err) {
+        req.log.warn({ err: err instanceof Error ? err.message : err }, '[auth] wallet challenge failed');
+        return jsonError(reply, 500, 'Failed to create wallet challenge');
+      }
+    },
+  );
+
+  /** Текст для personal_sign при входе через EVM. */
+  app.get<{ Querystring: { address?: string; nonce?: string } }>(
+    '/api/auth/wallet/evm/message',
+    authRateLimit,
+    async (req, reply) => {
+      const address = String(req.query?.address ?? '').trim();
+      const nonce = String(req.query?.nonce ?? '').trim();
+      if (!address || !nonce) return jsonError(reply, 400, 'missing params');
+      const domain = (() => {
+        try {
+          return new URL(String(process.env.WEB_APP_URL ?? 'https://metaluck-eight.vercel.app')).host;
+        } catch {
+          return 'metaluck-eight.vercel.app';
+        }
+      })();
+      return {
+        message: buildEvmLoginMessage({
+          address,
+          nonce,
+          domain,
+          issuedAt: new Date().toISOString(),
+        }),
+      };
+    },
+  );
+
+  /** Вход через TON Connect ton_proof. */
+  app.post<{ Body: TonProofPayload }>('/api/auth/ton', authRateLimit, async (req, reply) => {
+    try {
+      const body = req.body;
+      const nonce = String(body?.proof?.payload ?? '');
+      if (!(await consumeLoginWalletChallenge(nonce, 'ton'))) {
+        return jsonError(reply, 400, 'invalid or expired challenge');
+      }
+      const verified = await verifyTonProof(body);
+      const acc = await upsertWalletAccount({
+        chain: 'ton',
+        address: verified.addressRaw,
+        addressDisplay: verified.addressFriendly,
+        publicKey: verified.publicKey,
+      });
+      return { token: issueSessionToken(acc), user: publicUser(acc) };
+    } catch (err) {
+      req.log.warn({ err: err instanceof Error ? err.message : err }, '[auth] ton failed');
+      return jsonError(reply, 401, 'TON authentication failed');
+    }
+  });
+
+  /** Вход через EVM (MetaMask / WalletConnect personal_sign). */
+  app.post<{ Body: EvmProofPayload }>('/api/auth/evm', authRateLimit, async (req, reply) => {
+    try {
+      const body = req.body;
+      const nonce = String(body?.nonce ?? '');
+      if (!(await consumeLoginWalletChallenge(nonce, 'evm'))) {
+        return jsonError(reply, 400, 'invalid or expired challenge');
+      }
+      const verified = await verifyEvmProof(body);
+      const acc = await upsertWalletAccount({
+        chain: 'evm',
+        address: verified.address,
+        addressDisplay: verified.addressDisplay,
+      });
+      return { token: issueSessionToken(acc), user: publicUser(acc) };
+    } catch (err) {
+      req.log.warn({ err: err instanceof Error ? err.message : err }, '[auth] evm failed');
+      return jsonError(reply, 401, 'Wallet authentication failed');
+    }
+  });
 
   app.post('/api/auth/logout', authRateLimit, async (req: FastifyRequest) => {
     const claims = parseSession(bearerToken(req));

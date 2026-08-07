@@ -10,6 +10,7 @@
   "dependencies": {
     "@tonconnect/ui-react": "^3.0.2",
     "@types/canvas-confetti": "^1.9.0",
+    "@walletconnect/ethereum-provider": "^2.21.1",
     "canvas-confetti": "^1.9.4",
     "framer-motion": "^12.38.0",
     "react": "^18.3.1",

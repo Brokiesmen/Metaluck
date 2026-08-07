@@ -447,6 +447,9 @@ export type Dict = {
     miniAppHint: string;
     continueTelegram: string;
     continueGoogle: string;
+    continueTon: string;
+    continueEvm: string;
+    walletError: string;
     or: string;
     openBot: string;
     telegramWaiting: string;
@@ -932,6 +935,9 @@ const ru: Dict = {
     miniAppHint: 'Уже в Telegram? Откройте мини-приложение бота — вход не нужен.',
     continueTelegram: 'Войти через Telegram',
     continueGoogle: 'Войти через Google',
+    continueTon: 'Войти через TON Connect',
+    continueEvm: 'Войти через WalletConnect',
+    walletError: 'Не удалось войти через кошелёк',
     or: 'или',
     openBot: 'Открыть бота в Telegram →',
     telegramWaiting: 'Подтвердите вход в боте — затем вернитесь сюда',
@@ -1417,6 +1423,9 @@ const uk: Dict = {
     miniAppHint: 'Вже в Telegram? Відкрийте міні-застосунок бота — вхід не потрібен.',
     continueTelegram: 'Увійти через Telegram',
     continueGoogle: 'Увійти через Google',
+    continueTon: 'Увійти через TON Connect',
+    continueEvm: 'Увійти через WalletConnect',
+    walletError: 'Не вдалося увійти через гаманець',
     or: 'або',
     openBot: 'Відкрити бота в Telegram →',
     telegramWaiting: 'Підтвердіть вхід у боті — потім поверніться сюди',
@@ -1902,6 +1911,9 @@ const en: Dict = {
     miniAppHint: 'Already in Telegram? Open the mini app — no sign-in needed.',
     continueTelegram: 'Continue with Telegram',
     continueGoogle: 'Continue with Google',
+    continueTon: 'Continue with TON Connect',
+    continueEvm: 'Continue with WalletConnect',
+    walletError: 'Wallet sign-in failed',
     or: 'or',
     openBot: 'Open bot in Telegram →',
     telegramWaiting: 'Confirm in the bot — then return here',
@@ -2387,6 +2399,9 @@ const es: Dict = {
     miniAppHint: '¿Ya estás en Telegram? Abre la mini app — no hace falta entrar.',
     continueTelegram: 'Entrar con Telegram',
     continueGoogle: 'Entrar con Google',
+    continueTon: 'Entrar con TON Connect',
+    continueEvm: 'Entrar con WalletConnect',
+    walletError: 'No se pudo entrar con la billetera',
     or: 'o',
     openBot: 'Abrir el bot en Telegram →',
     telegramWaiting: 'Confirma en el bot — luego vuelve aquí',
@@ -2872,6 +2887,9 @@ const de: Dict = {
     miniAppHint: 'Schon in Telegram? Öffne die Mini-App — keine Anmeldung nötig.',
     continueTelegram: 'Mit Telegram anmelden',
     continueGoogle: 'Mit Google anmelden',
+    continueTon: 'Mit TON Connect anmelden',
+    continueEvm: 'Mit WalletConnect anmelden',
+    walletError: 'Wallet-Anmeldung fehlgeschlagen',
     or: 'oder',
     openBot: 'Bot in Telegram öffnen →',
     telegramWaiting: 'Im Bot bestätigen — dann hierher zurückkehren',

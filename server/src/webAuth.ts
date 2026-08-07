@@ -18,7 +18,7 @@ export interface Account {
   email: string | null;
   username: string | null;
   avatar: string | null;
-  auth_provider: 'telegram' | 'google';
+  auth_provider: 'telegram' | 'google' | 'ton' | 'evm';
   session_version: number;
   created_at: string;
   last_login: string;
@@ -160,7 +160,14 @@ function mapAccount(row: Record<string, unknown>): Account {
     email: row.email == null ? null : String(row.email),
     username: row.username == null ? null : String(row.username),
     avatar: row.avatar == null ? null : String(row.avatar),
-    auth_provider: row.auth_provider === 'google' ? 'google' : 'telegram',
+    auth_provider:
+      row.auth_provider === 'google'
+        ? 'google'
+        : row.auth_provider === 'ton'
+          ? 'ton'
+          : row.auth_provider === 'evm'
+            ? 'evm'
+            : 'telegram',
     session_version: Number(row.session_version ?? 0) || 0,
     created_at: String(row.created_at ?? ''),
     last_login: String(row.last_login ?? ''),
@@ -301,6 +308,96 @@ export async function upsertGoogleAccount(g: {
     .single();
   if (error) throw new Error(`upsertGoogleAccount insert: ${error.message}`);
   return mapAccount(data as Record<string, unknown>);
+}
+
+/**
+ * Вход / регистрация по кошельку (TON или EVM).
+ * Если адрес уже в linked_wallets → логиним связанный аккаунт (создаём accounts при необходимости).
+ * Иначе → новый web-аккаунт + привязка адреса.
+ */
+export async function upsertWalletAccount(input: {
+  chain: 'ton' | 'evm';
+  address: string;
+  addressDisplay?: string | null;
+  publicKey?: string | null;
+}): Promise<Account> {
+  const sb = getSupabase();
+  const { data: linked, error: findErr } = await sb
+    .from('linked_wallets')
+    .select('*')
+    .eq('chain', input.chain)
+    .eq('address', input.address)
+    .maybeSingle();
+  if (findErr) throw new Error(`upsertWalletAccount find: ${findErr.message}`);
+
+  if (linked) {
+    const accountId = Number(linked.account_id);
+    let acc = await getAccountById(accountId);
+    if (!acc) {
+      const short =
+        input.addressDisplay ||
+        (input.address.length > 12
+          ? `${input.address.slice(0, 6)}…${input.address.slice(-4)}`
+          : input.address);
+      const { data, error } = await sb
+        .from('accounts')
+        .insert({
+          id: accountId,
+          username: short,
+          auth_provider: input.chain,
+          session_version: 0,
+          last_login: new Date().toISOString(),
+        })
+        .select('*')
+        .single();
+      if (error) throw new Error(`upsertWalletAccount ensure: ${error.message}`);
+      acc = mapAccount(data as Record<string, unknown>);
+    } else {
+      await touchLastLogin(acc.id);
+      acc = (await getAccountById(acc.id)) ?? acc;
+    }
+    // Обновим display/pubkey
+    await sb
+      .from('linked_wallets')
+      .update({
+        address_display: input.addressDisplay ?? linked.address_display,
+        public_key: input.publicKey ?? linked.public_key,
+        verified_at: new Date().toISOString(),
+      })
+      .eq('id', linked.id);
+    return acc;
+  }
+
+  const id = await nextGoogleAccountId();
+  const short =
+    input.addressDisplay ||
+    (input.address.length > 12
+      ? `${input.address.slice(0, 6)}…${input.address.slice(-4)}`
+      : input.address);
+  const { data, error } = await sb
+    .from('accounts')
+    .insert({
+      id,
+      username: short,
+      auth_provider: input.chain,
+      session_version: 0,
+      last_login: new Date().toISOString(),
+    })
+    .select('*')
+    .single();
+  if (error) throw new Error(`upsertWalletAccount insert: ${error.message}`);
+  const acc = mapAccount(data as Record<string, unknown>);
+
+  const { error: linkErr } = await sb.from('linked_wallets').insert({
+    account_id: acc.id,
+    chain: input.chain,
+    address: input.address,
+    address_display: input.addressDisplay ?? null,
+    public_key: input.publicKey ?? null,
+    verified_at: new Date().toISOString(),
+  });
+  if (linkErr) throw new Error(`upsertWalletAccount link: ${linkErr.message}`);
+  return acc;
 }
 
 let googleClient: OAuth2Client | null = null;

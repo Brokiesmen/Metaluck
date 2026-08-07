@@ -215,11 +215,52 @@ export const api = {
       sessionReady: boolean;
       telegramLoginReady: boolean;
       googleLoginReady: boolean;
+      tonLoginReady?: boolean;
+      evmLoginReady?: boolean;
+      walletConnectReady?: boolean;
       webAppUrl?: string | null;
       tonManifestUrl?: string | null;
       walletConnectProjectId?: string | null;
       walletLink?: { ton: boolean; evm: boolean };
     }>('/api/auth/config'),
+
+  authWalletChallenge: (chain: 'ton' | 'evm') =>
+    request<{ nonce: string; expiresAt: string; chain: string }>(
+      `/api/auth/wallet/challenge?chain=${chain}`,
+    ),
+
+  authWalletEvmMessage: (address: string, nonce: string) =>
+    request<{ message: string }>(
+      `/api/auth/wallet/evm/message?address=${encodeURIComponent(address)}&nonce=${encodeURIComponent(nonce)}`,
+    ),
+
+  authTon: (body: {
+    address: string;
+    network?: string;
+    publicKey?: string;
+    proof: {
+      timestamp: number;
+      domain: { lengthBytes?: number; value: string };
+      signature: string;
+      payload: string;
+    };
+  }) =>
+    request<AuthResponse>('/api/auth/ton', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }).then((d) => {
+      setAuthToken(d.token);
+      return d;
+    }),
+
+  authEvm: (body: { address: string; message: string; signature: string; nonce: string }) =>
+    request<AuthResponse>('/api/auth/evm', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }).then((d) => {
+      setAuthToken(d.token);
+      return d;
+    }),
 
   authTelegramStart: () =>
     request<{

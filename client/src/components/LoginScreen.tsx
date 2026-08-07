@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
+import { useTonConnectUI } from '@tonconnect/ui-react';
 import { api, setAuthToken } from '../api';
 import type { WebUser } from '../types';
 import { useSettings } from '../settings/SettingsContext';
 import { StarIcon } from './StarIcon';
+import { connectEvmWallet } from '../lib/evmLogin';
 
 interface Props {
   onLogin: (user: WebUser) => void;
@@ -14,6 +16,9 @@ type AuthConfig = {
   sessionReady: boolean;
   telegramLoginReady: boolean;
   googleLoginReady: boolean;
+  tonLoginReady: boolean;
+  evmLoginReady: boolean;
+  walletConnectProjectId: string | null;
 };
 
 function loadScript(src: string): Promise<void> {
@@ -32,19 +37,30 @@ function loadScript(src: string): Promise<void> {
   });
 }
 
-function resolveConfig(remote: AuthConfig | null): AuthConfig {
+function resolveConfig(
+  remote: (Partial<AuthConfig> & {
+    tonLoginReady?: boolean;
+    evmLoginReady?: boolean;
+    walletConnectProjectId?: string | null;
+  }) | null,
+): AuthConfig {
   const viteTg = String(import.meta.env.VITE_TELEGRAM_BOT_USERNAME ?? '')
     .trim()
     .replace(/^@/, '');
   const viteGoogle = String(import.meta.env.VITE_GOOGLE_CLIENT_ID ?? '').trim();
+  const viteWc = String(import.meta.env.VITE_WALLETCONNECT_PROJECT_ID ?? '').trim();
   const telegramBot = remote?.telegramBot || viteTg || null;
   const googleClientId = remote?.googleClientId || viteGoogle || null;
+  const walletConnectProjectId = remote?.walletConnectProjectId || viteWc || null;
   return {
     telegramBot,
     googleClientId,
     sessionReady: remote?.sessionReady ?? true,
     telegramLoginReady: remote?.telegramLoginReady ?? Boolean(telegramBot),
     googleLoginReady: remote?.googleLoginReady ?? Boolean(googleClientId),
+    tonLoginReady: remote?.tonLoginReady ?? remote?.sessionReady ?? true,
+    evmLoginReady: remote?.evmLoginReady ?? remote?.sessionReady ?? true,
+    walletConnectProjectId,
   };
 }
 
@@ -73,14 +89,16 @@ function clearAuthQuery() {
 
 export function LoginScreen({ onLogin }: Props) {
   const { t } = useSettings();
+  const [tonConnectUI] = useTonConnectUI();
   const [config, setConfig] = useState<AuthConfig | null>(null);
   const [configError, setConfigError] = useState(false);
-  const [busy, setBusy] = useState<null | 'google' | 'telegram'>(null);
+  const [busy, setBusy] = useState<null | 'google' | 'telegram' | 'ton' | 'evm'>(null);
   const [tgWaiting, setTgWaiting] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [googleReady, setGoogleReady] = useState(false);
   const googleBtnRef = useRef<HTMLDivElement>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const tonLoginRef = useRef(false);
 
   const finish = (res: { token: string; user: WebUser }) => {
     if (pollRef.current) {
@@ -144,7 +162,6 @@ export function LoginScreen({ onLogin }: Props) {
     };
   }, []);
 
-  // Return from bot button ?auth=tg&c=...
   useEffect(() => {
     const fromUrl = readChallengeFromUrl();
     if (!fromUrl) return;
@@ -155,9 +172,40 @@ export function LoginScreen({ onLogin }: Props) {
 
   useEffect(() => () => stopPolling(), []);
 
+  // TON Connect → server login after ton_proof
+  useEffect(() => {
+    return tonConnectUI.onStatusChange(async (w) => {
+      if (!w || !tonLoginRef.current) return;
+      const proofItem = w.connectItems?.tonProof;
+      if (!proofItem || !('proof' in proofItem)) {
+        tonLoginRef.current = false;
+        setBusy(null);
+        setErr(t.auth.walletError);
+        void tonConnectUI.disconnect().catch(() => {});
+        return;
+      }
+      tonLoginRef.current = false;
+      setBusy('ton');
+      setErr(null);
+      try {
+        const res = await api.authTon({
+          address: w.account.address,
+          network: w.account.chain,
+          publicKey: w.account.publicKey,
+          proof: proofItem.proof,
+        });
+        finish(res);
+      } catch (e) {
+        setErr(e instanceof Error ? e.message : t.auth.walletError);
+      } finally {
+        setBusy(null);
+        void tonConnectUI.disconnect().catch(() => {});
+      }
+    });
+  }, [tonConnectUI, t.auth.walletError]);
+
   const cfg = config;
 
-  // ── Google Identity Services — official button (custom click + hidden iframe is unreliable) ──
   useEffect(() => {
     if (!cfg?.googleClientId || !cfg.googleLoginReady) return;
     let cancelled = false;
@@ -171,7 +219,6 @@ export function LoginScreen({ onLogin }: Props) {
         ux_mode: 'popup',
         auto_select: false,
         cancel_on_tap_outside: true,
-        // FedCM often blocks One Tap / synthetic clicks in desktop Chrome.
         use_fedcm_for_prompt: false,
         callback: (resp) => {
           if (!resp?.credential) {
@@ -201,7 +248,6 @@ export function LoginScreen({ onLogin }: Props) {
 
     loadScript('https://accounts.google.com/gsi/client')
       .then(() => {
-        // Ref is ready after paint of the holder.
         requestAnimationFrame(mount);
       })
       .catch(() => setErr(t.auth.googleError));
@@ -225,7 +271,63 @@ export function LoginScreen({ onLogin }: Props) {
     }
   };
 
+  const startTon = async () => {
+    if (!cfg?.tonLoginReady) return;
+    setErr(null);
+    setBusy('ton');
+    try {
+      tonConnectUI.setConnectRequestParameters({ state: 'loading' });
+      const { nonce } = await api.authWalletChallenge('ton');
+      tonConnectUI.setConnectRequestParameters({ state: 'ready', value: { tonProof: nonce } });
+      tonLoginRef.current = true;
+      if (tonConnectUI.connected) await tonConnectUI.disconnect();
+      await tonConnectUI.openModal();
+      setBusy(null);
+    } catch (e) {
+      tonLoginRef.current = false;
+      tonConnectUI.setConnectRequestParameters(null);
+      setBusy(null);
+      setErr(e instanceof Error ? e.message : t.auth.walletError);
+    }
+  };
+
+  const startEvm = async () => {
+    if (!cfg?.evmLoginReady) return;
+    setBusy('evm');
+    setErr(null);
+    let cleanup: (() => Promise<void>) | null = null;
+    try {
+      const session = await connectEvmWallet({ projectId: cfg.walletConnectProjectId });
+      cleanup = session.cleanup;
+      const { nonce } = await api.authWalletChallenge('evm');
+      const { message } = await api.authWalletEvmMessage(session.address, nonce);
+      const signature = await session.signMessage(message);
+      const res = await api.authEvm({
+        address: session.address,
+        message,
+        signature,
+        nonce,
+      });
+      finish(res);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : '';
+      if (msg === 'NO_WALLET' || msg === 'NO_INJECTED') {
+        setErr(
+          cfg.walletConnectProjectId
+            ? t.auth.walletError
+            : 'Установите MetaMask или задайте WALLETCONNECT_PROJECT_ID',
+        );
+      } else {
+        setErr(msg || t.auth.walletError);
+      }
+    } finally {
+      setBusy(null);
+      if (cleanup) await cleanup().catch(() => {});
+    }
+  };
+
   const loading = !cfg;
+  const anyBusy = busy != null;
 
   return (
     <div className="login-screen">
@@ -256,7 +358,7 @@ export function LoginScreen({ onLogin }: Props) {
                   <button
                     type="button"
                     className="login-provider-btn login-provider-btn--telegram"
-                    disabled={busy === 'telegram'}
+                    disabled={anyBusy}
                     onClick={() => void startTelegram()}
                   >
                     <TelegramGlyph />
@@ -290,6 +392,42 @@ export function LoginScreen({ onLogin }: Props) {
                 <div className="login-disabled">{t.auth.googleUnavailable}</div>
               )}
             </div>
+
+            {(cfg.tonLoginReady || cfg.evmLoginReady) && (
+              <>
+                <div className="login-divider">
+                  <span>{t.auth.or}</span>
+                </div>
+
+                {cfg.tonLoginReady && (
+                  <div className="login-method">
+                    <button
+                      type="button"
+                      className="login-provider-btn login-provider-btn--ton"
+                      disabled={anyBusy}
+                      onClick={() => void startTon()}
+                    >
+                      <TonGlyph />
+                      <span>{t.auth.continueTon}</span>
+                    </button>
+                  </div>
+                )}
+
+                {cfg.evmLoginReady && (
+                  <div className="login-method">
+                    <button
+                      type="button"
+                      className="login-provider-btn login-provider-btn--evm"
+                      disabled={anyBusy}
+                      onClick={() => void startEvm()}
+                    >
+                      <WcGlyph />
+                      <span>{t.auth.continueEvm}</span>
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
           </div>
         )}
 
@@ -324,3 +462,24 @@ function TelegramGlyph() {
   );
 }
 
+function TonGlyph() {
+  return (
+    <svg className="login-provider-icon" viewBox="0 0 56 56" aria-hidden>
+      <path
+        fill="currentColor"
+        d="M28 8c-2.2 0-4 .5-4.9 1.3L9.2 20.6c-1.6 1.3-.3 3.8 1.8 3.5l15.4-1.9c.9-.1 1.8-.1 2.7 0l15.4 1.9c2.1.3 3.4-2.2 1.8-3.5L32.9 9.3C32 8.5 30.2 8 28 8zm-1.6 18.3-1.1 16.2c-.1 1.5 1.7 2.4 2.8 1.4l13.5-12.2c1.4-1.3.4-3.6-1.5-3.5l-13.7.1zm-2.3 16.2-1.1-16.2-13.7-.1c-1.9-.1-2.9 2.2-1.5 3.5l13.5 12.2c1.1 1 2.9.1 2.8-1.4z"
+      />
+    </svg>
+  );
+}
+
+function WcGlyph() {
+  return (
+    <svg className="login-provider-icon" viewBox="0 0 24 24" aria-hidden>
+      <path
+        fill="currentColor"
+        d="M6.5 9.3c3.5-3.4 9.1-3.4 12.6 0l.4.4c.2.2.2.5 0 .6l-1.4 1.4c-.1.1-.3.1-.4 0l-.6-.6c-2.4-2.4-6.4-2.4-8.8 0l-.6.6c-.1.1-.3.1-.4 0L5.9 10.3c-.2-.2-.2-.5 0-.6l.6-.4zm15.6 2.9 1.3 1.3c.2.2.2.5 0 .6l-5.7 5.6c-.2.2-.5.2-.7 0l-4-4c-.1 0-.1 0-.2 0s-.1 0-.2 0l-4 4c-.2.2-.5.2-.7 0L1.5 14.1c-.2-.2-.2-.5 0-.6l1.3-1.3c.2-.2.5-.2.7 0l4 4c.1 0 .1 0 .2 0s.1 0 .2 0l4-4c.2-.2.5-.2.7 0l4 4c.1 0 .1 0 .2 0s.1 0 .2 0l4-4c.1-.1.4-.1.6 0z"
+      />
+    </svg>
+  );
+}

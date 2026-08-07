@@ -6101,6 +6101,18 @@ html[data-theme="light"] .tab-bar {
   border-color: rgba(255, 255, 255, 0.12);
   box-shadow: 0 8px 22px rgba(34, 158, 217, 0.28);
 }
+.login-provider-btn--ton {
+  color: #fff;
+  background: linear-gradient(180deg, #1a9fff 0%, #0098ea 100%);
+  border-color: rgba(255, 255, 255, 0.12);
+  box-shadow: 0 8px 22px rgba(0, 152, 234, 0.28);
+}
+.login-provider-btn--evm {
+  color: #fff;
+  background: linear-gradient(180deg, #4aa8ff 0%, #3b99fc 100%);
+  border-color: rgba(255, 255, 255, 0.12);
+  box-shadow: 0 8px 22px rgba(59, 153, 252, 0.28);
+}
 .login-provider-btn--google {
   color: #f2f2f2;
   background: rgba(255, 255, 255, 0.06);

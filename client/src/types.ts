@@ -249,7 +249,7 @@ export interface WebUser {
   email: string | null;
   username: string | null;
   avatar: string | null;
-  authProvider: 'telegram' | 'google';
+  authProvider: 'telegram' | 'google' | 'ton' | 'evm';
 }
 
 export interface AuthResponse {
