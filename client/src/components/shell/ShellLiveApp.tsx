@@ -31,7 +31,7 @@ function sectionToNavId(section: AppSection): NavId {
 }
 
 function formatBalance(n: number): string {
-  return `${Math.floor(n).toLocaleString('ru-RU')} ★`;
+  return Math.floor(n).toLocaleString('ru-RU');
 }
 
 function LiveAuthGate({

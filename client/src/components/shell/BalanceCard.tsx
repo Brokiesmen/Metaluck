@@ -1,3 +1,5 @@
+import { StarIcon } from '../StarIcon';
+
 interface Props {
   code: string;
   name: string;
@@ -11,7 +13,9 @@ export function BalanceCard({ code, name, amount, fiat, icon, onClick }: Props) 
   return (
     <div className="sh-card sh-balance" onClick={onClick} role={onClick ? 'button' : undefined}>
       <div className="sh-balance-left">
-        <span className="sh-balance-icon" aria-hidden>{icon}</span>
+        <span className="sh-balance-icon" aria-hidden>
+          {code === 'STARS' ? <StarIcon size={20} animate={false} glow={false} /> : icon}
+        </span>
         <div className="sh-balance-meta">
           <span className="sh-balance-code">{code}</span>
           <span className="sh-balance-name">{name}</span>

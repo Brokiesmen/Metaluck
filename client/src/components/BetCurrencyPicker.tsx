@@ -1,6 +1,7 @@
 import type { WalletCurrency } from '../types';
 import { currencyLabel, useWagerCurrency } from '../hooks/useWagerCurrency';
 import { useSettings } from '../settings/SettingsContext';
+import { StarIcon } from './StarIcon';
 
 interface Props {
   className?: string;
@@ -26,7 +27,11 @@ export function BetCurrencyPicker({ className = '', disabled }: Props) {
             className={`bet-currency-chip${currency === code ? ' bet-currency-chip--on' : ''}`}
             onClick={() => setCurrency(code)}
           >
-            {currencyLabel(code)}
+            {code === 'STARS' ? (
+              <StarIcon size={14} animate={false} glow={false} />
+            ) : (
+              currencyLabel(code)
+            )}
           </button>
         ))}
       </div>

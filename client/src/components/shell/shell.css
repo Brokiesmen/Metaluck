@@ -239,10 +239,12 @@ button.sh-topbar-balance {
 }
 button.sh-sidebar-item { width: 100%; }
 button.sh-topbar-balance {
+  display: inline-flex; align-items: center; gap: 6px;
   font-size: 13px; font-weight: 700; color: var(--c-green);
   background: var(--c-surface); border: 1px solid var(--c-border);
   padding: 6px 12px; border-radius: 999px;
 }
+.sh-topbar-balance-amt { line-height: 1; }
 button.sh-topbar-balance:disabled { cursor: default; }
 .sh-topbar-avatar--img { object-fit: cover; }
 
@@ -302,7 +304,7 @@ button.sh-topbar-balance:disabled { cursor: default; }
 }
 .sh-hero-text { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
 .sh-hero-kicker { color: var(--c-green); font-size: 12px; font-weight: 800; letter-spacing: 0.6px; text-transform: uppercase; }
-.sh-hero-title { margin: 0; font-size: 22px; font-weight: 800; }
+.sh-hero-title { margin: 0; font-size: 22px; font-weight: 800; display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .sh-hero-title--amount { font-size: 30px; }
 .sh-hero-sub { margin: 0; color: var(--c-muted); font-size: 13px; }
 .sh-hero-actions { display: flex; gap: 10px; margin-top: 4px; }
@@ -432,7 +434,7 @@ button.sh-topbar-balance:disabled { cursor: default; }
 .sh-activity-meta { display: flex; flex-direction: column; flex: 1; min-width: 0; }
 .sh-activity-game { font-weight: 700; font-size: 14px; }
 .sh-activity-when { color: var(--c-muted); font-size: 12px; }
-.sh-activity-amount { font-weight: 800; font-size: 14px; color: var(--c-red); }
+.sh-activity-amount { font-weight: 800; font-size: 14px; color: var(--c-red); display: inline-flex; align-items: center; gap: 4px; }
 .sh-activity-amount--win { color: var(--c-green); }
 
 /* ── EmptyState ────────────────────────────────────────────────── */

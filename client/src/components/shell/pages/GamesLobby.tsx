@@ -4,6 +4,7 @@ import { SectionHeader } from '../SectionHeader';
 import { GameCard } from '../GameCard';
 import { StatCard } from '../StatCard';
 import { mockGames, mockStats, mockCategories } from '../mockData';
+import { StarIcon } from '../../StarIcon';
 
 export function GamesLobby() {
   const [category, setCategory] = useState('Lobby');
@@ -15,7 +16,9 @@ export function GamesLobby() {
       <section className="sh-hero">
         <div className="sh-hero-text">
           <span className="sh-hero-kicker">Welcome bonus</span>
-          <h2 className="sh-hero-title">Get 200% up to 500 ★</h2>
+          <h2 className="sh-hero-title">
+            Get 200% up to 500 <StarIcon size={22} animate={false} glow={false} />
+          </h2>
           <p className="sh-hero-sub">Deposit today and double your first play.</p>
           <button type="button" className="sh-btn sh-btn--primary">Claim bonus</button>
         </div>

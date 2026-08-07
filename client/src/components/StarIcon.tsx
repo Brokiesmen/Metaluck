@@ -1,5 +1,3 @@
-import { useId } from 'react';
-
 interface Props {
   size?: number;
   animate?: boolean;
@@ -7,74 +5,44 @@ interface Props {
   glow?: boolean;
 }
 
-/**
- * Silhouette matches the ⭐ emoji (Twemoji 2b50 path, CC-BY 4.0) — the same family of shape
- * Telegram uses next to Star balances in the ecosystem.
- */
+/** In-app stars currency mark — fixed silhouette, solid gold fill. */
 const STAR_PATH =
-  'M27.287 34.627c-.404 0-.806-.124-1.152-.371L18 28.422l-8.135 5.834c-.693.496-1.623.496-2.312-.008-.689-.499-.979-1.385-.721-2.194l3.034-9.792-8.062-5.681c-.685-.505-.97-1.393-.708-2.203.264-.808 1.016-1.357 1.866-1.363L12.947 13l3.179-9.549c.268-.809 1.023-1.353 1.874-1.353.851 0 1.606.545 1.875 1.353L23 13l10.036.015c.853.006 1.606.556 1.867 1.363.263.81-.022 1.698-.708 2.203l-8.062 5.681 3.034 9.792c.26.809-.033 1.695-.72 2.194-.347.254-.753.379-1.16.379z';
+  'M6.63869 12.1902L3.50621 14.1092C3.18049 14.3087 2.75468 14.2064 2.55515 13.8807C2.45769 13.7216 2.42864 13.5299 2.47457 13.3491L2.95948 11.4405C3.13452 10.7515 3.60599 10.1756 4.24682 9.86791L7.6642 8.22716C7.82352 8.15067 7.89067 7.95951 7.81418 7.80019C7.75223 7.67116 7.61214 7.59896 7.47111 7.62338L3.66713 8.28194C2.89387 8.41581 2.1009 8.20228 1.49941 7.69823L0.297703 6.69116C0.00493565 6.44581 -0.0335059 6.00958 0.211842 5.71682C0.33117 5.57442 0.502766 5.48602 0.687982 5.47153L4.35956 5.18419C4.61895 5.16389 4.845 4.99974 4.94458 4.75937L6.36101 1.3402C6.5072 0.987302 6.91179 0.819734 7.26469 0.965925C7.43413 1.03612 7.56876 1.17075 7.63896 1.3402L9.05539 4.75937C9.15496 4.99974 9.38101 5.16389 9.6404 5.18419L13.3322 5.47311C13.713 5.50291 13.9975 5.83578 13.9677 6.2166C13.9534 6.39979 13.8667 6.56975 13.7269 6.68896L10.9114 9.08928C10.7131 9.25826 10.6267 9.52425 10.6876 9.77748L11.5532 13.3733C11.6426 13.7447 11.414 14.1182 11.0427 14.2076C10.8642 14.2506 10.676 14.2208 10.5195 14.1249L7.36128 12.1902C7.13956 12.0544 6.8604 12.0544 6.63869 12.1902Z';
 
-const VB = 36;
-const CX = 18;
-const CY = 18;
-const S = 100 / VB;
+const STAR_GOLD = '#FFD700';
+const VB_W = 14;
+const VB_H = 15;
 
 export function StarIcon({ size = 20, animate = true, glow = true }: Props) {
-  const uid = useId().replace(/:/g, '');
-  const id = `sg_${uid}`;
-  const g = `translate(${50} ${50}) scale(${S}) translate(${-CX} ${-CY})`;
+  const height = Math.round((size * VB_H) / VB_W);
 
   return (
-    <span className={`tg-star-wrap${animate ? ' tg-star-animated' : ''}`}
-      style={{ width: size, height: size }}>
-
+    <span
+      className={`tg-star-wrap${animate ? ' tg-star-animated' : ''}`}
+      style={{ width: size, height }}
+      aria-hidden
+    >
       {glow ? (
-        <span className="tg-star-glow" style={{
-          width: size * 1.55, height: size * 1.55,
-          top: -(size * 0.28), left: -(size * 0.28),
-        }} />
+        <span
+          className="tg-star-glow"
+          style={{
+            width: size * 1.55,
+            height: size * 1.55,
+            top: -(size * 0.28),
+            left: -(size * 0.28),
+          }}
+        />
       ) : null}
 
-      <svg className="tg-star-svg" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"
-        style={{ width: size, height: size }}>
-        <defs>
-          <radialGradient id={`${id}_fill`} cx="38%" cy="32%" r="78%" gradientUnits="objectBoundingBox">
-            <stop offset="0%"   stopColor="#FFE082" />
-            <stop offset="35%"  stopColor="#FFCA28" />
-            <stop offset="72%"  stopColor="#FFA000" />
-            <stop offset="100%" stopColor="#E65100" />
-          </radialGradient>
-          <radialGradient id={`${id}_shine`} cx="32%" cy="28%" r="38%">
-            <stop offset="0%"   stopColor="#FFFFFF" stopOpacity="0.5" />
-            <stop offset="100%" stopColor="#FFFFFF" stopOpacity="0" />
-          </radialGradient>
-          <clipPath id={`${id}_clip`} clipPathUnits="userSpaceOnUse">
-            <g transform={g}>
-              <path d={STAR_PATH} />
-            </g>
-          </clipPath>
-        </defs>
-
-        <g transform={g}>
-          <path d={STAR_PATH} fill={`url(#${id}_fill)`} />
-          <path d={STAR_PATH} fill={`url(#${id}_shine)`} />
-        </g>
-
-        {animate && (
-          <g transform="rotate(-20 50 50)">
-            <rect
-              y="-18"
-              width="26"
-              height="136"
-              rx="13"
-              fill="rgba(255,255,255,0.24)"
-              clipPath={`url(#${id}_clip)`}
-            >
-              <animate attributeName="x" values="-48;92;92;-48" keyTimes="0;0.42;0.58;1" dur="3.4s" repeatCount="indefinite" />
-              <animate attributeName="opacity" values="0;0.95;0.95;0;0" keyTimes="0;0.06;0.44;0.52;1" dur="3.4s" repeatCount="indefinite" />
-            </rect>
-          </g>
-        )}
+      <svg
+        className="tg-star-svg"
+        width={size}
+        height={height}
+        viewBox={`0 0 ${VB_W} ${VB_H}`}
+        xmlns="http://www.w3.org/2000/svg"
+        focusable="false"
+      >
+        <path fillRule="evenodd" clipRule="evenodd" d={STAR_PATH} fill={STAR_GOLD} />
       </svg>
     </span>
   );

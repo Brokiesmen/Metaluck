@@ -3,32 +3,6 @@
  * мягкий «пластиковый» 3D-золото, звезда = тот же силуэт, что у TG Stars.
  */
 
-type Pt = { x: number; y: number };
-
-function polar(cx: number, cy: number, r: number, deg: number): Pt {
-  const rad = (deg * Math.PI) / 180;
-  return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
-}
-
-function fmt(pts: Pt[]): string {
-  return pts.map((p) => `${p.x.toFixed(2)},${p.y.toFixed(2)}`).join(' ');
-}
-
-function starPoints(cx: number, cy: number, outerR: number, innerR: number, count = 5, startDeg = -90): Pt[] {
-  const pts: Pt[] = [];
-  const step = 360 / (count * 2);
-  for (let i = 0; i < count * 2; i++) {
-    pts.push(polar(cx, cy, i % 2 === 0 ? outerR : innerR, startDeg + i * step));
-  }
-  return pts;
-}
-
-/** Twemoji ⭐ / Telegram Stars silhouette (viewBox 0..36 → scale to 100). */
-const TG_STAR_PATH =
-  'M27.287 34.627c-.404 0-.806-.124-1.152-.371L18 28.422l-8.135 5.834c-.693.496-1.623.496-2.312-.008-.689-.499-.979-1.385-.721-2.194l3.034-9.792-8.062-5.681c-.685-.505-.97-1.393-.708-2.203.264-.808 1.016-1.357 1.866-1.363L12.947 13l3.179-9.549c.268-.809 1.023-1.353 1.874-1.353.851 0 1.606.545 1.875 1.353L23 13l10.036.015c.853.006 1.606.556 1.867 1.363.263.81-.022 1.698-.708 2.203l-8.062 5.681 3.034 9.792c.26.809-.033 1.695-.72 2.194-.347.254-.753.379-1.16.379z';
-
-const TG_STAR_TRANSFORM = 'translate(50 50) scale(2.35) translate(-18 -18)';
-
 let uid = 0;
 function nextId(prefix: string): string {
   uid += 1;
@@ -90,30 +64,21 @@ export function EagleCrest() {
   );
 }
 
-/** Звезда Telegram Stars — тот же силуэт и палитра, что в StarIcon. */
+/** Звезда валюты — тот же силуэт и золото, что в StarIcon. */
 export function StarCrest() {
-  const id = nextId('star');
   return (
-    <svg viewBox="0 0 100 100" className="cf-crest cf-crest--star" aria-hidden focusable="false">
-      <defs>
-        <radialGradient id={`${id}_fill`} cx="38%" cy="32%" r="78%" gradientUnits="objectBoundingBox">
-          <stop offset="0%" stopColor="#FFE082" />
-          <stop offset="35%" stopColor="#FFCA28" />
-          <stop offset="72%" stopColor="#FFA000" />
-          <stop offset="100%" stopColor="#E65100" />
-        </radialGradient>
-        <radialGradient id={`${id}_shine`} cx="32%" cy="28%" r="42%">
-          <stop offset="0%" stopColor="#FFFFFF" stopOpacity="0.55" />
-          <stop offset="100%" stopColor="#FFFFFF" stopOpacity="0" />
-        </radialGradient>
-        <filter id={`${id}_soft`} x="-25%" y="-25%" width="150%" height="150%">
-          <feDropShadow dx="0" dy="1.5" stdDeviation="1.4" floodColor="#E65100" floodOpacity="0.4" />
-        </filter>
-      </defs>
-      <g transform={TG_STAR_TRANSFORM} filter={`url(#${id}_soft)`}>
-        <path d={TG_STAR_PATH} fill={`url(#${id}_fill)`} />
-        <path d={TG_STAR_PATH} fill={`url(#${id}_shine)`} />
-      </g>
+    <svg
+      viewBox="0 0 14 15"
+      className="cf-crest cf-crest--star"
+      aria-hidden
+      focusable="false"
+    >
+      <path
+        fillRule="evenodd"
+        clipRule="evenodd"
+        d="M6.63869 12.1902L3.50621 14.1092C3.18049 14.3087 2.75468 14.2064 2.55515 13.8807C2.45769 13.7216 2.42864 13.5299 2.47457 13.3491L2.95948 11.4405C3.13452 10.7515 3.60599 10.1756 4.24682 9.86791L7.6642 8.22716C7.82352 8.15067 7.89067 7.95951 7.81418 7.80019C7.75223 7.67116 7.61214 7.59896 7.47111 7.62338L3.66713 8.28194C2.89387 8.41581 2.1009 8.20228 1.49941 7.69823L0.297703 6.69116C0.00493565 6.44581 -0.0335059 6.00958 0.211842 5.71682C0.33117 5.57442 0.502766 5.48602 0.687982 5.47153L4.35956 5.18419C4.61895 5.16389 4.845 4.99974 4.94458 4.75937L6.36101 1.3402C6.5072 0.987302 6.91179 0.819734 7.26469 0.965925C7.43413 1.03612 7.56876 1.17075 7.63896 1.3402L9.05539 4.75937C9.15496 4.99974 9.38101 5.16389 9.6404 5.18419L13.3322 5.47311C13.713 5.50291 13.9975 5.83578 13.9677 6.2166C13.9534 6.39979 13.8667 6.56975 13.7269 6.68896L10.9114 9.08928C10.7131 9.25826 10.6267 9.52425 10.6876 9.77748L11.5532 13.3733C11.6426 13.7447 11.414 14.1182 11.0427 14.2076C10.8642 14.2506 10.676 14.2208 10.5195 14.1249L7.36128 12.1902C7.13956 12.0544 6.8604 12.0544 6.63869 12.1902Z"
+        fill="#FFD700"
+      />
     </svg>
   );
 }
@@ -139,15 +104,13 @@ export function EagleBadge() {
 
 export function StarBadge() {
   return (
-    <svg viewBox="0 0 24 24" className="cf-side-icon" aria-hidden focusable="false">
-      <defs>
-        <radialGradient id="cf_sb_g" cx="38%" cy="32%" r="78%">
-          <stop offset="0%" stopColor="#FFE082" />
-          <stop offset="55%" stopColor="#FFCA28" />
-          <stop offset="100%" stopColor="#FF8F00" />
-        </radialGradient>
-      </defs>
-      <polygon points={fmt(starPoints(12, 12, 9.2, 4))} fill="url(#cf_sb_g)" />
+    <svg viewBox="0 0 14 15" className="cf-side-icon" aria-hidden focusable="false">
+      <path
+        fillRule="evenodd"
+        clipRule="evenodd"
+        d="M6.63869 12.1902L3.50621 14.1092C3.18049 14.3087 2.75468 14.2064 2.55515 13.8807C2.45769 13.7216 2.42864 13.5299 2.47457 13.3491L2.95948 11.4405C3.13452 10.7515 3.60599 10.1756 4.24682 9.86791L7.6642 8.22716C7.82352 8.15067 7.89067 7.95951 7.81418 7.80019C7.75223 7.67116 7.61214 7.59896 7.47111 7.62338L3.66713 8.28194C2.89387 8.41581 2.1009 8.20228 1.49941 7.69823L0.297703 6.69116C0.00493565 6.44581 -0.0335059 6.00958 0.211842 5.71682C0.33117 5.57442 0.502766 5.48602 0.687982 5.47153L4.35956 5.18419C4.61895 5.16389 4.845 4.99974 4.94458 4.75937L6.36101 1.3402C6.5072 0.987302 6.91179 0.819734 7.26469 0.965925C7.43413 1.03612 7.56876 1.17075 7.63896 1.3402L9.05539 4.75937C9.15496 4.99974 9.38101 5.16389 9.6404 5.18419L13.3322 5.47311C13.713 5.50291 13.9975 5.83578 13.9677 6.2166C13.9534 6.39979 13.8667 6.56975 13.7269 6.68896L10.9114 9.08928C10.7131 9.25826 10.6267 9.52425 10.6876 9.77748L11.5532 13.3733C11.6426 13.7447 11.414 14.1182 11.0427 14.2076C10.8642 14.2506 10.676 14.2208 10.5195 14.1249L7.36128 12.1902C7.13956 12.0544 6.8604 12.0544 6.63869 12.1902Z"
+        fill="#FFD700"
+      />
     </svg>
   );
 }

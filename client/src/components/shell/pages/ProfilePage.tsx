@@ -2,6 +2,7 @@ import { PageHeader } from '../PageHeader';
 import { SectionHeader } from '../SectionHeader';
 import { StatCard } from '../StatCard';
 import { EmptyState } from '../EmptyState';
+import { StarIcon } from '../../StarIcon';
 import { mockProfile, mockStats, mockActivity } from '../mockData';
 
 export function ProfilePage() {
@@ -38,7 +39,7 @@ export function ProfilePage() {
                 <span className="sh-activity-when">{a.when}</span>
               </div>
               <span className={`sh-activity-amount${a.win ? ' sh-activity-amount--win' : ''}`}>
-                {a.amount}
+                {a.amount} <StarIcon size={12} animate={false} glow={false} />
               </span>
             </div>
           ))}

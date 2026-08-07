@@ -51,7 +51,7 @@ export const mockProfile = {
 export const mockCategories = ['Lobby', 'Originals', 'Slots', 'Live', 'New', 'Table'];
 
 export const mockStats: StatMock[] = [
-  { id: 'balance', label: 'Total balance', value: '1 240 ★', delta: '+8.2%', icon: '💎' },
+  { id: 'balance', label: 'Total balance', value: '1 240', delta: '+8.2%', icon: '💎' },
   { id: 'played', label: 'Games played', value: '312', delta: '+14', icon: '🎮' },
   { id: 'wins', label: 'Win rate', value: '57%', delta: '+3%', icon: '📈' },
   { id: 'streak', label: 'Daily streak', value: '6 days', icon: '🔥' },
@@ -69,15 +69,15 @@ export const mockGames: GameMock[] = [
 ];
 
 export const mockBalances: BalanceMock[] = [
-  { code: 'STARS', name: 'Telegram Stars', amount: '1 240', fiat: '≈ $18.60', icon: '★' },
+  { code: 'STARS', name: 'Telegram Stars', amount: '1 240', fiat: '≈ $18.60', icon: 'star' },
   { code: 'TON', name: 'Toncoin', amount: '3.42', fiat: '≈ $17.10', icon: '💎' },
   { code: 'USDT', name: 'Tether (TON)', amount: '25.00', fiat: '≈ $25.00', icon: '₮' },
 ];
 
 export const mockRewards: RewardMock[] = [
-  { id: 'daily', title: 'Daily bonus', hint: 'Claim 50 ★ today', status: 'available', icon: '🎁' },
+  { id: 'daily', title: 'Daily bonus', hint: 'Claim 50 stars today', status: 'available', icon: '🎁' },
   { id: 'wheel', title: 'Free wheel spin', hint: 'Ready to spin', status: 'available', icon: '🎡' },
-  { id: 'referral', title: 'Invite a friend', hint: '+100 ★ per invite', status: 'locked', icon: '🤝' },
+  { id: 'referral', title: 'Invite a friend', hint: '+100 stars per invite', status: 'locked', icon: '🤝' },
   { id: 'weekly', title: 'Weekly chest', hint: 'Claimed 2h ago', status: 'claimed', icon: '🧰' },
 ];
 
@@ -101,8 +101,8 @@ export interface ActivityMock {
 }
 
 export const mockActivity: ActivityMock[] = [
-  { id: 'a1', game: 'Aviator', icon: '✈️', when: '2m ago', amount: '+120 ★', win: true },
-  { id: 'a2', game: 'Mine Rush', icon: '💣', when: '18m ago', amount: '-40 ★', win: false },
-  { id: 'a3', game: 'Cases', icon: '📦', when: '1h ago', amount: '+310 ★', win: true },
-  { id: 'a4', game: 'Coinflip', icon: '🪙', when: '3h ago', amount: '-25 ★', win: false },
+  { id: 'a1', game: 'Aviator', icon: '✈️', when: '2m ago', amount: '+120', win: true },
+  { id: 'a2', game: 'Mine Rush', icon: '💣', when: '18m ago', amount: '-40', win: false },
+  { id: 'a3', game: 'Cases', icon: '📦', when: '1h ago', amount: '+310', win: true },
+  { id: 'a4', game: 'Coinflip', icon: '🪙', when: '3h ago', amount: '-25', win: false },
 ];

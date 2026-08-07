@@ -4,6 +4,7 @@ import { api } from '../api';
 import { GIFT_IMAGES, RARITY } from '../data';
 import { ResultModal } from './ResultModal';
 import { FortuneWheel } from './FortuneWheel';
+import { StarIcon } from './StarIcon';
 import { useSettings } from '../settings/SettingsContext';
 import { tf } from '../i18n/tf';
 import type { Case, Prize } from '../types';
@@ -219,11 +220,17 @@ function DailyCalendar({ onBalanceUpdate }: { onBalanceUpdate: (b: number) => vo
                 <div className="daily-cal-check">✓</div>
               ) : (
                 <div className="daily-cal-icon" style={{ color: reward.color }}>
-                  {reward.type === 'gift' ? '🎁' : '⭐'}
+                  {reward.type === 'gift' ? '🎁' : <StarIcon size={18} animate={false} glow={false} />}
                 </div>
               )}
               <div className="daily-cal-label">
-                {reward.type === 'gift' ? t.daily.gift : '1★'}
+                {reward.type === 'gift' ? (
+                  t.daily.gift
+                ) : (
+                  <>
+                    1 <StarIcon size={12} animate={false} glow={false} />
+                  </>
+                )}
               </div>
             </div>
           );

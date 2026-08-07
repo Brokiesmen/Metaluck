@@ -95,7 +95,7 @@ export function WalletScreen({ onBalanceUpdate, openInvoice, isTelegram }: Props
 
       <div className="wallet-actions">
         <button type="button" className="topup-inline-btn" onClick={() => setShowTopUp(true)}>
-          {t.wallet.deposit} ★
+          {t.wallet.deposit} <StarIcon size={14} animate={false} glow={false} />
         </button>
         <button
           type="button"
@@ -103,7 +103,7 @@ export function WalletScreen({ onBalanceUpdate, openInvoice, isTelegram }: Props
           disabled={!canWithdrawStars}
           onClick={() => setShowWithdraw(true)}
         >
-          {t.wallet.withdraw} ★
+          {t.wallet.withdraw} <StarIcon size={14} animate={false} glow={false} />
         </button>
         <button type="button" className="wallet-exchange-btn" onClick={() => setShowExchange(true)}>
           {t.wallet.exchange}

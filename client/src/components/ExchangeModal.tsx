@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '../api';
 import { ModalShell } from './ModalShell';
+import { StarIcon } from './StarIcon';
 import { useSettings } from '../settings/SettingsContext';
 import type { ExchangeQuote, WalletBalance, WalletCurrency } from '../types';
 
@@ -18,7 +19,7 @@ interface Props {
 const CURRENCIES: WalletCurrency[] = ['STARS', 'TON', 'USDT_TON'];
 
 function label(code: WalletCurrency): string {
-  if (code === 'STARS') return '★ Stars';
+  if (code === 'STARS') return 'Stars';
   if (code === 'TON') return 'TON';
   return 'USDT';
 }
@@ -191,7 +192,7 @@ export function ExchangeModal({
 
           <div className="wallet-ex-flow-list">
             <button type="button" className="topup-inline-btn" onClick={() => applyFlow('ton_stars')}>
-              TON → ★
+              TON → <StarIcon size={14} animate={false} glow={false} />
             </button>
             <button type="button" className="topup-inline-btn" onClick={() => applyFlow('usdt_ton')}>
               USDT → TON

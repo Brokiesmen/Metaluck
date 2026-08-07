@@ -43,7 +43,7 @@ export function useWagerCurrency() {
 }
 
 export function currencyLabel(code: WalletCurrency): string {
-  if (code === 'STARS') return '★';
+  if (code === 'STARS') return 'Stars';
   if (code === 'TON') return 'TON';
   return 'USDT';
 }

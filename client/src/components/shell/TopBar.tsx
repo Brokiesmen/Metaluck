@@ -1,5 +1,6 @@
 import { mockProfile } from './mockData';
 import { useAuth } from './auth/AuthProvider';
+import { StarIcon } from '../StarIcon';
 
 interface Props {
   title: string;
@@ -60,7 +61,8 @@ function TopBarView({
             onClick={onBalanceClick}
             disabled={!onBalanceClick}
           >
-            {balanceText}
+            <span className="sh-topbar-balance-amt">{balanceText}</span>
+            <StarIcon size={14} animate={false} glow={false} />
           </button>
         )}
 
@@ -95,7 +97,7 @@ function TopBarPreview(props: Props) {
       showBalance={props.showBalance}
       compact={props.compact}
       onMenu={props.onMenu}
-      balanceText="1 240 ★"
+      balanceText="1 240"
       username={username}
       avatar={avatar}
       onBalanceClick={props.onBalanceClick}
@@ -114,7 +116,7 @@ export function TopBar(props: Props) {
         showBalance={props.showBalance}
         compact={props.compact}
         onMenu={props.onMenu}
-        balanceText={props.balanceLabel ?? '0 ★'}
+        balanceText={props.balanceLabel ?? '0'}
         username={props.userName ?? mockProfile.name}
         avatar={props.userAvatar}
         onBalanceClick={props.onBalanceClick}
