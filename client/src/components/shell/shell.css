@@ -159,6 +159,26 @@
 .sh-bottomnav-icon { font-size: 19px; }
 .sh-bottomnav-label { letter-spacing: 0.2px; }
 
+button.sh-sidebar-item,
+button.sh-bottomnav-item,
+button.sh-topbar-balance {
+  appearance: none;
+  background: none;
+  border: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  text-align: inherit;
+}
+button.sh-sidebar-item { width: 100%; }
+button.sh-topbar-balance {
+  font-size: 13px; font-weight: 700; color: var(--c-green);
+  background: var(--c-surface); border: 1px solid var(--c-border);
+  padding: 6px 12px; border-radius: 999px;
+}
+button.sh-topbar-balance:disabled { cursor: default; }
+.sh-topbar-avatar--img { object-fit: cover; }
+
 /* ── Cards & grids ─────────────────────────────────────────────── */
 .sh-card {
   background: var(--c-surface);

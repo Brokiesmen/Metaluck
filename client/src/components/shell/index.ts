@@ -16,6 +16,7 @@ export { RewardCard } from './RewardCard';
 export { SettingRow } from './SettingRow';
 export { EmptyState } from './EmptyState';
 export { ShellDemo } from './ShellDemo';
+export { ShellLiveApp } from './ShellLiveApp';
 export { useTelegramWebApp, haptic, getWebApp, isTelegramWebApp, type TelegramState } from './telegram';
 export { AuthProvider, useAuth } from './auth/AuthProvider';
 export { LoginScreen } from './LoginScreen';

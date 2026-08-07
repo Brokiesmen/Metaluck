@@ -1,4 +1,4 @@
-import { StrictMode } from 'react';
+import { StrictMode, type ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { TonConnectUIProvider } from '@tonconnect/ui-react';
 import './index.css';
@@ -31,19 +31,34 @@ if (import.meta.env.DEV) {
 // TON Connect manifest отдаётся из /public (Vercel/vite). Кошельки его фетчат.
 const tonManifestUrl = `${window.location.origin}/tonconnect-manifest.json`;
 
-// Превью общего UI-слоя: /?shell=preview (&platform=telegram|desktop). Не влияет на боевой поток.
+/**
+ * UI modes (rollback-friendly):
+ * - default on this branch → new shell live UI (ShellLiveApp)
+ * - ?ui=legacy → previous App shell
+ * - ?shell=preview → mock shell demo
+ */
 const params = new URLSearchParams(window.location.search);
 const shellPreview = params.get('shell') === 'preview';
+const useLegacy = params.get('ui') === 'legacy';
 const forcedPlatform = params.get('platform');
 const forced = forcedPlatform === 'telegram' || forcedPlatform === 'desktop' ? forcedPlatform : undefined;
 
 const root = createRoot(document.getElementById('root')!);
 
+function withProviders(node: ReactNode) {
+  return (
+    <StrictMode>
+      <TonConnectUIProvider manifestUrl={tonManifestUrl}>
+        <SettingsProvider>{node}</SettingsProvider>
+      </TonConnectUIProvider>
+    </StrictMode>
+  );
+}
+
 // Превью-аффорданс: /?shell=preview&tgmock=1 подставляет Telegram-личность
 // ДО старта React, чтобы продемонстрировать Mini App skip-login. Только превью.
 if (shellPreview && params.get('tgmock') === '1') {
   const noop = () => {};
-  // Заменяем объект целиком (у реального SDK initDataUnsafe — getter-only).
   window.Telegram = {
     WebApp: {
       initData: 'mock',
@@ -58,7 +73,6 @@ if (shellPreview && params.get('tgmock') === '1') {
 }
 
 if (shellPreview) {
-  // Ленивая загрузка, чтобы shell-слой не попадал в основной бандл.
   void import('./components/shell').then(({ ShellDemo }) => {
     root.render(
       <StrictMode>
@@ -66,14 +80,10 @@ if (shellPreview) {
       </StrictMode>,
     );
   });
+} else if (useLegacy) {
+  root.render(withProviders(<App />));
 } else {
-  root.render(
-    <StrictMode>
-      <TonConnectUIProvider manifestUrl={tonManifestUrl}>
-        <SettingsProvider>
-          <App />
-        </SettingsProvider>
-      </TonConnectUIProvider>
-    </StrictMode>,
-  );
+  void import('./components/shell').then(({ ShellLiveApp }) => {
+    root.render(withProviders(<ShellLiveApp force={forced} />));
+  });
 }

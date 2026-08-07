@@ -7,14 +7,41 @@ interface Props {
   /** Компактный вариант для Telegram (скрывает username). */
   compact?: boolean;
   onMenu?: () => void;
+  /** Live mode overrides (skip mock/auth fallbacks). */
+  balanceLabel?: string;
+  userName?: string;
+  userAvatar?: string | null;
+  onBalanceClick?: () => void;
+  onSettings?: () => void;
 }
 
-/** Общий TopBar: аватар, username, баланс, уведомления. Один компонент для обоих shell'ов. */
-export function TopBar({ title, showBalance = true, compact = false, onMenu }: Props) {
-  const { user } = useAuth();
-  const username = user?.username ?? mockProfile.name;
-  // Аватар из auth только если это emoji (демо); URL-аватары тут не рендерим.
-  const avatar = user?.avatar && user.avatar.length <= 4 ? user.avatar : mockProfile.avatar;
+function isEmojiAvatar(value: string | null | undefined): boolean {
+  return Boolean(value && value.length <= 4 && !/^https?:\/\//i.test(value));
+}
+
+function TopBarView({
+  title,
+  showBalance = true,
+  compact = false,
+  onMenu,
+  balanceText,
+  username,
+  avatar,
+  onBalanceClick,
+  onSettings,
+}: {
+  title: string;
+  showBalance?: boolean;
+  compact?: boolean;
+  onMenu?: () => void;
+  balanceText: string;
+  username: string;
+  avatar: string | null | undefined;
+  onBalanceClick?: () => void;
+  onSettings?: () => void;
+}) {
+  const emoji = isEmojiAvatar(avatar) ? avatar : null;
+  const avatarUrl = avatar && !emoji ? avatar : null;
 
   return (
     <header className={`sh-topbar${compact ? ' sh-topbar--compact' : ''}`}>
@@ -26,18 +53,74 @@ export function TopBar({ title, showBalance = true, compact = false, onMenu }: P
       <span className="sh-topbar-title">{title}</span>
 
       <div className="sh-topbar-right">
-        {showBalance && <span className="sh-topbar-balance">1 240 ★</span>}
+        {showBalance && (
+          <button
+            type="button"
+            className="sh-topbar-balance"
+            onClick={onBalanceClick}
+            disabled={!onBalanceClick}
+          >
+            {balanceText}
+          </button>
+        )}
 
-        <button type="button" className="sh-topbar-bell" aria-label="Notifications">
-          <span aria-hidden>🔔</span>
-          <span className="sh-topbar-bell-dot" aria-hidden />
-        </button>
+        {onSettings && (
+          <button type="button" className="sh-topbar-bell" aria-label="Settings" onClick={onSettings}>
+            <span aria-hidden>⚙️</span>
+          </button>
+        )}
 
         <div className="sh-topbar-user">
-          <span className="sh-topbar-avatar" aria-hidden>{avatar}</span>
-          <span className="sh-topbar-username">{username}</span>
+          {avatarUrl ? (
+            <img className="sh-topbar-avatar sh-topbar-avatar--img" src={avatarUrl} alt="" />
+          ) : (
+            <span className="sh-topbar-avatar" aria-hidden>{emoji || '✦'}</span>
+          )}
+          {!compact && <span className="sh-topbar-username">{username}</span>}
         </div>
       </div>
     </header>
   );
+}
+
+function TopBarPreview(props: Props) {
+  const { user } = useAuth();
+  const username = user?.username ?? mockProfile.name;
+  const avatar =
+    user?.avatar && isEmojiAvatar(user.avatar) ? user.avatar : mockProfile.avatar;
+
+  return (
+    <TopBarView
+      title={props.title}
+      showBalance={props.showBalance}
+      compact={props.compact}
+      onMenu={props.onMenu}
+      balanceText="1 240 ★"
+      username={username}
+      avatar={avatar}
+      onBalanceClick={props.onBalanceClick}
+      onSettings={props.onSettings}
+    />
+  );
+}
+
+/** Общий TopBar: аватар, username, баланс. Один компонент для обоих shell'ов. */
+export function TopBar(props: Props) {
+  const live = props.balanceLabel != null || props.userName != null;
+  if (live) {
+    return (
+      <TopBarView
+        title={props.title}
+        showBalance={props.showBalance}
+        compact={props.compact}
+        onMenu={props.onMenu}
+        balanceText={props.balanceLabel ?? '0 ★'}
+        username={props.userName ?? mockProfile.name}
+        avatar={props.userAvatar}
+        onBalanceClick={props.onBalanceClick}
+        onSettings={props.onSettings}
+      />
+    );
+  }
+  return <TopBarPreview {...props} />;
 }
