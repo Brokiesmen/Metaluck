@@ -6118,6 +6118,7 @@ html[data-theme="light"] .tab-bar {
   background: rgba(255, 255, 255, 0.06);
   border-color: rgba(255, 255, 255, 0.14);
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
+  width: 100%;
 }
 .login-provider-icon {
   width: 22px;
@@ -6132,27 +6133,42 @@ html[data-theme="light"] .tab-bar {
   text-align: center;
 }
 .login-google-wrap {
+  position: relative;
   width: 100%;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 8px;
+  align-items: stretch;
 }
-.login-tg-holder,
-.login-google-holder {
-  min-height: 44px;
-  width: 100%;
-  max-width: 320px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
+.login-google-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  overflow: hidden;
+  opacity: 0.02;
+  border-radius: inherit;
 }
-.login-google-holder--busy {
-  opacity: 0.55;
+.login-google-overlay--busy {
   pointer-events: none;
 }
-.login-google-holder iframe {
-  margin: 0 auto !important;
+.login-google-overlay > div,
+.login-google-overlay iframe {
+  width: 100% !important;
+  height: 100% !important;
+  min-width: 100% !important;
+  min-height: 48px !important;
+  transform: scale(1.05);
+  transform-origin: center center;
+}
+.login-google-loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 3;
+  background: rgba(0, 0, 0, 0.35);
+  border-radius: 14px;
+  pointer-events: none;
 }
 .login-disabled {
   font-size: 13px;
