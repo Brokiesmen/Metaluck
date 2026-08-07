@@ -3,12 +3,13 @@ import { mockProfile } from './mockData';
 interface Props {
   title: string;
   showBalance?: boolean;
+  compact?: boolean;
   onMenu?: () => void;
 }
 
-export function TopBar({ title, showBalance = true, onMenu }: Props) {
+export function TopBar({ title, showBalance = true, compact = false, onMenu }: Props) {
   return (
-    <header className="sh-topbar">
+    <header className={`sh-topbar${compact ? ' sh-topbar--compact' : ''}`}>
       {onMenu && (
         <button type="button" className="sh-topbar-menu" aria-label="Menu" onClick={onMenu}>
           ☰

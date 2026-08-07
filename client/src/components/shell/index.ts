@@ -16,6 +16,7 @@ export { RewardCard } from './RewardCard';
 export { SettingRow } from './SettingRow';
 export { EmptyState } from './EmptyState';
 export { ShellDemo } from './ShellDemo';
+export { useTelegramWebApp, haptic, getWebApp, isTelegramWebApp, type TelegramState } from './telegram';
 export { GamesLobby } from './pages/GamesLobby';
 export { ProfilePage } from './pages/ProfilePage';
 export { BalancePage } from './pages/BalancePage';

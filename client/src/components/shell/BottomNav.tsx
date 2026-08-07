@@ -1,5 +1,6 @@
 import { NavLink } from 'react-router-dom';
 import { navItems } from './navItems';
+import { haptic } from './telegram';
 
 /** Мобильная навигация. Тот же общий navItems, что и Sidebar. */
 export function BottomNav() {
@@ -10,6 +11,7 @@ export function BottomNav() {
           key={item.id}
           to={item.path}
           end={item.path === '/'}
+          onClick={() => haptic.selection()}
           className={({ isActive }) =>
             `sh-bottomnav-item${isActive ? ' sh-bottomnav-item--on' : ''}`
           }
