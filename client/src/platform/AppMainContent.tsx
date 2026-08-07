@@ -39,6 +39,7 @@ export function AppMainContent({ session, nav }: Props) {
     openInvoice,
     updateBalance,
     reloadCases,
+    openSettings,
   } = session;
 
   const {
@@ -142,6 +143,7 @@ export function AppMainContent({ session, nav }: Props) {
       isDev={isDev}
       isAdmin={isAdmin}
       onOpenAdmin={openAdmin}
+      onOpenSettings={openSettings}
       onBalanceUpdate={updateBalance}
       openInvoice={openInvoice}
       isTelegram={isTelegramWebApp}

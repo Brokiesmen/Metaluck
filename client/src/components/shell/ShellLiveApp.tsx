@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from 'react';
+import { useMemo, type ReactNode } from 'react';
 import { LoginScreen } from '../LoginScreen';
 import { SettingsModal } from '../SettingsModal';
 import {
@@ -16,12 +16,11 @@ import { TelegramShell } from './TelegramShell';
 import type { NavId } from './navItems';
 import './shell.css';
 
-function navIdToSection(id: NavId): AppSection | 'settings' {
-  if (id === 'lobby') return 'games';
+function navIdToSection(id: NavId): AppSection {
   if (id === 'balance') return 'wallet';
   if (id === 'rewards') return 'rewards';
   if (id === 'profile') return 'profile';
-  return 'settings';
+  return 'games';
 }
 
 function sectionToNavId(section: AppSection): NavId {
@@ -84,7 +83,6 @@ function ShellLiveInner({
   force?: Platform;
 }) {
   const nav = useAppNavigation(session.isDesktopWeb ? 'home' : 'games');
-  const [showSettingsLocal, setShowSettingsLocal] = useState(false);
 
   const {
     isDemo,
@@ -95,7 +93,6 @@ function ShellLiveInner({
     t,
     logout,
     showSettings,
-    openSettings,
     closeSettings,
     client,
     isTelegramWebApp,
@@ -103,16 +100,6 @@ function ShellLiveInner({
 
   const useTelegramChrome =
     force === 'telegram' ? true : force === 'desktop' ? false : isTelegramWebApp;
-
-  const settingsOpen = showSettings || showSettingsLocal;
-  const closeAllSettings = () => {
-    closeSettings();
-    setShowSettingsLocal(false);
-  };
-  const openAllSettings = () => {
-    openSettings();
-    setShowSettingsLocal(true);
-  };
 
   const title = resolveHeaderTitle(t, {
     section: nav.section,
@@ -124,12 +111,7 @@ function ShellLiveInner({
   const pageClass = `page-content${pageContentModifier(nav.section, nav.gameView)}`;
 
   const onNavigate = (id: NavId) => {
-    const target = navIdToSection(id);
-    if (target === 'settings') {
-      openAllSettings();
-      return;
-    }
-    nav.goSection(target);
+    nav.goSection(navIdToSection(id));
   };
 
   const onLogout = () => {
@@ -153,7 +135,6 @@ function ShellLiveInner({
         onNavigate={onNavigate}
         onDeposit={() => nav.goSection('wallet')}
         onLogout={onLogout}
-        onSettings={openAllSettings}
       >
         {isDemo && (
           <div className="demo-banner" role="status">
@@ -167,7 +148,7 @@ function ShellLiveInner({
         </div>
       </Shell>
 
-      {settingsOpen && <SettingsModal onClose={closeAllSettings} />}
+      {showSettings && <SettingsModal onClose={closeSettings} />}
     </div>
   );
 }

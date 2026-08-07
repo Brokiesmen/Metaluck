@@ -1,7 +1,7 @@
 /**
  * Единый конфиг навигации + маршрутов. Один источник для Sidebar, BottomNav и роутера.
  */
-export type NavId = 'lobby' | 'profile' | 'balance' | 'rewards' | 'settings';
+export type NavId = 'lobby' | 'balance' | 'rewards' | 'profile';
 
 export interface NavItem {
   id: NavId;
@@ -14,7 +14,6 @@ export const navItems: NavItem[] = [
   { id: 'lobby', path: '/', label: 'Games', icon: '🎮' },
   { id: 'balance', path: '/balance', label: 'Balance', icon: '💰' },
   { id: 'rewards', path: '/rewards', label: 'Rewards', icon: '🎁' },
-  { id: 'settings', path: '/settings', label: 'Settings', icon: '⚙️' },
   { id: 'profile', path: '/profile', label: 'Profile', icon: '👤' },
 ];
 

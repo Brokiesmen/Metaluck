@@ -9,7 +9,6 @@ import { GamesLobby } from './pages/GamesLobby';
 import { ProfilePage } from './pages/ProfilePage';
 import { BalancePage } from './pages/BalancePage';
 import { RewardsPage } from './pages/RewardsPage';
-import { SettingsPage } from './pages/SettingsPage';
 
 /**
  * Гейт авторизации (UI-слой поверх независимого AuthProvider):
@@ -30,7 +29,7 @@ function AuthGate({ children }: { children: ReactNode }) {
 
 /**
  * Общий UI-слой как приложение. Авторизация независима от UI (AuthProvider),
- * маршруты /, /profile, /balance, /rewards, /settings.
+ * маршруты /, /profile, /balance, /rewards.
  */
 export function ShellDemo({ force }: { force?: Platform }) {
   return (
@@ -44,7 +43,6 @@ export function ShellDemo({ force }: { force?: Platform }) {
                 <Route path="/profile" element={<ProfilePage />} />
                 <Route path="/balance" element={<BalancePage />} />
                 <Route path="/rewards" element={<RewardsPage />} />
-                <Route path="/settings" element={<SettingsPage />} />
               </Route>
             </Routes>
           </BrowserRouter>

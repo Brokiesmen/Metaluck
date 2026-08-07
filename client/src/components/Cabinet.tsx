@@ -17,6 +17,7 @@ interface Props {
   isDev: boolean;
   isAdmin?: boolean;
   onOpenAdmin?: () => void;
+  onOpenSettings?: () => void;
   onBalanceUpdate: (b: number) => void;
   openInvoice?: (url: string, cb?: (status: 'paid' | 'cancelled' | 'failed' | 'pending') => void) => void;
   isTelegram: boolean;
@@ -103,7 +104,7 @@ function writeCache(items: HistoryEntry[]) {
   try { localStorage.setItem(CACHE_KEY, JSON.stringify(items.slice(0, 60))); } catch {}
 }
 
-export function Cabinet({ user, balance, isDev, isAdmin, onOpenAdmin, onBalanceUpdate, openInvoice, isTelegram, tg }: Props) {
+export function Cabinet({ user, balance, isDev, isAdmin, onOpenAdmin, onOpenSettings, onBalanceUpdate, openInvoice, isTelegram, tg }: Props) {
   const { t, locale } = useSettings();
   const [history, setHistory]     = useState<HistoryEntry[]>(() => readCache());
   const [historyFresh, setFresh]  = useState(false);
@@ -289,6 +290,16 @@ export function Cabinet({ user, balance, isDev, isAdmin, onOpenAdmin, onBalanceU
           <button type="button" className="rules-inline-btn" onClick={() => setShowRules(true)}>
             {t.rules.button}
           </button>
+          {onOpenSettings && (
+            <button
+              type="button"
+              className="rules-inline-btn"
+              onClick={onOpenSettings}
+              aria-label={t.settings.ariaOpen}
+            >
+              ⚙️ {t.settings.title}
+            </button>
+          )}
           {isAdmin && onOpenAdmin && (
             <button type="button" className="rules-inline-btn admin-open-btn" onClick={onOpenAdmin}>
               {t.admin.open}
