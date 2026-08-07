@@ -57,14 +57,20 @@ export function registerAuthRoutes(app: FastifyInstance): void {
     const sessionReady =
       Boolean(String(process.env.SESSION_SECRET ?? '').trim()) ||
       process.env.NODE_ENV !== 'production';
+    const walletConnectProjectId = String(process.env.WALLETCONNECT_PROJECT_ID ?? '').trim();
+    const webUrl = webAppPublicUrl();
     return {
       telegramBot: telegramBot || null,
       googleClientId: googleClientId || null,
       sessionReady,
       telegramLoginReady: Boolean(telegramBot && botToken && sessionReady),
       googleLoginReady: Boolean(googleClientId && sessionReady),
-      webAppUrl: webAppPublicUrl(),
+      webAppUrl: webUrl,
       miniAppPath: String(process.env.TELEGRAM_MINI_APP_PATH ?? 'app').trim() || 'app',
+      // Привязка внешних кошельков (не метод входа):
+      tonManifestUrl: webUrl ? `${webUrl}/tonconnect-manifest.json` : null,
+      walletConnectProjectId: walletConnectProjectId || null,
+      walletLink: { ton: true, evm: Boolean(walletConnectProjectId) },
     };
   });
 

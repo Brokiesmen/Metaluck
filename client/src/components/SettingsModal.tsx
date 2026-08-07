@@ -1,6 +1,7 @@
 import { LANG_OPTIONS, type AppLanguage, type AppTheme } from '../settings/types';
 import { useSettings } from '../settings/SettingsContext';
 import { ModalShell } from './ModalShell';
+import { WalletLinkPanel } from './WalletLinkPanel';
 
 interface Props {
   onClose: () => void;
@@ -71,6 +72,10 @@ export function SettingsModal({ onClose }: Props) {
             {t.settings.dark}
           </button>
         </div>
+      </section>
+
+      <section className="settings-section">
+        <WalletLinkPanel />
       </section>
 
       <button type="button" className="tg-btn settings-close modal-action" onClick={onClose}>

@@ -1,5 +1,6 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
+import { TonConnectUIProvider } from '@tonconnect/ui-react';
 import './index.css';
 import { App } from './App';
 import { applyTheme } from './settings/applyTheme';
@@ -27,10 +28,15 @@ if (import.meta.env.DEV) {
   };
 }
 
+// TON Connect manifest отдаётся из /public (Vercel/vite). Кошельки его фетчат.
+const tonManifestUrl = `${window.location.origin}/tonconnect-manifest.json`;
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <SettingsProvider>
-      <App />
-    </SettingsProvider>
+    <TonConnectUIProvider manifestUrl={tonManifestUrl}>
+      <SettingsProvider>
+        <App />
+      </SettingsProvider>
+    </TonConnectUIProvider>
   </StrictMode>,
 );

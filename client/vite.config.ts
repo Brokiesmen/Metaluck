@@ -25,10 +25,16 @@ export default defineConfig(({ mode }) => {
   ],
   resolve: {
     extensions: ['.tsx', '.ts', '.jsx', '.mjs', '.js', '.json'],
+    // Единственная копия React (иначе @tonconnect/ui-react ловит "Invalid hook call").
+    dedupe: ['react', 'react-dom'],
     alias: {
       // jsnext:main → src/ (CSS-modules, не собирается в Vite). Весь пакет → lib/ (UMD + main.css)
       'react-playing-cards': path.resolve(__dirname, 'node_modules/react-playing-cards/lib'),
     },
+  },
+  optimizeDeps: {
+    // Общая копия React для @tonconnect/ui-react (иначе "Invalid hook call").
+    include: ['react', 'react-dom', 'react/jsx-runtime', '@tonconnect/ui-react'],
   },
   build: {
     // target управляется plugin-legacy — явно не указываем

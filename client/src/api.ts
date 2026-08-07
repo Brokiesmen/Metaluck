@@ -193,6 +193,13 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   return data as T;
 }
 
+export interface LinkedWalletView {
+  id: number;
+  chain: 'ton' | 'evm';
+  address: string;
+  verifiedAt: string;
+}
+
 export const api = {
   // ── Web auth ───────────────────────────────────────────────────────────────
   authMe: () =>
@@ -209,6 +216,9 @@ export const api = {
       telegramLoginReady: boolean;
       googleLoginReady: boolean;
       webAppUrl?: string | null;
+      tonManifestUrl?: string | null;
+      walletConnectProjectId?: string | null;
+      walletLink?: { ton: boolean; evm: boolean };
     }>('/api/auth/config'),
 
   authTelegramStart: () =>
@@ -254,6 +264,45 @@ export const api = {
     request<{ ok: boolean }>('/api/auth/logout', { method: 'POST' }).finally(() => {
       setAuthToken(null);
     }),
+
+  // ── Wallet linking (привязка внешнего кошелька, не вход) ──────────────────────
+  walletLinkList: () =>
+    request<{ wallets: LinkedWalletView[]; evmEnabled: boolean }>('/api/wallet-link'),
+
+  walletLinkChallenge: (chain: 'ton' | 'evm') =>
+    request<{ nonce: string; expiresAt: string }>(
+      `/api/wallet-link/challenge?chain=${chain}`,
+    ),
+
+  walletLinkTon: (body: {
+    address: string;
+    network?: string;
+    publicKey?: string;
+    proof: {
+      timestamp: number;
+      domain: { lengthBytes?: number; value: string };
+      signature: string;
+      payload: string;
+    };
+  }) =>
+    request<{ wallet: LinkedWalletView }>('/api/wallet-link/ton', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+
+  walletLinkEvmMessage: (address: string, nonce: string) =>
+    request<{ message: string }>(
+      `/api/wallet-link/evm/message?address=${encodeURIComponent(address)}&nonce=${encodeURIComponent(nonce)}`,
+    ),
+
+  walletLinkEvm: (body: { address: string; message: string; signature: string; nonce: string }) =>
+    request<{ wallet: LinkedWalletView }>('/api/wallet-link/evm', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+
+  walletUnlink: (id: number) =>
+    request<{ ok: boolean }>(`/api/wallet-link/${id}`, { method: 'DELETE' }),
 
   getBalance: () =>
     request<{ balance: number }>('/api/balance').then(d => d.balance),

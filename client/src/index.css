@@ -6748,3 +6748,18 @@ html[data-client="desktop_web"] .desk-page > * {
   border-color: rgba(255,255,255,0.28);
 }
 .wallet-ledger-amt--out { color: #e85d5d; }
+
+/* ── Wallet linking (SettingsModal) ─────────────────────────── */
+.wallet-link { display: flex; flex-direction: column; gap: 10px; }
+.wallet-link-title { font-size: 15px; font-weight: 700; margin: 0; }
+.wallet-link-sub { font-size: 12px; opacity: 0.65; margin: 0 0 4px; }
+.wallet-link-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; border-radius: 12px; background: rgba(127,127,127,0.08); }
+.wallet-link-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.wallet-link-chain { font-size: 13px; font-weight: 600; }
+.wallet-link-addr { font-size: 12px; font-variant-numeric: tabular-nums; opacity: 0.9; }
+.wallet-link-addr--muted { opacity: 0.5; }
+.wallet-link-btn { border: 0; border-radius: 10px; padding: 8px 14px; font-size: 13px; font-weight: 600; cursor: pointer; background: #2f9bff; color: #fff; }
+.wallet-link-btn:disabled { opacity: 0.5; cursor: default; }
+.wallet-link-btn--ghost { background: rgba(127,127,127,0.18); color: inherit; }
+.wallet-link-status { font-size: 12px; opacity: 0.7; }
+.wallet-link-error { font-size: 12px; color: #ff6b6b; }

@@ -37,6 +37,7 @@ import { registerDepositRoutes } from './routes/deposit.js';
 import { registerExchangeRoutes } from './routes/exchange.js';
 import { registerAdminPaymentRoutes } from './routes/adminPayments.js';
 import { registerCryptoWalletRoutes } from './routes/cryptoWallet.js';
+import { registerWalletLinkRoutes } from './routes/walletLink.js';
 import { registerTelegramRoutes } from './routes/telegram.js';
 import { startRatesAutoRefresh } from './payments/rates/index.js';
 import { getRatesRefreshMs } from './payments/hub/index.js';
@@ -190,6 +191,7 @@ registerDepositRoutes(app, { getUserId });
 registerExchangeRoutes(app, { getUserId });
 registerAdminPaymentRoutes(app, { getUserId });
 registerCryptoWalletRoutes(app, { getUserId });
+registerWalletLinkRoutes(app, { getUserId });
 registerTelegramRoutes(app);
 
 startRatesAutoRefresh(await getRatesRefreshMs().catch(() => 60_000));
