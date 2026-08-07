@@ -417,15 +417,35 @@ export const api = {
       statuses?: string[];
     }>('/api/crypto/status'),
 
+  /** TON / USDT_TON balances (alias of wallet slice). Prefer getWallet for full snapshot. */
+  getCryptoBalance: () =>
+    request<{
+      network: 'ton';
+      enabled: boolean;
+      balances: Array<{
+        currency: 'TON' | 'USDT_TON';
+        available: number;
+        locked: number;
+        decimals: number;
+        displaySymbol: string;
+      }>;
+    }>('/api/crypto/balance'),
+
+  /** Combined deposits + withdrawals. */
+  getCryptoHistory: (limit = 40) =>
+    request<{
+      deposits: CryptoChainDeposit[];
+      withdrawals: CryptoWithdrawal[];
+      network: 'ton';
+    }>(`/api/crypto/history?limit=${encodeURIComponent(String(limit))}`),
+
   getCryptoDepositAddress: (currency: 'TON' | 'USDT_TON' = 'TON') =>
     request<{ deposit: CryptoDepositAddress | null; enabled: boolean }>(
       `/api/crypto/deposit-address?currency=${encodeURIComponent(currency)}`,
     ),
 
-  /** Start deposit: pick currency → personal address. */
+  /** Start deposit: pick currency → personal address. Uses deposit-address (live on Railway). */
   startCryptoDeposit: (currency: 'TON' | 'USDT_TON') =>
-    // Production Railway currently serves deposit-address; /api/crypto/deposit may 404
-    // until API is redeployed with the full cryptoWallet route table.
     request<{ deposit: CryptoDepositAddress }>('/api/crypto/deposit-address', {
       method: 'POST',
       body: JSON.stringify({ currency }),
@@ -447,17 +467,32 @@ export const api = {
       { method: 'POST' },
     ),
 
-  getCryptoWithdrawStatus: () =>
-    request<{
-      enabled: boolean;
-      network: string;
-      currencies: string[];
-      statuses: string[];
-      fees: Record<string, number>;
-      mins: Record<string, number>;
-      maxes: Record<string, number>;
-      dailyLimits: Record<string, number>;
-    }>('/api/crypto/withdraw/status'),
+  getCryptoWithdrawStatus: async () => {
+    try {
+      return await request<{
+        enabled: boolean;
+        network: string;
+        currencies: string[];
+        statuses: string[];
+        fees: Record<string, number>;
+        mins: Record<string, number>;
+        maxes: Record<string, number>;
+        dailyLimits: Record<string, number>;
+      }>('/api/crypto/withdraw/status');
+    } catch {
+      // Older Railway deploys omit withdraw routes — treat as disabled.
+      return {
+        enabled: false,
+        network: 'ton',
+        currencies: [] as string[],
+        statuses: [] as string[],
+        fees: {} as Record<string, number>,
+        mins: {} as Record<string, number>,
+        maxes: {} as Record<string, number>,
+        dailyLimits: {} as Record<string, number>,
+      };
+    }
+  },
 
   quoteCryptoWithdraw: (body: {
     currency: 'TON' | 'USDT_TON';
@@ -481,9 +516,9 @@ export const api = {
     }).then((d) => d.withdrawal),
 
   listCryptoWithdrawals: () =>
-    request<{ withdrawals: CryptoWithdrawal[] }>('/api/crypto/withdrawals').then(
-      (d) => d.withdrawals,
-    ),
+    request<{ withdrawals: CryptoWithdrawal[] }>('/api/crypto/withdrawals')
+      .then((d) => d.withdrawals)
+      .catch(() => [] as CryptoWithdrawal[]),
 
   listDeposits: (opts: { limit?: number; offset?: number } = {}) => {
     const q = new URLSearchParams();
@@ -530,8 +565,8 @@ export const api = {
       rails?: { deposit: boolean; withdraw: boolean };
     }>('/api/exchange/pairs'),
 
-  getExchangeStatus: () =>
-    request<{
+  getExchangeStatus: async () => {
+    type ExchangeStatus = {
       balances: Array<{
         currency: WalletCurrency;
         available: number;
@@ -549,7 +584,51 @@ export const api = {
         withdrawCurrency: WalletCurrency | null;
       }>;
       currencies: WalletCurrency[];
-    }>('/api/exchange/status'),
+    };
+    try {
+      return await request<ExchangeStatus>('/api/exchange/status');
+    } catch {
+      // Compose from live routes when /api/exchange/status is missing on older deploys.
+      const [wallet, crypto, pairs] = await Promise.all([
+        request<WalletSnapshot>('/api/wallet'),
+        request<{ enabled: boolean }>('/api/crypto/status').catch(() => ({ enabled: false })),
+        request<{ rails?: { deposit: boolean; withdraw: boolean } }>('/api/exchange/pairs').catch(
+          () => ({ rails: { deposit: false, withdraw: false } }),
+        ),
+      ]);
+      const depositOn = crypto.enabled || Boolean(pairs.rails?.deposit);
+      const withdrawOn = Boolean(pairs.rails?.withdraw);
+      return {
+        balances: wallet.balances,
+        deposit: { enabled: depositOn, currencies: ['TON', 'USDT_TON'] },
+        withdraw: { enabled: withdrawOn, currencies: ['TON', 'USDT_TON'] },
+        flows: [
+          {
+            id: 'deposit_ton_to_stars',
+            from: 'TON' as WalletCurrency,
+            to: 'STARS' as WalletCurrency,
+            depositCurrency: 'TON' as WalletCurrency,
+            withdrawCurrency: null,
+          },
+          {
+            id: 'deposit_usdt_to_ton',
+            from: 'USDT_TON' as WalletCurrency,
+            to: 'TON' as WalletCurrency,
+            depositCurrency: 'USDT_TON' as WalletCurrency,
+            withdrawCurrency: null,
+          },
+          {
+            id: 'withdraw_ton',
+            from: null,
+            to: null,
+            depositCurrency: null,
+            withdrawCurrency: 'TON' as WalletCurrency,
+          },
+        ],
+        currencies: ['STARS', 'TON', 'USDT_TON'] as WalletCurrency[],
+      } satisfies ExchangeStatus;
+    }
+  },
 
   createExchangeQuote: (from: WalletCurrency, to: WalletCurrency, amount: number) =>
     request<ExchangeQuote>('/api/exchange/quote', {

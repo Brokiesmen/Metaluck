@@ -15,6 +15,7 @@ import {
   cryptoWithdrawStatus,
 } from '../payments/cryptoWallet/index.js';
 import { isCryptoCurrency } from '../payments/cryptoWallet/transactionService.js';
+import { ensureUserWallets, getWalletSnapshot } from '../payments/wallet/index.js';
 
 function mapErr(err: unknown): never {
   const e = err as { statusCode?: number; message?: string };
@@ -29,27 +30,66 @@ export function registerCryptoWalletRoutes(app: FastifyInstance, deps: { getUser
   app.get('/api/crypto/withdraw/status', async () => cryptoWithdrawStatus());
 
   /**
+   * Crypto balances (TON / USDT_TON) — same ledger as GET /api/wallet.
+   * Exists so clients expecting /api/crypto/balance do not 404.
+   */
+  app.get('/api/crypto/balance', async (req) => {
+    try {
+      const userId = await getUserId(req);
+      if (!(userId > 0)) throw httpError(401, 'Unauthorized');
+      await ensureUserWallets(userId);
+      const snap = await getWalletSnapshot(userId);
+      const balances = snap.balances
+        .filter((b) => b.currency === 'TON' || b.currency === 'USDT_TON')
+        .map((b) => ({
+          currency: b.currency,
+          available: b.available,
+          locked: b.locked,
+          decimals: b.decimals,
+          displaySymbol: b.displaySymbol,
+        }));
+      return {
+        network: 'ton' as const,
+        enabled: isCryptoWalletEnabled(),
+        balances,
+      };
+    } catch (err) {
+      mapErr(err);
+    }
+  });
+
+  /**
+   * Combined crypto deposit + withdrawal history.
+   * Alias over /api/crypto/deposits + /api/crypto/withdrawals.
+   */
+  app.get('/api/crypto/history', async (req) => {
+    try {
+      const userId = await getUserId(req);
+      if (!(userId > 0)) throw httpError(401, 'Unauthorized');
+      const q = req.query as { limit?: string };
+      const limit = Math.min(50, Math.max(1, Number(q.limit) || 40));
+      const [deposits, withdrawals] = await Promise.all([
+        listCryptoDeposits(userId, limit),
+        listCryptoWithdrawals(userId, limit),
+      ]);
+      return { deposits, withdrawals, network: 'ton' as const };
+    } catch (err) {
+      mapErr(err);
+    }
+  });
+
+  /**
    * Start deposit: choose currency → get personal TON address.
    * Body: { currency: 'TON' | 'USDT_TON' }
    */
   app.post<{ Body: { currency?: string } }>(
     '/api/crypto/deposit',
-    {
-      schema: {
-        body: {
-          type: 'object',
-          required: ['currency'],
-          properties: {
-            currency: { type: 'string', enum: ['TON', 'USDT_TON'] },
-          },
-        },
-      },
-    },
     async (req) => {
       try {
         const userId = await getUserId(req);
         if (!(userId > 0)) throw httpError(401, 'Unauthorized');
-        const currency = String(req.body?.currency ?? '');
+        const raw = String((req.body as { currency?: string })?.currency ?? 'TON');
+        const currency = isCryptoCurrency(raw) ? raw : 'TON';
         return { deposit: await startCryptoDeposit(userId, currency) };
       } catch (err) {
         mapErr(err);
@@ -124,40 +164,26 @@ export function registerCryptoWalletRoutes(app: FastifyInstance, deps: { getUser
       amount?: number | string;
       confirm?: boolean;
     };
-  }>(
-    '/api/crypto/withdraw',
-    {
-      schema: {
-        body: {
-          type: 'object',
-          required: ['currency', 'toAddress', 'amount', 'confirm'],
-          properties: {
-            currency: { type: 'string', enum: ['TON', 'USDT_TON'] },
-            toAddress: { type: 'string', minLength: 10 },
-            amount: {},
-            confirm: { type: 'boolean' },
-          },
-        },
-      },
-    },
-    async (req) => {
-      try {
-        const userId = await getUserId(req);
-        const withdrawal = await createCryptoWithdraw({
-          userId,
-          currency: String(req.body?.currency ?? ''),
-          toAddress: String(req.body?.toAddress ?? ''),
-          amount: req.body?.amount ?? 0,
-          confirm: req.body?.confirm === true,
-        });
-        // Kick processor asynchronously
-        void processPendingWithdrawals().catch(() => {});
-        return { withdrawal };
-      } catch (err) {
-        mapErr(err);
+  }>('/api/crypto/withdraw', async (req) => {
+    try {
+      const userId = await getUserId(req);
+      const body = req.body ?? {};
+      if (body.confirm !== true) {
+        throw httpError(400, 'confirm must be true');
       }
-    },
-  );
+      const withdrawal = await createCryptoWithdraw({
+        userId,
+        currency: String(body.currency ?? ''),
+        toAddress: String(body.toAddress ?? ''),
+        amount: body.amount ?? 0,
+        confirm: true,
+      });
+      void processPendingWithdrawals().catch(() => {});
+      return { withdrawal };
+    } catch (err) {
+      mapErr(err);
+    }
+  });
 
   app.get('/api/crypto/withdrawals', async (req) => {
     try {
