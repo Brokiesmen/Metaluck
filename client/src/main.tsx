@@ -31,12 +31,31 @@ if (import.meta.env.DEV) {
 // TON Connect manifest отдаётся из /public (Vercel/vite). Кошельки его фетчат.
 const tonManifestUrl = `${window.location.origin}/tonconnect-manifest.json`;
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <TonConnectUIProvider manifestUrl={tonManifestUrl}>
-      <SettingsProvider>
-        <App />
-      </SettingsProvider>
-    </TonConnectUIProvider>
-  </StrictMode>,
-);
+// Превью общего UI-слоя: /?shell=preview (&platform=telegram|desktop). Не влияет на боевой поток.
+const params = new URLSearchParams(window.location.search);
+const shellPreview = params.get('shell') === 'preview';
+const forcedPlatform = params.get('platform');
+const forced = forcedPlatform === 'telegram' || forcedPlatform === 'desktop' ? forcedPlatform : undefined;
+
+const root = createRoot(document.getElementById('root')!);
+
+if (shellPreview) {
+  // Ленивая загрузка, чтобы shell-слой не попадал в основной бандл.
+  void import('./components/shell').then(({ ShellDemo }) => {
+    root.render(
+      <StrictMode>
+        <ShellDemo force={forced} />
+      </StrictMode>,
+    );
+  });
+} else {
+  root.render(
+    <StrictMode>
+      <TonConnectUIProvider manifestUrl={tonManifestUrl}>
+        <SettingsProvider>
+          <App />
+        </SettingsProvider>
+      </TonConnectUIProvider>
+    </StrictMode>,
+  );
+}
