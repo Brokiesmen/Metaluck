@@ -424,12 +424,14 @@ export const api = {
 
   /** Start deposit: pick currency → personal address. */
   startCryptoDeposit: (currency: 'TON' | 'USDT_TON') =>
-    request<{ deposit: CryptoDepositAddress }>('/api/crypto/deposit', {
+    // Production Railway currently serves deposit-address; /api/crypto/deposit may 404
+    // until API is redeployed with the full cryptoWallet route table.
+    request<{ deposit: CryptoDepositAddress }>('/api/crypto/deposit-address', {
       method: 'POST',
       body: JSON.stringify({ currency }),
     }),
 
-  /** @deprecated prefer startCryptoDeposit */
+  /** @deprecated same as startCryptoDeposit */
   createCryptoDepositAddress: (currency: 'TON' | 'USDT_TON' = 'TON') =>
     request<{ deposit: CryptoDepositAddress }>('/api/crypto/deposit-address', {
       method: 'POST',

@@ -48,6 +48,7 @@ export function registerCryptoWalletRoutes(app: FastifyInstance, deps: { getUser
     async (req) => {
       try {
         const userId = await getUserId(req);
+        if (!(userId > 0)) throw httpError(401, 'Unauthorized');
         const currency = String(req.body?.currency ?? '');
         return { deposit: await startCryptoDeposit(userId, currency) };
       } catch (err) {
@@ -56,7 +57,7 @@ export function registerCryptoWalletRoutes(app: FastifyInstance, deps: { getUser
     },
   );
 
-  /** @deprecated alias — prefer POST /api/crypto/deposit */
+  /** Alias of POST /api/crypto/deposit (kept for older clients / partial deploys). */
   app.post<{ Body: { currency?: string } }>('/api/crypto/deposit-address', async (req) => {
     try {
       const userId = await getUserId(req);
