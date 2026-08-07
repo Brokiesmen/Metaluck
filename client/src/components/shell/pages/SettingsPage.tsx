@@ -2,9 +2,11 @@ import { useState } from 'react';
 import { PageHeader } from '../PageHeader';
 import { SectionHeader } from '../SectionHeader';
 import { SettingRow } from '../SettingRow';
+import { useAuth } from '../auth/AuthProvider';
 import { mockSettings } from '../mockData';
 
 export function SettingsPage() {
+  const { logout } = useAuth();
   const [toggles, setToggles] = useState<Record<string, boolean>>(
     Object.fromEntries(mockSettings.filter((s) => s.kind === 'toggle').map((s) => [s.id, Boolean(s.value)])),
   );
@@ -27,7 +29,7 @@ export function SettingsPage() {
         ))}
       </div>
 
-      <button type="button" className="sh-btn sh-signout">Sign out</button>
+      <button type="button" className="sh-btn sh-signout" onClick={logout}>Sign out</button>
     </div>
   );
 }

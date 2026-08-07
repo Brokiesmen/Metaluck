@@ -357,3 +357,31 @@
 .sh-empty-title { font-weight: 800; font-size: 15px; }
 .sh-empty-hint { color: var(--c-muted); font-size: 13px; }
 .sh-empty-btn { margin-top: 6px; }
+
+/* ── Login screen (auth UI, independent from AuthProvider) ──────── */
+.sh-login-wrap { display: grid; place-items: center; padding: 24px; }
+.sh-login {
+  width: 100%; max-width: 380px; text-align: center;
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+  background: var(--c-surface); border: 1px solid var(--c-border);
+  border-radius: 16px; padding: 32px 24px;
+}
+.sh-login-brand { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+.sh-login-mark { color: var(--c-green); font-size: 24px; filter: drop-shadow(0 0 10px var(--c-glow)); }
+.sh-login-name { font-weight: 800; font-size: 20px; }
+.sh-login-title { margin: 4px 0 0; font-size: 20px; font-weight: 800; }
+.sh-login-sub { margin: 0; color: var(--c-muted); font-size: 13px; }
+.sh-login-methods { display: flex; flex-direction: column; gap: 10px; width: 100%; margin-top: 14px; }
+.sh-login-btn {
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  width: 100%; padding: 13px 16px; border-radius: 10px; cursor: pointer;
+  font-size: 14px; font-weight: 700; border: 1px solid var(--c-border);
+  background: var(--c-surface-2); color: var(--c-text);
+  transition: background var(--ease), border-color var(--ease), transform var(--ease), box-shadow var(--ease);
+}
+.sh-login-btn:hover:not(:disabled) { background: var(--c-surface-3); transform: translateY(-1px); }
+.sh-login-btn:disabled { opacity: 0.6; cursor: default; }
+.sh-login-btn--telegram:hover:not(:disabled) { border-color: #2aabee; box-shadow: 0 8px 22px -10px rgba(42,171,238,0.5); }
+.sh-login-btn--google:hover:not(:disabled) { border-color: var(--c-green); box-shadow: 0 8px 22px -10px var(--c-glow); }
+.sh-login-error { color: var(--c-red); font-size: 13px; }
+.sh-login-hint { margin: 10px 0 0; color: var(--c-faint); font-size: 12px; }

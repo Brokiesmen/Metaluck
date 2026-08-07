@@ -1,4 +1,5 @@
 import { mockProfile } from './mockData';
+import { useAuth } from './auth/AuthProvider';
 
 interface Props {
   title: string;
@@ -10,6 +11,11 @@ interface Props {
 
 /** Общий TopBar: аватар, username, баланс, уведомления. Один компонент для обоих shell'ов. */
 export function TopBar({ title, showBalance = true, compact = false, onMenu }: Props) {
+  const { user } = useAuth();
+  const username = user?.username ?? mockProfile.name;
+  // Аватар из auth только если это emoji (демо); URL-аватары тут не рендерим.
+  const avatar = user?.avatar && user.avatar.length <= 4 ? user.avatar : mockProfile.avatar;
+
   return (
     <header className={`sh-topbar${compact ? ' sh-topbar--compact' : ''}`}>
       {onMenu && (
@@ -28,8 +34,8 @@ export function TopBar({ title, showBalance = true, compact = false, onMenu }: P
         </button>
 
         <div className="sh-topbar-user">
-          <span className="sh-topbar-avatar" aria-hidden>{mockProfile.avatar}</span>
-          <span className="sh-topbar-username">{mockProfile.name}</span>
+          <span className="sh-topbar-avatar" aria-hidden>{avatar}</span>
+          <span className="sh-topbar-username">{username}</span>
         </div>
       </div>
     </header>

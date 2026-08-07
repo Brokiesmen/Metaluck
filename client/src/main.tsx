@@ -39,6 +39,24 @@ const forced = forcedPlatform === 'telegram' || forcedPlatform === 'desktop' ? f
 
 const root = createRoot(document.getElementById('root')!);
 
+// Превью-аффорданс: /?shell=preview&tgmock=1 подставляет Telegram-личность
+// ДО старта React, чтобы продемонстрировать Mini App skip-login. Только превью.
+if (shellPreview && params.get('tgmock') === '1') {
+  const noop = () => {};
+  // Заменяем объект целиком (у реального SDK initDataUnsafe — getter-only).
+  window.Telegram = {
+    WebApp: {
+      initData: 'mock',
+      initDataUnsafe: { user: { id: 777001, first_name: 'Mark', username: 'markevans' } },
+      version: '7.0', platform: 'tdesktop', colorScheme: 'dark', themeParams: {},
+      isExpanded: true, viewportHeight: 800, viewportStableHeight: 800,
+      HapticFeedback: { impactOccurred: noop, notificationOccurred: noop, selectionChanged: noop },
+      expand: noop, close: noop, ready: noop, setHeaderColor: noop, setBackgroundColor: noop,
+      onEvent: noop, offEvent: noop, openInvoice: noop,
+    },
+  } as unknown as NonNullable<Window['Telegram']>;
+}
+
 if (shellPreview) {
   // Ленивая загрузка, чтобы shell-слой не попадал в основной бандл.
   void import('./components/shell').then(({ ShellDemo }) => {
