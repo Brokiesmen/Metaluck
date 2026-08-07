@@ -12,10 +12,10 @@ export interface NavItem {
 
 export const navItems: NavItem[] = [
   { id: 'lobby', path: '/', label: 'Games', icon: '🎮' },
-  { id: 'profile', path: '/profile', label: 'Profile', icon: '👤' },
   { id: 'balance', path: '/balance', label: 'Balance', icon: '💰' },
   { id: 'rewards', path: '/rewards', label: 'Rewards', icon: '🎁' },
   { id: 'settings', path: '/settings', label: 'Settings', icon: '⚙️' },
+  { id: 'profile', path: '/profile', label: 'Profile', icon: '👤' },
 ];
 
 export function titleForPath(pathname: string): string {
