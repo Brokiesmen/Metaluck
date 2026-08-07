@@ -75,6 +75,17 @@ function LiveAuthGate({
   return <>{children}</>;
 }
 
+function preferMobileChrome(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    const coarse = window.matchMedia('(pointer: coarse)').matches;
+    const narrow = window.matchMedia('(max-width: 900px)').matches;
+    return coarse || narrow;
+  } catch {
+    return window.innerWidth < 900;
+  }
+}
+
 function ShellLiveInner({
   session,
   force,
@@ -82,24 +93,28 @@ function ShellLiveInner({
   session: AppSession;
   force?: Platform;
 }) {
-  const nav = useAppNavigation(session.isDesktopWeb ? 'home' : 'games');
-
   const {
     isDemo,
     error,
     balance,
-    user,
-    displayName,
     t,
     logout,
     showSettings,
     closeSettings,
     client,
     isTelegramWebApp,
+    isDesktopWeb,
   } = session;
 
+  // Phone browser ≠ Telegram Mini App, but design preview needs bottom-nav chrome.
   const useTelegramChrome =
-    force === 'telegram' ? true : force === 'desktop' ? false : isTelegramWebApp;
+    force === 'telegram'
+      ? true
+      : force === 'desktop'
+        ? false
+        : isTelegramWebApp || preferMobileChrome();
+
+  const nav = useAppNavigation(useTelegramChrome ? 'games' : isDesktopWeb ? 'home' : 'games');
 
   const title = resolveHeaderTitle(t, {
     section: nav.section,
@@ -120,17 +135,18 @@ function ShellLiveInner({
   };
 
   const Shell = useTelegramChrome ? TelegramShell : DesktopShell;
+  const desktopLayout = isDesktopWeb && !useTelegramChrome;
 
   return (
     <div
-      className={`app${session.isDesktopWeb ? ' app--desktop-web' : ''}${isDemo ? ' app--demo' : ''}`}
+      className={`app${desktopLayout ? ' app--desktop-web' : ''}${isDemo ? ' app--demo' : ''}`}
       data-client={client}
+      data-shell={useTelegramChrome ? 'telegram' : 'desktop'}
     >
       <Shell
         title={title}
+        starsBalance={balance}
         balanceLabel={formatBalance(balance)}
-        userName={displayName || user?.username || 'Player'}
-        userAvatar={user?.photo_url}
         activeNav={activeNav}
         onNavigate={onNavigate}
         onDeposit={() => nav.goSection('wallet')}
@@ -143,7 +159,7 @@ function ShellLiveInner({
           </div>
         )}
         {error && <div className="error-banner">{error}</div>}
-        <div className={`${pageClass}${session.isDesktopWeb ? ' desk-page' : ''}`}>
+        <div className={`${pageClass}${desktopLayout ? ' desk-page' : ''}`}>
           <AppMainContent session={session} nav={nav} />
         </div>
       </Shell>

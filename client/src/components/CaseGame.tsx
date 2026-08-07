@@ -8,6 +8,7 @@ import { CaseGrid } from './CaseGrid';
 import { PrizesGrid } from './PrizesGrid';
 import { ResultModal } from './ResultModal';
 import { BetCurrencyPicker } from './BetCurrencyPicker';
+import { DemoModeSwitch } from './DemoModeSwitch';
 import { useWagerCurrency } from '../hooks/useWagerCurrency';
 
 interface Props {
@@ -17,6 +18,8 @@ interface Props {
   onBalanceUpdate: (balance: number) => void;
   onCasesReload: () => void;
   forceSelectFreeSignal: number;
+  isDemo: boolean;
+  onToggleDemo: (on: boolean) => void;
 }
 
 /** Оценка приза — чем выше, тем круче. */
@@ -38,6 +41,8 @@ export function CaseGame({
   onBalanceUpdate,
   onCasesReload,
   forceSelectFreeSignal,
+  isDemo,
+  onToggleDemo,
 }: Props) {
   const { t } = useSettings();
   const { currency } = useWagerCurrency();
@@ -116,6 +121,12 @@ export function CaseGame({
       <button type="button" className="case-game-back" onClick={onBack}>
         {t.cases.backGames}
       </button>
+
+      <DemoModeSwitch
+        isDemo={isDemo}
+        onChange={onToggleDemo}
+        disabled={isAnimating}
+      />
 
       {error && <div className="error-banner">{error}</div>}
 

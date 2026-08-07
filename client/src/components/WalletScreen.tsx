@@ -86,7 +86,7 @@ export function WalletScreen({ onBalanceUpdate, openInvoice, isTelegram }: Props
     symbol: string;
   }> = [
     { code: 'TON', title: 'TON', bal: tonBal, symbol: 'TON' },
-    { code: 'USDT_TON', title: 'USDT TON', bal: usdtBal, symbol: 'USDT' },
+    { code: 'USDT_TON', title: 'USDT', bal: usdtBal, symbol: 'USDT' },
   ];
 
   return (
@@ -94,26 +94,47 @@ export function WalletScreen({ onBalanceUpdate, openInvoice, isTelegram }: Props
       <div className="tg-section-title">{t.wallet.title}</div>
 
       <div className="wallet-actions">
-        <button type="button" className="topup-inline-btn" onClick={() => setShowTopUp(true)}>
-          {t.wallet.deposit} <StarIcon size={14} animate={false} glow={false} />
+        <button type="button" className="wallet-btn wallet-btn--deposit" onClick={() => setShowTopUp(true)}>
+          <span className="wallet-btn-ico" aria-hidden>
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 5v14M5 12h14" />
+            </svg>
+          </span>
+          <span className="wallet-btn-label">{t.wallet.deposit}</span>
         </button>
         <button
           type="button"
-          className="withdraw-inline-btn"
+          className="wallet-btn wallet-btn--withdraw"
           disabled={!canWithdrawStars}
           onClick={() => setShowWithdraw(true)}
         >
-          {t.wallet.withdraw} <StarIcon size={14} animate={false} glow={false} />
+          <span className="wallet-btn-ico" aria-hidden>
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 19V5M5 12l7-7 7 7" />
+            </svg>
+          </span>
+          <span className="wallet-btn-label">{t.wallet.withdraw}</span>
         </button>
-        <button type="button" className="wallet-exchange-btn" onClick={() => setShowExchange(true)}>
-          {t.wallet.exchange}
+        <button type="button" className="wallet-btn wallet-btn--exchange" onClick={() => setShowExchange(true)}>
+          <span className="wallet-btn-ico" aria-hidden>
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M7 7h11l-3-3M17 17H6l3 3" />
+            </svg>
+          </span>
+          <span className="wallet-btn-label">{t.wallet.exchange}</span>
         </button>
         <button
           type="button"
-          className={`wallet-history-btn${panel === 'history' ? ' wallet-history-btn--on' : ''}`}
+          className={`wallet-btn wallet-btn--history${panel === 'history' ? ' wallet-btn--on' : ''}`}
           onClick={() => setPanel((p) => (p === 'history' ? 'balances' : 'history'))}
         >
-          {t.wallet.history}
+          <span className="wallet-btn-ico" aria-hidden>
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="9" />
+              <path d="M12 7v5l3 2" />
+            </svg>
+          </span>
+          <span className="wallet-btn-label">{t.wallet.history}</span>
         </button>
       </div>
 
@@ -122,7 +143,6 @@ export function WalletScreen({ onBalanceUpdate, openInvoice, isTelegram }: Props
 
       {panel === 'balances' && snapshot && (
         <>
-          <div className="tg-section-title">{t.wallet.assetStars}</div>
           <div className="tg-section wallet-balances">
             {starsBal && (
               <div className="wallet-asset">
@@ -130,15 +150,17 @@ export function WalletScreen({ onBalanceUpdate, openInvoice, isTelegram }: Props
                   <div className="wallet-asset-icon" aria-hidden>
                     <StarIcon size={22} />
                   </div>
-                  <div>
+                  <div className="wallet-asset-meta">
                     <div className="wallet-asset-name">{t.wallet.assetStars}</div>
                     <div className="wallet-asset-code">STARS</div>
                   </div>
                 </div>
                 <div className="wallet-asset-right">
                   <div className="wallet-asset-available num">
-                    {formatAmount(starsBal, locale)}{' '}
-                    <span className="wallet-asset-unit">{starsBal.displaySymbol}</span>
+                    {formatAmount(starsBal, locale)}
+                  </div>
+                  <div className="wallet-asset-code wallet-asset-code--right">
+                    {starsBal.displaySymbol || '★'}
                   </div>
                   {starsBal.locked > 0 && (
                     <div className="wallet-asset-locked">
@@ -148,51 +170,62 @@ export function WalletScreen({ onBalanceUpdate, openInvoice, isTelegram }: Props
                 </div>
               </div>
             )}
-          </div>
 
-          <div className="tg-section-title">{t.wallet.cryptoSection}</div>
-          <div className="tg-section wallet-crypto-section">
             {cryptoCards.map((c) => {
               const available = c.bal?.available ?? 0;
               const canWd = available > 0;
               return (
-                <div key={c.code} className="wallet-crypto-card">
-                  <div className="wallet-crypto-card-head">
-                    <div className="wallet-crypto-card-identity">
-                      <CryptoAssetIcon currency={c.code} size={40} />
-                      <div>
-                        <div className="wallet-crypto-card-title">{c.title}</div>
-                        <div className="wallet-crypto-card-network">{t.wallet.cryptoNetwork}: TON</div>
+                <div key={c.code} className="wallet-asset wallet-asset--crypto">
+                  <div className="wallet-asset-main">
+                    <div className="wallet-asset-left">
+                      <div className="wallet-asset-icon wallet-asset-icon--crypto" aria-hidden>
+                        <CryptoAssetIcon currency={c.code} size={22} />
+                      </div>
+                      <div className="wallet-asset-meta">
+                        <div className="wallet-asset-name">{c.title}</div>
+                        <div className="wallet-asset-code">{c.symbol}</div>
                       </div>
                     </div>
-                    <div className="wallet-crypto-card-bal num">
-                      {c.bal ? formatAmount(c.bal, locale) : '0'}{' '}
-                      <span className="wallet-asset-unit">{c.symbol}</span>
+                    <div className="wallet-asset-right">
+                      <div className="wallet-asset-available num">
+                        {c.bal ? formatAmount(c.bal, locale) : '0'}
+                      </div>
+                      <div className="wallet-asset-code wallet-asset-code--right">{c.symbol}</div>
+                      {(c.bal?.locked ?? 0) > 0 && (
+                        <div className="wallet-asset-locked">
+                          {t.wallet.locked}:{' '}
+                          {((c.bal!.locked) / 10 ** c.bal!.decimals).toLocaleString(locale, {
+                            maximumFractionDigits: 4,
+                          })}
+                        </div>
+                      )}
                     </div>
                   </div>
-                  {(c.bal?.locked ?? 0) > 0 && (
-                    <div className="wallet-asset-locked">
-                      {t.wallet.locked}:{' '}
-                      {((c.bal!.locked) / 10 ** c.bal!.decimals).toLocaleString(locale, {
-                        maximumFractionDigits: 4,
-                      })}
-                    </div>
-                  )}
                   <div className="wallet-crypto-card-actions">
                     <button
                       type="button"
-                      className="topup-inline-btn"
+                      className="wallet-btn wallet-btn--deposit wallet-btn--sm"
                       onClick={() => setCryptoDeposit(c.code)}
                     >
-                      {t.wallet.cryptoTopUp}
+                      <span className="wallet-btn-ico" aria-hidden>
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M12 5v14M5 12h14" />
+                        </svg>
+                      </span>
+                      <span className="wallet-btn-label">{t.wallet.cryptoTopUp}</span>
                     </button>
                     <button
                       type="button"
-                      className="withdraw-inline-btn"
+                      className="wallet-btn wallet-btn--withdraw wallet-btn--sm"
                       disabled={!canWd}
                       onClick={() => setCryptoWithdraw(c.code)}
                     >
-                      {t.wallet.cryptoCashOut}
+                      <span className="wallet-btn-ico" aria-hidden>
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M12 19V5M5 12l7-7 7 7" />
+                        </svg>
+                      </span>
+                      <span className="wallet-btn-label">{t.wallet.cryptoCashOut}</span>
                     </button>
                   </div>
                 </div>

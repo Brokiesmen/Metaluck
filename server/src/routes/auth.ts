@@ -4,6 +4,7 @@ import {
   upsertTelegramAccount,
   upsertGoogleAccount,
   upsertWalletAccount,
+  upsertDevLocalAccount,
   verifyGoogleCredential,
   verifyTelegramLogin,
   accountFromRequest,
@@ -59,6 +60,10 @@ export function registerAuthRoutes(app: FastifyInstance): void {
     },
   };
 
+  function isDevLoginAllowed(): boolean {
+    return process.env.NODE_ENV !== 'production' || process.env.ALLOW_DEV_LOGIN === '1';
+  }
+
   /** Public: что можно показать на экране входа (без секретов). */
   app.get('/api/auth/config', async () => {
     const telegramBot = String(process.env.TELEGRAM_BOT_USERNAME ?? '')
@@ -86,6 +91,8 @@ export function registerAuthRoutes(app: FastifyInstance): void {
       tonLoginReady: Boolean(sessionReady),
       evmLoginReady: Boolean(sessionReady), // MetaMask / injected; WC modal needs projectId
       walletConnectReady: Boolean(walletConnectProjectId && sessionReady),
+      /** Локальный вход без OAuth — только вне production (или ALLOW_DEV_LOGIN=1). */
+      devLoginReady: isDevLoginAllowed() && sessionReady,
     };
   });
 
@@ -109,6 +116,18 @@ export function registerAuthRoutes(app: FastifyInstance): void {
     const acc = await accountFromRequest(req);
     if (!acc) return jsonError(reply, 401, 'Not authenticated');
     return { token: issueSessionToken(acc), user: publicUser(acc) };
+  });
+
+  /** Локальный вход для UI-правки (телефон по LAN / без OAuth). Недоступен в production. */
+  app.post('/api/auth/dev', authRateLimit, async (req, reply) => {
+    if (!isDevLoginAllowed()) return jsonError(reply, 404, 'Not found');
+    try {
+      const acc = await upsertDevLocalAccount();
+      return { token: issueSessionToken(acc), user: publicUser(acc) };
+    } catch (err) {
+      req.log.warn({ err: err instanceof Error ? err.message : err }, '[auth] dev login failed');
+      return jsonError(reply, 500, 'Dev login failed');
+    }
   });
 
   app.post<{ Body: { credential?: string } }>(

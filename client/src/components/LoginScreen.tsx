@@ -19,6 +19,7 @@ type AuthConfig = {
   tonLoginReady: boolean;
   evmLoginReady: boolean;
   walletConnectProjectId: string | null;
+  devLoginReady: boolean;
 };
 
 function loadScript(src: string): Promise<void> {
@@ -52,6 +53,8 @@ function resolveConfig(
   const telegramBot = remote?.telegramBot || viteTg || null;
   const googleClientId = remote?.googleClientId || viteGoogle || null;
   const walletConnectProjectId = remote?.walletConnectProjectId || viteWc || null;
+  // Vite DEV / LAN: always offer local login so phone testing skips OAuth.
+  const localDev = Boolean(import.meta.env.DEV);
   return {
     telegramBot,
     googleClientId,
@@ -61,6 +64,7 @@ function resolveConfig(
     tonLoginReady: remote?.tonLoginReady ?? remote?.sessionReady ?? true,
     evmLoginReady: remote?.evmLoginReady ?? remote?.sessionReady ?? true,
     walletConnectProjectId,
+    devLoginReady: Boolean(remote?.devLoginReady) || localDev,
   };
 }
 
@@ -92,7 +96,7 @@ export function LoginScreen({ onLogin }: Props) {
   const [tonConnectUI] = useTonConnectUI();
   const [config, setConfig] = useState<AuthConfig | null>(null);
   const [configError, setConfigError] = useState(false);
-  const [busy, setBusy] = useState<null | 'google' | 'telegram' | 'ton' | 'evm'>(null);
+  const [busy, setBusy] = useState<null | 'google' | 'telegram' | 'ton' | 'evm' | 'dev'>(null);
   const [tgWaiting, setTgWaiting] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [googleReady, setGoogleReady] = useState(false);
@@ -257,6 +261,36 @@ export function LoginScreen({ onLogin }: Props) {
     };
   }, [cfg?.googleClientId, cfg?.googleLoginReady, t.auth.googleError]);
 
+  const startDev = async () => {
+    if (!cfg?.devLoginReady) return;
+    setBusy('dev');
+    setErr(null);
+    try {
+      const res = await api.authDev();
+      finish(res);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'Dev login failed');
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  // DEV shortcut: ?local=1 → auto local login (no Telegram/Google).
+  useEffect(() => {
+    if (!import.meta.env.DEV || !cfg?.devLoginReady || busy) return;
+    try {
+      const u = new URL(window.location.href);
+      if (u.searchParams.get('local') !== '1' && u.searchParams.get('guest') !== '1') return;
+      u.searchParams.delete('local');
+      u.searchParams.delete('guest');
+      window.history.replaceState({}, '', u.pathname + u.search + u.hash);
+    } catch {
+      return;
+    }
+    void startDev();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cfg?.devLoginReady]);
+
   const startTelegram = async () => {
     if (!cfg?.telegramLoginReady) return;
     setBusy('telegram');
@@ -352,6 +386,20 @@ export function LoginScreen({ onLogin }: Props) {
           <div className="login-status">{t.common.loading}</div>
         ) : (
           <div className="login-methods">
+            {cfg.devLoginReady && (
+              <div className="login-method">
+                <button
+                  type="button"
+                  className="login-provider-btn login-provider-btn--dev"
+                  disabled={anyBusy}
+                  onClick={() => void startDev()}
+                >
+                  <span aria-hidden>🛠</span>
+                  <span>Локальный вход (без верификации)</span>
+                </button>
+              </div>
+            )}
+
             <div className="login-method">
               {cfg.telegramLoginReady ? (
                 <>

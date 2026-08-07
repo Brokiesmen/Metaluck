@@ -8,6 +8,7 @@ interface Props {
   title: string;
   children: ReactNode;
   balanceLabel?: string;
+  starsBalance?: number;
   userName?: string;
   userAvatar?: string | null;
   activeNav?: NavId;
@@ -25,12 +26,10 @@ export function TelegramShell({
   title,
   children,
   balanceLabel,
-  userName,
-  userAvatar,
+  starsBalance,
   activeNav,
   onNavigate,
   onDeposit,
-  onSettings,
 }: Props) {
   // Client-only: ready → expand → theme/viewport/safe-area. No-op вне Telegram.
   useTelegramWebApp();
@@ -41,10 +40,8 @@ export function TelegramShell({
         title={title}
         compact
         balanceLabel={balanceLabel}
-        userName={userName}
-        userAvatar={userAvatar}
+        starsBalance={starsBalance}
         onBalanceClick={onDeposit}
-        onSettings={onSettings}
       />
       <main className="sh-content sh-content--telegram">{children}</main>
       <BottomNav activeNav={activeNav} onNavigate={onNavigate} />

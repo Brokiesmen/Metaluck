@@ -91,9 +91,6 @@ export function WalletLinkPanel() {
   return (
     <div className="wallet-link">
       <h3 className="wallet-link-title">Привязанные кошельки</h3>
-      <p className="wallet-link-sub">
-        Подтвердите владение кошельком подписью — средства не списываются.
-      </p>
 
       {/* TON */}
       <div className="wallet-link-row">

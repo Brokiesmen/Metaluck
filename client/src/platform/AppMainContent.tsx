@@ -1,6 +1,5 @@
 import { AdminHubScreen } from '../components/AdminHubScreen';
 import { ArenaGame } from '../components/ArenaGame';
-import { AviatorGame } from '../components/AviatorGame';
 import { BlackjackGame } from '../components/BlackjackGame';
 import { Cabinet } from '../components/Cabinet';
 import { CaseGame } from '../components/CaseGame';
@@ -10,9 +9,12 @@ import { GamesScreen } from '../components/GamesScreen';
 import { Leaders } from '../components/Leaders';
 import { MineRushGame } from '../components/MineRushGame';
 import { WalletScreen } from '../components/WalletScreen';
+import { PhaserGameHost } from '../games/host/PhaserGameHost';
+import { isPhaserAppGame, phaserIdForAppGame } from '../games/catalog';
 import { HomeDashboard } from './HomeDashboard';
 import type { AppNavigation } from './useAppNavigation';
 import type { AppSession } from './useAppSession';
+import { useSettings } from '../settings/SettingsContext';
 
 interface Props {
   session: AppSession;
@@ -55,6 +57,8 @@ export function AppMainContent({ session, nav }: Props) {
     closeAdmin,
   } = nav;
 
+  const { t } = useSettings();
+
   if (section === 'home') {
     return (
       <HomeDashboard
@@ -75,9 +79,29 @@ export function AppMainContent({ session, nav }: Props) {
           onBalanceUpdate={updateBalance}
           onCasesReload={reloadCases}
           forceSelectFreeSignal={freeCaseJump}
+          isDemo={isDemo}
+          onToggleDemo={setDemo}
         />
       );
     }
+
+    // Phaser engine (GameManager) — replaces legacy React canvases for wired games.
+    if (isPhaserAppGame(gameView)) {
+      const phaserId = phaserIdForAppGame(gameView);
+      if (phaserId) {
+        return (
+          <PhaserGameHost
+            gameId={phaserId}
+            balance={balance}
+            bet={10}
+            onBack={backToGamesLobby}
+            onBalanceUpdate={updateBalance}
+            backLabel={t.common.backGames}
+          />
+        );
+      }
+    }
+
     if (gameView === 'blackjack') {
       return <BlackjackGame onBack={backToGamesLobby} onBalanceUpdate={updateBalance} />;
     }
@@ -90,13 +114,10 @@ export function AppMainContent({ session, nav }: Props) {
     if (gameView === 'arena') {
       return <ArenaGame onBack={backToGamesLobby} onBalanceUpdate={updateBalance} />;
     }
-    if (gameView === 'aviator') {
-      return <AviatorGame onBack={backToGamesLobby} onBalanceUpdate={updateBalance} />;
-    }
     return (
       <GamesScreen
         isDemo={isDemo}
-        onToggleDemo={() => setDemo(!isDemo)}
+        onToggleDemo={setDemo}
         onOpenCases={() => openGame('cases')}
         onOpenBlackjack={() => openGame('blackjack')}
         onOpenCoinflip={() => openGame('coinflip')}

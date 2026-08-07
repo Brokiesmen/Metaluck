@@ -1,8 +1,9 @@
 import { useSettings } from '../settings/SettingsContext';
+import { DemoModeSwitch } from './DemoModeSwitch';
 
 interface Props {
   isDemo: boolean;
-  onToggleDemo: () => void;
+  onToggleDemo: (on: boolean) => void;
   onOpenCases: () => void;
   onOpenBlackjack: () => void;
   onOpenCoinflip: () => void;
@@ -25,23 +26,13 @@ export function GamesScreen({
 
   return (
     <section className="games-lobby">
-      <div className="demo-toggle-row">
-        <button
-          type="button"
-          className={`demo-toggle-btn${isDemo ? ' demo-toggle-btn--on' : ''}`}
-          onClick={onToggleDemo}
-          aria-pressed={isDemo}
-        >
-          {isDemo ? t.demo.disable : t.demo.enable}
-        </button>
-        <p className="demo-toggle-hint">{t.demo.hint}</p>
-      </div>
+      <DemoModeSwitch isDemo={isDemo} onChange={onToggleDemo} />
 
       <div className="games-lobby-grid">
         <button type="button" className="game-tile game-tile--cases" onClick={onOpenCases}>
           <div className="game-tile-glow" aria-hidden />
           <div className="game-tile-icon" aria-hidden>
-            🎁
+            <span className="cases-lobby-gift">🎁</span>
           </div>
           <div className="game-tile-body">
             <h2 className="game-tile-title">{t.games.casesTitle}</h2>
@@ -74,7 +65,7 @@ export function GamesScreen({
         <button type="button" className="game-tile game-tile--minerush" onClick={onOpenMineRush}>
           <div className="game-tile-glow game-tile-glow--mr" aria-hidden />
           <div className="game-tile-icon game-tile-icon--mr" aria-hidden>
-            💣
+            <span className="mr-lobby-bomb">💣</span>
           </div>
           <div className="game-tile-body">
             <h2 className="game-tile-title">{t.games.mrTitle}</h2>
@@ -85,7 +76,7 @@ export function GamesScreen({
         <button type="button" className="game-tile game-tile--arena" onClick={onOpenArena}>
           <div className="game-tile-glow game-tile-glow--arena" aria-hidden />
           <div className="game-tile-icon game-tile-icon--arena" aria-hidden>
-            🎯
+            <span className="ar-lobby-target">🎯</span>
           </div>
           <div className="game-tile-body">
             <h2 className="game-tile-title">{t.games.arenaTitle}</h2>
@@ -103,20 +94,6 @@ export function GamesScreen({
             <p className="game-tile-subtitle">{t.games.avSub}</p>
           </div>
         </button>
-
-        <div className="game-tile game-tile--soon" aria-disabled="true">
-          <div className="game-tile-body">
-            <div className="game-tile-soon-title">{t.games.soon}</div>
-            <div className="game-tile-soon-subtitle">{t.games.soonPvp}</div>
-          </div>
-        </div>
-
-        <div className="game-tile game-tile--soon" aria-disabled="true">
-          <div className="game-tile-body">
-            <div className="game-tile-soon-title">{t.games.soonArcadeTitle}</div>
-            <div className="game-tile-soon-subtitle">{t.games.soonArcadeSub}</div>
-          </div>
-        </div>
       </div>
     </section>
   );

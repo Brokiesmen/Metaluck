@@ -236,6 +236,77 @@ html[data-pointer="fine"] .mr-cell:not(:disabled):hover {
   color: var(--tg-hint);
   line-height: 1.35;
 }
+
+.demo-switch {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 12px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, #e0a020 35%, transparent);
+  background: color-mix(in srgb, #e0a020 10%, var(--tg-section, transparent));
+}
+.demo-switch--on {
+  border-color: color-mix(in srgb, #e0a020 70%, transparent);
+  background: color-mix(in srgb, #e0a020 18%, var(--tg-section, transparent));
+}
+.demo-switch-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.demo-switch-label {
+  font-size: 14px;
+  font-weight: 700;
+  color: #e8c06a;
+}
+.demo-switch-hint {
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--tg-hint);
+}
+.demo-switch-track {
+  appearance: none;
+  position: relative;
+  flex: 0 0 auto;
+  width: 48px;
+  height: 28px;
+  border-radius: 999px;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  background: color-mix(in srgb, var(--tg-hint, #888) 35%, transparent);
+  transition: background 0.18s ease;
+}
+.demo-switch-track--on {
+  background: #e0a020;
+}
+.demo-switch-track:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+.demo-switch-thumb {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.28);
+  transition: transform 0.18s ease;
+}
+.demo-switch-track--on .demo-switch-thumb {
+  transform: translateX(20px);
+}
+.demo-switch--compact {
+  margin-bottom: 10px;
+  padding: 10px 12px;
+}
+
 .demo-result-badge {
   margin: 0 0 10px;
   padding: 6px 10px;
@@ -949,6 +1020,28 @@ html[data-theme="light"] .tab-item.active .tab-icon--wallet .tab-wallet-icon {
   background: radial-gradient(circle, rgba(130, 190, 255, 0.32), transparent 65%);
   filter: blur(2px);
   pointer-events: none;
+  animation: game-tile-glow-pulse 2.8s ease-in-out infinite;
+}
+
+@keyframes game-tile-glow-pulse {
+  0%, 100% { opacity: 0.7; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.08); }
+}
+
+.cases-lobby-gift {
+  display: inline-block;
+  font-size: 40px;
+  line-height: 1;
+  animation: cases-lobby-bounce 2.2s ease-in-out infinite;
+  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.35));
+  transform-origin: 50% 80%;
+}
+
+@keyframes cases-lobby-bounce {
+  0%, 100% { transform: translateY(0) rotate(-3deg) scale(1); }
+  30% { transform: translateY(-5px) rotate(4deg) scale(1.06); }
+  55% { transform: translateY(1px) rotate(-2deg) scale(0.98); }
+  75% { transform: translateY(-3px) rotate(2deg) scale(1.03); }
 }
 
 .game-tile-icon {
@@ -2739,6 +2832,7 @@ body > canvas {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 8px;
   width: 100%;
   height: 40px;
   margin: 0;
@@ -2749,7 +2843,7 @@ body > canvas {
   cursor: pointer;
   white-space: nowrap;
   box-sizing: border-box;
-  transition: background 0.18s, border-color 0.18s, opacity 0.18s;
+  transition: background 0.18s, border-color 0.18s, opacity 0.18s, transform 0.12s;
 }
 .topup-inline-btn {
   background: rgba(36,129,204,0.15);
@@ -2769,6 +2863,127 @@ body > canvas {
   cursor: default;
 }
 
+/* Wallet action buttons — icon + label + asset mark, evenly aligned */
+.wallet-btn {
+  appearance: none;
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) 18px;
+  align-items: center;
+  column-gap: 8px;
+  width: 100%;
+  min-height: 46px;
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 14px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  box-sizing: border-box;
+  text-align: left;
+  transition: background 0.18s, border-color 0.18s, opacity 0.18s, transform 0.12s, box-shadow 0.18s;
+}
+.wallet-btn--sm {
+  min-height: 40px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  grid-template-columns: 18px minmax(0, 1fr) 16px;
+  column-gap: 6px;
+}
+.wallet-btn-ico {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  flex: 0 0 auto;
+  opacity: 0.95;
+}
+.wallet-btn--sm .wallet-btn-ico {
+  width: 18px;
+  height: 18px;
+}
+.wallet-btn-ico svg {
+  display: block;
+}
+.wallet-btn-label {
+  min-width: 0;
+  line-height: 1.15;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.wallet-btn-mark {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  justify-self: end;
+}
+.wallet-btn--sm .wallet-btn-mark {
+  width: 16px;
+  height: 16px;
+}
+.wallet-btn-mark .crypto-asset-icon {
+  display: block;
+}
+.wallet-btn--deposit {
+  background: linear-gradient(180deg, rgba(0, 200, 120, 0.18), rgba(0, 160, 100, 0.1));
+  border: 1.5px solid rgba(0, 220, 140, 0.4);
+  color: #5dffb0;
+  box-shadow: 0 6px 16px -10px rgba(0, 220, 140, 0.45);
+}
+.wallet-btn--deposit:active {
+  background: rgba(0, 200, 120, 0.28);
+  transform: translateY(1px);
+}
+.wallet-btn--withdraw {
+  background: linear-gradient(180deg, rgba(255, 180, 60, 0.16), rgba(232, 192, 106, 0.08));
+  border: 1.5px solid rgba(232, 192, 106, 0.45);
+  color: #ffd56a;
+  box-shadow: 0 6px 16px -10px rgba(232, 192, 106, 0.4);
+}
+.wallet-btn--withdraw:active {
+  background: rgba(232, 192, 106, 0.22);
+  transform: translateY(1px);
+}
+.wallet-btn--withdraw:disabled {
+  opacity: 0.4;
+  cursor: default;
+  box-shadow: none;
+  transform: none;
+}
+.wallet-btn--exchange {
+  background: linear-gradient(180deg, rgba(80, 160, 255, 0.16), rgba(60, 130, 220, 0.08));
+  border: 1.5px solid rgba(94, 174, 230, 0.4);
+  color: #7ec4ef;
+  grid-template-columns: 22px minmax(0, 1fr);
+}
+.wallet-btn--exchange:active {
+  background: rgba(94, 174, 230, 0.22);
+  transform: translateY(1px);
+}
+.wallet-btn--history {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1.5px solid rgba(255, 255, 255, 0.14);
+  color: var(--tg-text);
+  grid-template-columns: 22px minmax(0, 1fr);
+}
+.wallet-btn--history:active,
+.wallet-btn--history.wallet-btn--on {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.24);
+}
+html[data-theme="light"] .wallet-btn--history {
+  background: rgba(0, 0, 0, 0.03);
+  border-color: var(--tg-sep);
+}
+html[data-theme="light"] .wallet-btn--history.wallet-btn--on,
+html[data-theme="light"] .wallet-btn--history:active {
+  background: rgba(0, 0, 0, 0.06);
+}
+
 /* ── Wallet screen ───────────────────────────────────────────── */
 .wallet-screen {
   padding: 8px 0 20px;
@@ -2776,7 +2991,7 @@ body > canvas {
 .wallet-actions {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 8px;
+  gap: 10px;
   margin: 0 0 16px;
 }
 .wallet-exchange-btn,
@@ -2837,11 +3052,24 @@ html[data-theme="light"] .wallet-history-btn:active {
   border-bottom: 1px solid var(--tg-sep);
 }
 .wallet-asset:last-child { border-bottom: none; }
+.wallet-asset--crypto {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+}
+.wallet-asset-main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+}
 .wallet-asset-left {
   display: flex;
   align-items: center;
   gap: 12px;
   min-width: 0;
+  flex: 1 1 auto;
 }
 .wallet-asset-icon {
   width: 40px;
@@ -2857,26 +3085,53 @@ html[data-theme="light"] .wallet-history-btn:active {
   background: rgba(232, 192, 106, 0.1);
   border: 1px solid rgba(232, 192, 106, 0.28);
 }
+.wallet-asset-icon--crypto {
+  color: inherit;
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+.wallet-asset-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
 .wallet-asset-name {
   font-size: 15px;
   font-weight: 650;
   color: var(--tg-text);
   line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .wallet-asset-code {
   font-size: 11px;
+  font-weight: 600;
   color: var(--tg-hint);
-  margin-top: 2px;
+  line-height: 1.2;
+  letter-spacing: 0.02em;
+  margin-top: 0;
+}
+.wallet-asset-code--right {
+  text-align: right;
 }
 .wallet-asset-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 3px;
   text-align: right;
   flex-shrink: 0;
+  min-width: 72px;
 }
 .wallet-asset-available {
   font-size: 17px;
   font-weight: 700;
   color: var(--tg-text);
   line-height: 1.2;
+  font-variant-numeric: tabular-nums;
 }
 .wallet-asset-unit {
   font-size: 12px;
@@ -2884,7 +3139,7 @@ html[data-theme="light"] .wallet-history-btn:active {
   color: var(--tg-hint);
 }
 .wallet-asset-locked {
-  margin-top: 3px;
+  margin-top: 0;
   font-size: 11px;
   color: var(--tg-hint);
 }
@@ -2926,9 +3181,7 @@ html[data-theme="light"] .wallet-history-btn:active {
   font-weight: 700;
 }
 .wallet-crypto-card-network {
-  margin-top: 2px;
-  font-size: 11px;
-  color: var(--tg-hint);
+  display: none;
 }
 .wallet-crypto-card-bal {
   font-size: 16px;
@@ -4870,6 +5123,23 @@ html[data-theme="light"] .bet-currency-chip--on {
   filter: drop-shadow(0 0 12px rgba(94, 200, 255, 0.5));
 }
 
+.mr-lobby-bomb {
+  display: inline-block;
+  font-size: 36px;
+  line-height: 1;
+  animation: mr-lobby-tick 1.8s ease-in-out infinite;
+  filter: drop-shadow(0 0 10px rgba(94, 200, 255, 0.55));
+  transform-origin: 50% 70%;
+}
+
+@keyframes mr-lobby-tick {
+  0%, 100% { transform: translateY(0) rotate(0deg) scale(1); }
+  20% { transform: translateY(-2px) rotate(-8deg) scale(1.05); }
+  40% { transform: translateY(0) rotate(6deg) scale(1.02); }
+  60% { transform: translateY(-3px) rotate(-4deg) scale(1.08); }
+  80% { transform: translateY(1px) rotate(3deg) scale(1); }
+}
+
 
 /* ══════════════════════════════════════════════════════════════
    ARENA — общий джекпот с шариком
@@ -5163,6 +5433,20 @@ html[data-theme="light"] .bet-currency-chip--on {
 .game-tile-icon--arena {
   background: linear-gradient(160deg, rgba(255, 255, 255, 0.24), rgba(255, 255, 255, 0.06));
   font-size: 36px;
+}
+
+.ar-lobby-target {
+  display: inline-block;
+  font-size: 36px;
+  line-height: 1;
+  animation: ar-lobby-pulse 2.2s ease-in-out infinite;
+  filter: drop-shadow(0 2px 10px rgba(180, 120, 255, 0.45));
+}
+
+@keyframes ar-lobby-pulse {
+  0%, 100% { transform: scale(1) rotate(0deg); }
+  35% { transform: scale(1.1) rotate(8deg); }
+  70% { transform: scale(0.96) rotate(-6deg); }
 }
 
 /* -- Settings ------------------------------------------------ */
@@ -5810,7 +6094,13 @@ html[data-theme="light"] .tab-bar {
   .av-plane-icon--flying,
   .av-mult--flying,
   .av-action--cash,
-  .av-lobby-plane {
+  .av-lobby-plane,
+  .cases-lobby-gift,
+  .bj-lobby-joker,
+  .coin-lobby-spin,
+  .mr-lobby-bomb,
+  .ar-lobby-target,
+  .game-tile-glow {
     animation: none;
   }
 }
@@ -6112,6 +6402,12 @@ html[data-theme="light"] .tab-bar {
   background: linear-gradient(180deg, #4aa8ff 0%, #3b99fc 100%);
   border-color: rgba(255, 255, 255, 0.12);
   box-shadow: 0 8px 22px rgba(59, 153, 252, 0.28);
+}
+.login-provider-btn--dev {
+  color: #ffd700;
+  background: linear-gradient(180deg, #3a5160 0%, #2f4553 100%);
+  border-color: rgba(255, 215, 0, 0.35);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.25);
 }
 .login-provider-btn--google {
   color: #f2f2f2;

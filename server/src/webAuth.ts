@@ -310,6 +310,16 @@ export async function upsertGoogleAccount(g: {
   return mapAccount(data as Record<string, unknown>);
 }
 
+/** Только для локальной разработки (без Google/Telegram OAuth). */
+export async function upsertDevLocalAccount(): Promise<Account> {
+  return upsertGoogleAccount({
+    googleId: 'dev:local',
+    email: 'dev@localhost',
+    name: 'Local Dev',
+    avatar: null,
+  });
+}
+
 /**
  * Вход / регистрация по кошельку (TON или EVM).
  * Если адрес уже в linked_wallets → логиним связанный аккаунт (создаём accounts при необходимости).

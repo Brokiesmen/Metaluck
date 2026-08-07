@@ -130,22 +130,66 @@
 
 /* ── TopBar ────────────────────────────────────────────────────── */
 .sh-topbar {
-  display: flex; align-items: center; gap: 12px;
-  padding: 12px var(--pad);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 10px var(--pad);
   border-bottom: 1px solid var(--c-border);
-  position: relative; z-index: 5;
+  position: relative;
+  z-index: 5;
   flex: 0 0 auto;
   background: color-mix(in srgb, var(--c-bg) 92%, transparent);
   backdrop-filter: blur(10px);
+  min-height: 48px;
 }
-/* Compact header for Telegram mini app + safe-area top inset. */
 .sh-topbar--compact {
-  padding-top: calc(9px + var(--sh-safe-top, env(safe-area-inset-top, 0px)));
-  padding-bottom: 9px;
+  padding-top: calc(8px + var(--sh-safe-top, env(safe-area-inset-top, 0px)));
+  padding-bottom: 8px;
 }
-.sh-topbar--compact .sh-topbar-title { font-size: 15px; }
-.sh-topbar--compact .sh-topbar-avatar { width: 28px; height: 28px; font-size: 15px; }
-.sh-topbar--compact .sh-topbar-balance { padding: 5px 10px; }
+.sh-topbar--balances {
+  justify-content: center;
+}
+.sh-topbar-balances {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  max-width: 420px;
+}
+.sh-bal {
+  appearance: none;
+  border: 1px solid var(--c-border);
+  background: var(--c-surface);
+  color: var(--c-text);
+  border-radius: 999px;
+  padding: 6px 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 0;
+  flex: 1 1 0;
+  font: inherit;
+  cursor: pointer;
+  line-height: 1;
+}
+.sh-bal:disabled { cursor: default; }
+.sh-bal .crypto-asset-icon,
+.sh-bal svg {
+  flex: 0 0 auto;
+  display: block;
+}
+.sh-bal-amt {
+  font-size: 13px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .sh-topbar-menu { background: none; border: 0; color: inherit; font-size: 18px; cursor: pointer; }
 .sh-topbar-title { font-weight: 800; font-size: 16px; letter-spacing: 0.2px; }
 .sh-topbar-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }

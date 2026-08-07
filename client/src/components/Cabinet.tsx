@@ -1,9 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api';
 import { RARITY, GIFT_IMAGES } from '../data';
-import { StarIcon } from './StarIcon';
-import { TopUpModal } from './TopUpModal';
-import { WithdrawModal } from './WithdrawModal';
 import { RulesModal } from './RulesModal';
 import { ReferralCard } from './ReferralCard';
 import { ModalShell } from './ModalShell';
@@ -104,7 +101,7 @@ function writeCache(items: HistoryEntry[]) {
   try { localStorage.setItem(CACHE_KEY, JSON.stringify(items.slice(0, 60))); } catch {}
 }
 
-export function Cabinet({ user, balance, isDev, isAdmin, onOpenAdmin, onOpenSettings, onBalanceUpdate, openInvoice, isTelegram, tg }: Props) {
+export function Cabinet({ user, isDev, isAdmin, onOpenAdmin, onOpenSettings, tg }: Props) {
   const { t, locale } = useSettings();
   const [history, setHistory]     = useState<HistoryEntry[]>(() => readCache());
   const [historyFresh, setFresh]  = useState(false);
@@ -112,8 +109,6 @@ export function Cabinet({ user, balance, isDev, isAdmin, onOpenAdmin, onOpenSett
   const [loadingMore, setLoadMore]= useState(false);
   const [page, setPage]           = useState(0);
   const [selected, setSelected]   = useState<HistoryEntry | null>(null);
-  const [showTopUp, setShowTopUp] = useState(false);
-  const [showWithdraw, setShowWithdraw] = useState(false);
   const [showRules, setShowRules] = useState(false);
   const [progress, setProgress] = useState<ProgressView | null>(null);
   const [nowTick, setNowTick] = useState(() => Date.now());
@@ -264,29 +259,8 @@ export function Cabinet({ user, balance, isDev, isAdmin, onOpenAdmin, onOpenSett
         </>
       )}
 
-      <div className="tg-section-title">{t.cabinet.balance}</div>
       <div className="tg-section">
         <div className="balance-block">
-          <div className="balance-row">
-            <StarIcon size={32} />
-            <span className="balance-big num">
-              {balance.toLocaleString(locale)}
-            </span>
-            <span className="balance-unit">{t.common.stars}</span>
-          </div>
-          <div className="balance-actions">
-            <button type="button" className="topup-inline-btn" onClick={() => setShowTopUp(true)}>
-              {t.cabinet.topup}
-            </button>
-            <button
-              type="button"
-              className="withdraw-inline-btn"
-              onClick={() => setShowWithdraw(true)}
-              disabled={balance < 100}
-            >
-              {t.cabinet.withdraw}
-            </button>
-          </div>
           <button type="button" className="rules-inline-btn" onClick={() => setShowRules(true)}>
             {t.rules.button}
           </button>
@@ -398,23 +372,6 @@ export function Cabinet({ user, balance, isDev, isAdmin, onOpenAdmin, onOpenSett
             date: t.cabinet.date,
             close: t.common.close,
           }}
-        />
-      )}
-
-      {showTopUp && (
-        <TopUpModal
-          onClose={() => setShowTopUp(false)}
-          onBalanceUpdate={onBalanceUpdate}
-          openInvoice={openInvoice}
-          isTelegram={isTelegram}
-        />
-      )}
-
-      {showWithdraw && (
-        <WithdrawModal
-          balance={balance}
-          onClose={() => setShowWithdraw(false)}
-          onBalanceUpdate={onBalanceUpdate}
         />
       )}
 

@@ -11,6 +11,7 @@ interface Props {
   title: string;
   children: ReactNode;
   balanceLabel?: string;
+  starsBalance?: number;
   userName?: string;
   userAvatar?: string | null;
   activeNav?: NavId;
@@ -24,12 +25,10 @@ export function DesktopShell({
   title,
   children,
   balanceLabel,
-  userName,
-  userAvatar,
+  starsBalance,
   activeNav,
   onNavigate,
   onDeposit,
-  onSettings,
 }: Props) {
   return (
     <div className="sh-shell sh-shell--desktop">
@@ -38,10 +37,8 @@ export function DesktopShell({
         <TopBar
           title={title}
           balanceLabel={balanceLabel}
-          userName={userName}
-          userAvatar={userAvatar}
+          starsBalance={starsBalance}
           onBalanceClick={onDeposit}
-          onSettings={onSettings}
         />
         <main className="sh-content sh-content--desktop">
           <div className="sh-container">{children}</div>

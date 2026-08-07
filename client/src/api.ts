@@ -222,7 +222,14 @@ export const api = {
       tonManifestUrl?: string | null;
       walletConnectProjectId?: string | null;
       walletLink?: { ton: boolean; evm: boolean };
+      devLoginReady?: boolean;
     }>('/api/auth/config'),
+
+  authDev: () =>
+    request<AuthResponse>('/api/auth/dev', { method: 'POST', body: '{}' }).then((d) => {
+      setAuthToken(d.token);
+      return d;
+    }),
 
   authWalletChallenge: (chain: 'ton' | 'evm') =>
     request<{ nonce: string; expiresAt: string; chain: string }>(
