@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { createPhaserConfig, resolveGameSize } from './GameConfig';
+import { createPhaserConfig, resolveGameSize, type PhaserConfigOverrides } from './GameConfig';
 import { SoundManager } from './SoundManager';
 import {
   REGISTRY_KEYS,
@@ -35,7 +35,8 @@ export abstract class BaseGame {
     this.runtime = {
       ...config,
       callbacks: config.callbacks ? { ...config.callbacks } : undefined,
-      options: config.options ? { ...config.options } : undefined,
+      // Options stay by reference — they may carry live objects (e.g. a transport).
+      options: config.options,
     };
     await this.onInit();
   }
@@ -58,6 +59,7 @@ export abstract class BaseGame {
           width,
           height,
           scenes,
+          overrides: this.getPhaserOverrides(),
         }),
       );
 
@@ -118,6 +120,16 @@ export abstract class BaseGame {
   protected onGameResize(_width: number, _height: number): void {}
 
   protected abstract getSceneClasses(): Phaser.Types.Scenes.SceneType[];
+
+  /** Per-game Phaser boot overrides (scale mode, render, fps). */
+  protected getPhaserOverrides(): PhaserConfigOverrides | undefined {
+    return undefined;
+  }
+
+  /** Parent element for the canvas / DOM overlays, resolved from runtime. */
+  protected getParentElement(): HTMLElement | null {
+    return this.resolveParentElement();
+  }
 
   protected getCallbacks(): GameCallbacks {
     return this.runtime?.callbacks ?? {};

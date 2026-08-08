@@ -436,6 +436,33 @@ export type Dict = {
     toastWin: string;
     toastLost: string;
   };
+  /** Aviator (Phaser) UI copy — mirrors AviatorStrings in games/aviator. */
+  avUi: {
+    multiplier: string;
+    waiting: string;
+    startingIn: string;
+    crashedAt: string;
+    youWon: string;
+    roundOver: string;
+    win: string;
+    balance: string;
+    placeBet: string;
+    amount: string;
+    autoCashout: string;
+    potential: string;
+    live: string;
+    bet: string;
+    betLocked: string;
+    cashOut: string;
+    betCurrency: string;
+    bettingOpen: string;
+    nextRound: string;
+    wait: string;
+    sound: string;
+    betPlaced: string;
+    cashedOutAt: string;
+    betLost: string;
+  };
   auth: {
     title: string;
     subtitle: string;
@@ -923,6 +950,32 @@ const ru: Dict = {
     cashError: 'Ошибка кэшаута',
     toastWin: 'Забрали на {mult} — +{amount} ★',
     toastLost: 'Улетел на {mult} — ставка сгорела',
+  },
+  avUi: {
+    multiplier: 'МНОЖИТЕЛЬ',
+    waiting: 'ОЖИДАНИЕ',
+    startingIn: 'ВЗЛЁТ ЧЕРЕЗ',
+    crashedAt: 'УЛЕТЕЛ НА',
+    youWon: 'ВЫ ВЫИГРАЛИ',
+    roundOver: 'РАУНД ОКОНЧЕН',
+    win: 'ВЫИГРЫШ',
+    balance: 'Баланс',
+    placeBet: 'Ставка',
+    amount: 'Сумма',
+    autoCashout: 'Авто-кэшаут',
+    potential: 'Возможный',
+    live: 'Сейчас',
+    bet: 'Поставить',
+    betLocked: 'Ставка принята',
+    cashOut: 'Забрать',
+    betCurrency: 'Ставка в',
+    bettingOpen: 'Приём ставок',
+    nextRound: 'Следующий раунд',
+    wait: 'ЖДЁМ',
+    sound: 'Звук',
+    betPlaced: 'Ставка принята',
+    cashedOutAt: 'Забрали на {mult}',
+    betLost: 'Ставка сгорела',
   },
   auth: {
     title: 'Вход в Metaluck',
@@ -1412,6 +1465,32 @@ const uk: Dict = {
     toastWin: 'Забрали на {mult} — +{amount} ★',
     toastLost: 'Відлетів на {mult} — ставка згоріла',
   },
+  avUi: {
+    multiplier: 'МНОЖНИК',
+    waiting: 'ОЧІКУВАННЯ',
+    startingIn: 'ЗЛІТ ЧЕРЕЗ',
+    crashedAt: 'ВІДЛЕТІВ НА',
+    youWon: 'ВИ ВИГРАЛИ',
+    roundOver: 'РАУНД ЗАВЕРШЕНО',
+    win: 'ВИГРАШ',
+    balance: 'Баланс',
+    placeBet: 'Ставка',
+    amount: 'Сума',
+    autoCashout: 'Авто-кешаут',
+    potential: 'Можливий',
+    live: 'Зараз',
+    bet: 'Поставити',
+    betLocked: 'Ставку прийнято',
+    cashOut: 'Забрати',
+    betCurrency: 'Ставка в',
+    bettingOpen: 'Прийом ставок',
+    nextRound: 'Наступний раунд',
+    wait: 'ЧЕКАЄМО',
+    sound: 'Звук',
+    betPlaced: 'Ставку прийнято',
+    cashedOutAt: 'Забрали на {mult}',
+    betLost: 'Ставка згоріла',
+  },
   auth: {
     title: 'Вхід у Metaluck',
     subtitle: 'Кейси, міні-ігри та гаманець — з будь-якого пристрою',
@@ -1899,6 +1978,32 @@ const en: Dict = {
     cashError: 'Cash out error',
     toastWin: 'Cashed out at {mult} — +{amount} ★',
     toastLost: 'Flew away at {mult} — bet lost',
+  },
+  avUi: {
+    multiplier: 'MULTIPLIER',
+    waiting: 'WAITING',
+    startingIn: 'STARTING IN',
+    crashedAt: 'CRASHED AT',
+    youWon: 'YOU WON',
+    roundOver: 'ROUND OVER',
+    win: 'WIN',
+    balance: 'Balance',
+    placeBet: 'Place Bet',
+    amount: 'Amount',
+    autoCashout: 'Auto Cashout',
+    potential: 'Potential',
+    live: 'Live',
+    bet: 'Bet',
+    betLocked: 'Bet Locked',
+    cashOut: 'Cash Out',
+    betCurrency: 'Bet in',
+    bettingOpen: 'Betting open',
+    nextRound: 'Next round',
+    wait: 'WAIT',
+    sound: 'Toggle sound',
+    betPlaced: 'Bet placed',
+    cashedOutAt: 'Cashed out @ {mult}',
+    betLost: 'Bet lost',
   },
   auth: {
     title: 'Sign in to Metaluck',
@@ -2388,6 +2493,32 @@ const es: Dict = {
     toastWin: 'Retirado en {mult} — +{amount} ★',
     toastLost: 'Se fue en {mult} — apuesta perdida',
   },
+  avUi: {
+    multiplier: 'MULTIPLICADOR',
+    waiting: 'ESPERANDO',
+    startingIn: 'DESPEGUE EN',
+    crashedAt: 'SE FUE EN',
+    youWon: 'HAS GANADO',
+    roundOver: 'RONDA TERMINADA',
+    win: 'GANANCIA',
+    balance: 'Saldo',
+    placeBet: 'Apuesta',
+    amount: 'Importe',
+    autoCashout: 'Retiro automático',
+    potential: 'Potencial',
+    live: 'Ahora',
+    bet: 'Apostar',
+    betLocked: 'Apuesta aceptada',
+    cashOut: 'Retirar',
+    betCurrency: 'Apostar en',
+    bettingOpen: 'Apuestas abiertas',
+    nextRound: 'Próxima ronda',
+    wait: 'ESPERA',
+    sound: 'Sonido',
+    betPlaced: 'Apuesta aceptada',
+    cashedOutAt: 'Retirado en {mult}',
+    betLost: 'Apuesta perdida',
+  },
   auth: {
     title: 'Entrar en Metaluck',
     subtitle: 'Casos, minijuegos y monedero — desde cualquier dispositivo',
@@ -2875,6 +3006,32 @@ const de: Dict = {
     cashError: 'Fehler beim Kassieren',
     toastWin: 'Kassiert bei {mult} — +{amount} ★',
     toastLost: 'Weggeflogen bei {mult} — Einsatz verloren',
+  },
+  avUi: {
+    multiplier: 'MULTIPLIKATOR',
+    waiting: 'WARTEN',
+    startingIn: 'START IN',
+    crashedAt: 'ABGESTÜRZT BEI',
+    youWon: 'GEWONNEN',
+    roundOver: 'RUNDE VORBEI',
+    win: 'GEWINN',
+    balance: 'Guthaben',
+    placeBet: 'Einsatz',
+    amount: 'Betrag',
+    autoCashout: 'Auto-Cashout',
+    potential: 'Möglich',
+    live: 'Aktuell',
+    bet: 'Setzen',
+    betLocked: 'Einsatz gesetzt',
+    cashOut: 'Auszahlen',
+    betCurrency: 'Einsatz in',
+    bettingOpen: 'Einsätze offen',
+    nextRound: 'Nächste Runde',
+    wait: 'WARTEN',
+    sound: 'Ton',
+    betPlaced: 'Einsatz gesetzt',
+    cashedOutAt: 'Ausgezahlt bei {mult}',
+    betLost: 'Einsatz verloren',
   },
   auth: {
     title: 'Bei Metaluck anmelden',

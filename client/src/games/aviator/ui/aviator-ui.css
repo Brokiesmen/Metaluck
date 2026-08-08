@@ -1,0 +1,604 @@
+/*
+ * Aviator DOM overlay.
+ * Every selector is `av-` prefixed and scoped under `.av-ui` so it cannot
+ * collide with the app's global stylesheet (which owns .btn, .toast, .actions…).
+ */
+
+.av-ui {
+  --av-panel: rgba(12, 18, 36, 0.86);
+  --av-border: rgba(120, 160, 220, 0.16);
+  --av-border-strong: rgba(140, 190, 255, 0.3);
+  --av-text: #e8eef8;
+  --av-muted: #8b9bb8;
+  --av-cyan: #2ef5d0;
+  --av-cyan-dim: rgba(46, 245, 208, 0.18);
+  --av-rose: #ff4d7a;
+  --av-gold: #f6d36a;
+  --av-font: -apple-system, 'Segoe UI', system-ui, sans-serif;
+  --av-mono: ui-monospace, 'SF Mono', 'Consolas', monospace;
+  --av-safe-bottom: env(safe-area-inset-bottom, 0px);
+
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  pointer-events: none;
+  font-family: var(--av-font);
+  color: var(--av-text);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.av-ui button,
+.av-ui input,
+.av-ui .av-card,
+.av-ui .av-balance-chip {
+  pointer-events: auto;
+}
+
+.av-ui *,
+.av-ui *::before,
+.av-ui *::after {
+  box-sizing: border-box;
+}
+
+/* ── Top bar ─────────────────────────────────────────────────────────── */
+
+.av-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  /* Leave room for the host's back button on the left. */
+  padding: 10px 12px 8px 96px;
+  background: linear-gradient(180deg, rgba(3, 5, 12, 0.85) 0%, rgba(3, 5, 12, 0) 100%);
+}
+
+.av-topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.av-history {
+  display: flex;
+  gap: 6px;
+  max-width: min(38vw, 420px);
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(90deg, #000 70%, transparent);
+  mask-image: linear-gradient(90deg, #000 70%, transparent);
+}
+
+.av-hist {
+  flex: 0 0 auto;
+  font-family: var(--av-mono);
+  font-size: 11px;
+  padding: 4px 7px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--av-muted);
+}
+
+.av-hist.is-warm {
+  color: var(--av-cyan);
+  background: var(--av-cyan-dim);
+}
+
+.av-hist.is-hot {
+  color: var(--av-gold);
+  background: rgba(246, 211, 106, 0.12);
+}
+
+.av-hist.is-cold {
+  color: var(--av-rose);
+  background: rgba(255, 77, 122, 0.1);
+}
+
+.av-icon-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 11px;
+  border: 1px solid var(--av-border);
+  background: rgba(16, 24, 44, 0.7);
+  color: var(--av-cyan);
+  font-size: 15px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, opacity 0.15s ease;
+}
+
+.av-icon-btn.is-off {
+  color: var(--av-muted);
+  opacity: 0.55;
+}
+
+.av-balance-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  padding: 6px 12px;
+  border-radius: 12px;
+  background: rgba(16, 24, 44, 0.72);
+  border: 1px solid var(--av-border);
+}
+
+.av-balance-label {
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--av-muted);
+}
+
+.av-balance-value {
+  font-family: var(--av-mono);
+  font-size: 15px;
+  color: var(--av-cyan);
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.av-curr-icon {
+  display: block;
+  flex: 0 0 auto;
+  border-radius: 50%;
+}
+
+.av-curr-icon--star {
+  border-radius: 0;
+}
+
+/* ── Toast / wait banner ─────────────────────────────────────────────── */
+
+.av-toast {
+  position: absolute;
+  top: 62px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 10px 16px;
+  border-radius: 12px;
+  font-size: 13px;
+  border: 1px solid var(--av-border);
+  animation: av-toast-in 0.28s ease;
+  z-index: 20;
+  pointer-events: none;
+}
+
+.av-toast.is-ok {
+  background: rgba(16, 40, 36, 0.94);
+  color: var(--av-cyan);
+}
+
+.av-toast.is-err {
+  background: rgba(40, 16, 24, 0.94);
+  color: var(--av-rose);
+}
+
+@keyframes av-toast-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -8px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+.av-wait-banner {
+  position: absolute;
+  top: 56px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: rgba(10, 16, 32, 0.82);
+  border: 1px solid var(--av-border);
+  z-index: 15;
+  pointer-events: none;
+}
+
+.av-wait-banner span {
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--av-muted);
+}
+
+.av-wait-banner strong {
+  font-size: 18px;
+  color: var(--av-cyan);
+}
+
+/* ── Bet dock ────────────────────────────────────────────────────────── */
+
+.av-dock {
+  margin-top: auto;
+  display: flex;
+  justify-content: flex-end;
+  padding: 12px 14px calc(14px + var(--av-safe-bottom));
+  transition: transform 0.38s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.28s ease;
+  will-change: transform, opacity;
+}
+
+.av-ui--mobile .av-dock.is-hidden {
+  transform: translateY(110%);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.av-card {
+  width: min(360px, 100%);
+  padding: 14px;
+  border-radius: 16px;
+  background: var(--av-panel);
+  border: 1px solid var(--av-border);
+  box-shadow:
+    0 20px 50px rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.av-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.av-card-head h2 {
+  margin: 0;
+  font-size: 13px;
+  letter-spacing: 0.12em;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.av-phase-pill {
+  font-family: var(--av-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  padding: 4px 8px;
+  border-radius: 999px;
+  color: var(--av-cyan);
+  background: var(--av-cyan-dim);
+}
+
+.av-wait-meter {
+  position: relative;
+  height: 28px;
+  margin-bottom: 12px;
+  border-radius: 10px;
+  overflow: hidden;
+  background: rgba(7, 11, 24, 0.75);
+  border: 1px solid var(--av-border);
+}
+
+.av-wait-meter-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 100%;
+  background: linear-gradient(90deg, rgba(46, 245, 208, 0.35), rgba(46, 245, 208, 0.12));
+  transition: width 0.1s linear;
+}
+
+.av-wait-meter-text {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  font-family: var(--av-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: var(--av-cyan);
+}
+
+.av-currency {
+  margin-bottom: 12px;
+}
+
+.av-currency-label {
+  display: block;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--av-muted);
+  margin-bottom: 6px;
+}
+
+.av-currency-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+
+.av-currency-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 8px 6px;
+  border-radius: 10px;
+  border: 1px solid var(--av-border);
+  background: rgba(7, 11, 24, 0.7);
+  color: var(--av-muted);
+  font-size: 11px;
+  font-family: var(--av-font);
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+  min-height: 40px;
+}
+
+.av-currency-chip.is-on {
+  color: var(--av-cyan);
+  border-color: rgba(46, 245, 208, 0.45);
+  background: var(--av-cyan-dim);
+}
+
+.av-currency-chip:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.av-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--av-muted);
+}
+
+.av-amount-row {
+  display: grid;
+  grid-template-columns: 44px 1fr 44px;
+  gap: 8px;
+}
+
+.av-amount-row input,
+.av-auto-row input[type='number'] {
+  width: 100%;
+  border: 1px solid var(--av-border);
+  background: rgba(7, 11, 24, 0.85);
+  color: var(--av-text);
+  border-radius: 12px;
+  padding: 10px 12px;
+  font-family: var(--av-mono);
+  /* 16px keeps iOS from zooming the whole Mini App on focus. */
+  font-size: 16px;
+  outline: none;
+}
+
+.av-amount-row input:focus,
+.av-auto-row input[type='number']:focus {
+  border-color: var(--av-cyan);
+  box-shadow: 0 0 0 3px var(--av-cyan-dim);
+}
+
+.av-adj {
+  border: 1px solid var(--av-border);
+  background: rgba(16, 24, 44, 0.9);
+  color: var(--av-text);
+  border-radius: 12px;
+  font-size: 18px;
+  cursor: pointer;
+  transition: transform 0.12s ease;
+}
+
+.av-adj:active {
+  transform: scale(0.96);
+}
+
+.av-presets {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 6px;
+  margin: 12px 0;
+}
+
+.av-presets button {
+  border: 1px solid var(--av-border);
+  background: transparent;
+  color: var(--av-muted);
+  border-radius: 10px;
+  padding: 8px 0;
+  font-family: var(--av-mono);
+  font-size: 11px;
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+.av-presets button.is-on {
+  color: var(--av-cyan);
+  border-color: rgba(46, 245, 208, 0.45);
+  background: var(--av-cyan-dim);
+}
+
+.av-auto-row {
+  display: grid;
+  grid-template-columns: auto 1fr 76px auto;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0 12px;
+  font-size: 13px;
+  color: var(--av-muted);
+}
+
+.av-auto-row input[type='checkbox'] {
+  accent-color: var(--av-cyan);
+  width: 18px;
+  height: 18px;
+}
+
+.av-payout-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.av-payout-row > div {
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(7, 11, 24, 0.55);
+  border: 1px solid var(--av-border);
+}
+
+.av-payout-row .av-muted {
+  display: block;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--av-muted);
+  margin-bottom: 4px;
+}
+
+.av-payout-row strong {
+  font-family: var(--av-mono);
+  font-size: 15px;
+  color: var(--av-text);
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.av-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.av-btn {
+  position: relative;
+  border: none;
+  border-radius: 13px;
+  padding: 14px 12px;
+  font-family: var(--av-font);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: transform 0.12s ease, filter 0.15s ease, opacity 0.15s ease;
+  overflow: hidden;
+}
+
+.av-btn:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.av-btn:disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+}
+
+.av-btn--bet {
+  color: #04120f;
+  background: linear-gradient(180deg, #5ff7d8 0%, #1fc9a8 100%);
+  box-shadow: 0 8px 24px rgba(46, 245, 208, 0.22);
+}
+
+.av-btn--cashout {
+  color: #1a1200;
+  background: linear-gradient(180deg, #ffd27a 0%, #f0a020 100%);
+  box-shadow: 0 8px 24px rgba(255, 179, 71, 0.2);
+}
+
+.av-btn,
+.av-adj,
+.av-presets button,
+.av-icon-btn,
+.av-currency-chip {
+  touch-action: manipulation;
+  min-height: 44px;
+}
+
+/* ── Flight cash-out (mobile cycle) ──────────────────────────────────── */
+
+.av-flight-cashout {
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  bottom: calc(14px + var(--av-safe-bottom));
+  z-index: 16;
+  transition: transform 0.3s ease, opacity 0.25s ease;
+  transform: translateY(20px);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.av-flight-cashout.is-visible {
+  transform: translateY(0);
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.av-flight-cashout-btn {
+  width: 100%;
+  padding: 16px 12px;
+  font-size: 13px;
+}
+
+/* ── Narrow / portrait: full-width dock, Mini App friendly ───────────── */
+
+@media (max-width: 860px), (orientation: portrait) and (max-width: 1024px) {
+  .av-dock {
+    justify-content: stretch;
+  }
+
+  .av-card {
+    width: 100%;
+    padding: 12px;
+    border-radius: 14px;
+    background: rgba(10, 14, 28, 0.94);
+  }
+
+  .av-history {
+    display: none;
+  }
+
+  .av-presets {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .av-presets button {
+    min-height: 40px;
+    font-size: 12px;
+  }
+
+  .av-actions {
+    gap: 8px;
+  }
+
+  .av-btn {
+    padding: 14px 10px;
+    font-size: 11px;
+  }
+}
+
+@media (max-height: 560px) and (orientation: landscape) {
+  .av-dock {
+    position: absolute;
+    right: 8px;
+    bottom: 8px;
+    padding: 0;
+    width: min(300px, 42vw);
+  }
+
+  .av-presets,
+  .av-payout-row {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .av-ui *,
+  .av-ui *::before,
+  .av-ui *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}

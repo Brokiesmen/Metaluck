@@ -11,6 +11,12 @@ export interface PhaserGameHostProps {
   onBack: () => void;
   onBalanceUpdate: (balance: number) => void;
   backLabel?: string;
+  /**
+   * Per-game runtime options (transport, localized copy…).
+   * Kept opaque so the host bridge stays free of game-specific imports.
+   * Changing the identity of this object reloads the game.
+   */
+  options?: unknown;
 }
 
 /**
@@ -24,6 +30,7 @@ export function PhaserGameHost({
   onBack,
   onBalanceUpdate,
   backLabel = '← Games',
+  options,
 }: PhaserGameHostProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const balanceRef = useRef(balance);
@@ -45,6 +52,7 @@ export function PhaserGameHost({
         balance: balanceRef.current,
         width: DEFAULT_GAME_WIDTH,
         height: DEFAULT_GAME_HEIGHT,
+        options,
         callbacks: {
           onBalance: (next) => {
             if (!cancelled) onBalanceRef.current(next);
@@ -71,9 +79,9 @@ export function PhaserGameHost({
       cancelled = true;
       manager.destroy();
     };
-    // Reload only when switching game — not on every TopBar balance tick.
+    // Reload only when switching game / options — not on every TopBar balance tick.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gameId, bet]);
+  }, [gameId, bet, options]);
 
   return (
     <div className="phaser-game-host">

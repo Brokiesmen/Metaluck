@@ -36,8 +36,11 @@ export interface GameRuntimeConfig {
   /** Logical game size; defaults come from GameConfig. */
   width?: number;
   height?: number;
-  /** Extra per-game options (ignored by core if unused). */
-  options?: Record<string, unknown>;
+  /**
+   * Opaque per-game options (transport, localized copy…). Core never inspects
+   * this — the concrete game casts it to its own options type.
+   */
+  options?: unknown;
 }
 
 /** Keys stored on Phaser.Game.registry for scenes. */

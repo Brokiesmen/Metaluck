@@ -11,6 +11,7 @@ import { MineRushGame } from '../components/MineRushGame';
 import { WalletScreen } from '../components/WalletScreen';
 import { PhaserGameHost } from '../games/host/PhaserGameHost';
 import { isPhaserAppGame, phaserIdForAppGame } from '../games/catalog';
+import { useAviatorRuntime } from './useAviatorRuntime';
 import { HomeDashboard } from './HomeDashboard';
 import type { AppNavigation } from './useAppNavigation';
 import type { AppSession } from './useAppSession';
@@ -58,6 +59,8 @@ export function AppMainContent({ session, nav }: Props) {
   } = nav;
 
   const { t } = useSettings();
+  // Live REST/WS transport + localized copy for the Phaser Aviator module.
+  const aviatorOptions = useAviatorRuntime(section === 'games' && gameView === 'aviator');
 
   if (section === 'home') {
     return (
@@ -88,7 +91,7 @@ export function AppMainContent({ session, nav }: Props) {
     // Phaser engine (GameManager) — replaces legacy React canvases for wired games.
     if (isPhaserAppGame(gameView)) {
       const phaserId = phaserIdForAppGame(gameView);
-      if (phaserId) {
+      if (phaserId && (gameView !== 'aviator' || aviatorOptions)) {
         return (
           <PhaserGameHost
             gameId={phaserId}
@@ -97,6 +100,7 @@ export function AppMainContent({ session, nav }: Props) {
             onBack={backToGamesLobby}
             onBalanceUpdate={updateBalance}
             backLabel={t.common.backGames}
+            options={gameView === 'aviator' ? aviatorOptions ?? undefined : undefined}
           />
         );
       }

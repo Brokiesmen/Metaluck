@@ -25,6 +25,8 @@ export type {
 export { REGISTRY_KEYS } from './core/types';
 export { SandboxGame } from './sandbox/SandboxGame';
 export { AviatorGame } from './aviator/AviatorGame';
+export type { AviatorOptions } from './aviator/AviatorGame';
+export type { GameTransport as AviatorTransport } from './aviator/transport/GameTransport';
 export { PhaserGameHost } from './host/PhaserGameHost';
 export type { PhaserGameHostProps } from './host/PhaserGameHost';
 export { PHASER_APP_GAMES, isPhaserAppGame, phaserIdForAppGame } from './catalog';
