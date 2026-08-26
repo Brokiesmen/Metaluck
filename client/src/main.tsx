@@ -35,11 +35,13 @@ const tonManifestUrl = `${window.location.origin}/tonconnect-manifest.json`;
  * UI modes (rollback-friendly):
  * - default on this branch → new shell live UI (ShellLiveApp)
  * - ?ui=legacy → previous App shell
+ * - ?ui=proto → dark-gold prototype UI (auth-free)
  * - ?shell=preview → mock shell demo
  */
 const params = new URLSearchParams(window.location.search);
 const shellPreview = params.get('shell') === 'preview';
 const useLegacy = params.get('ui') === 'legacy';
+const useProto = params.get('ui') === 'proto';
 const forcedPlatform = params.get('platform');
 const forced = forcedPlatform === 'telegram' || forcedPlatform === 'desktop' ? forcedPlatform : undefined;
 
@@ -77,6 +79,14 @@ if (shellPreview) {
     root.render(
       <StrictMode>
         <ShellDemo force={forced} />
+      </StrictMode>,
+    );
+  });
+} else if (useProto) {
+  void import('./prototype').then(({ ProtoApp }) => {
+    root.render(
+      <StrictMode>
+        <ProtoApp />
       </StrictMode>,
     );
   });
