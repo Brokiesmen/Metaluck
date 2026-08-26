@@ -1,17 +1,18 @@
 import { useState } from 'react';
-import { protoProfile, protoStats, protoActivity, protoWallets } from '../data';
-import type { VerificationStatus } from '../ProtoApp';
+import { protoProfile, protoStats, protoActivity } from '../data';
+import type { VerificationStatus, Wallets } from '../ProtoApp';
 import { VerificationModal } from '../components/VerificationModal';
 
 interface Props {
   view: 'cabinet' | 'wallet';
   verificationStatus: VerificationStatus;
   onVerificationChange: (status: VerificationStatus) => void;
+  wallets: Wallets;
 }
 
-export function ProfilePage({ view, verificationStatus, onVerificationChange }: Props) {
+export function ProfilePage({ view, verificationStatus, onVerificationChange, wallets }: Props) {
   if (view === 'wallet') {
-    return <WalletView />;
+    return <WalletView wallets={wallets} />;
   }
   return (
     <CabinetView 
@@ -238,16 +239,18 @@ function CabinetView({ verificationStatus, onVerificationChange }: CabinetProps)
   );
 }
 
-function WalletView() {
+function WalletView({ wallets }: { wallets: Wallets }) {
+  const totalUsd = (wallets.stars * 0.015) + (wallets.ton * 5.5) + wallets.usdt;
+  
   return (
     <div className="proto-page">
       {/* Balance hero */}
       <div className="proto-card proto-wallet-hero">
-        <div className="proto-wallet-label">Баланс</div>
+        <div className="proto-wallet-label">Общий баланс</div>
         <div className="proto-wallet-amount">
-          1 240 <span className="star">★</span>
+          ≈ ${totalUsd.toFixed(2)}
         </div>
-        <div className="proto-wallet-fiat">≈ $18.60</div>
+        <div className="proto-wallet-fiat">во всех валютах</div>
         <div className="proto-wallet-actions">
           <button type="button" className="proto-btn proto-btn--gold">
             Пополнить
@@ -264,25 +267,39 @@ function WalletView() {
       </div>
 
       <div className="proto-list">
-        {protoWallets.map((wallet) => (
-          <div key={wallet.code} className="proto-list-item">
-            <div
-              className={`proto-list-icon${
-                wallet.code === 'STARS' ? ' proto-list-icon--gold' : ''
-              }`}
-            >
-              {wallet.icon}
-            </div>
-            <div className="proto-list-body">
-              <div className="proto-list-title">{wallet.name}</div>
-              <div className="proto-list-sub">{wallet.code}</div>
-            </div>
-            <div className="proto-list-end">
-              <div className="proto-list-value">{wallet.amount}</div>
-              <div className="proto-list-hint">{wallet.fiat}</div>
-            </div>
+        <div className="proto-list-item">
+          <div className="proto-list-icon proto-list-icon--gold">★</div>
+          <div className="proto-list-body">
+            <div className="proto-list-title">Stars</div>
+            <div className="proto-list-sub">STARS</div>
           </div>
-        ))}
+          <div className="proto-list-end">
+            <div className="proto-list-value">{wallets.stars.toLocaleString('ru-RU')}</div>
+            <div className="proto-list-hint">≈ ${(wallets.stars * 0.015).toFixed(2)}</div>
+          </div>
+        </div>
+        <div className="proto-list-item">
+          <div className="proto-list-icon">💎</div>
+          <div className="proto-list-body">
+            <div className="proto-list-title">Toncoin</div>
+            <div className="proto-list-sub">TON</div>
+          </div>
+          <div className="proto-list-end">
+            <div className="proto-list-value">{wallets.ton.toFixed(2)}</div>
+            <div className="proto-list-hint">≈ ${(wallets.ton * 5.5).toFixed(2)}</div>
+          </div>
+        </div>
+        <div className="proto-list-item">
+          <div className="proto-list-icon">$</div>
+          <div className="proto-list-body">
+            <div className="proto-list-title">Tether</div>
+            <div className="proto-list-sub">USDT</div>
+          </div>
+          <div className="proto-list-end">
+            <div className="proto-list-value">{wallets.usdt.toFixed(2)}</div>
+            <div className="proto-list-hint">≈ ${wallets.usdt.toFixed(2)}</div>
+          </div>
+        </div>
       </div>
 
       {/* Linked wallets */}

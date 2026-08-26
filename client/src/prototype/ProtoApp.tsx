@@ -5,6 +5,8 @@ import { GamesPage } from './pages/GamesPage';
 import { DailyPage } from './pages/DailyPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { CaseOpenModal } from './components/CaseOpenModal';
+import { AuthModal } from './components/AuthModal';
+import { DepositModal } from './components/DepositModal';
 import type { ProtoCase } from './data';
 
 type NavId = 'cases' | 'games' | 'daily' | 'cabinet' | 'wallet';
@@ -18,6 +20,18 @@ const navItems: { id: NavId; icon: string; label: string }[] = [
 ];
 
 export type VerificationStatus = 'unverified' | 'pending' | 'verified';
+
+export interface Wallets {
+  stars: number;
+  ton: number;
+  usdt: number;
+}
+
+export interface User {
+  name: string;
+  email: string;
+  avatar: string;
+}
 
 function useIsDesktop() {
   const [isDesktop, setIsDesktop] = useState(() => 
@@ -52,13 +66,54 @@ function useSidebarState() {
   return { collapsed, toggle };
 }
 
+function useAuth() {
+  const [user, setUser] = useState<User | null>(() => {
+    if (typeof window === 'undefined') return null;
+    const saved = localStorage.getItem('proto-user');
+    return saved ? JSON.parse(saved) : null;
+  });
+
+  const login = (userData: User) => {
+    setUser(userData);
+    localStorage.setItem('proto-user', JSON.stringify(userData));
+  };
+
+  const logout = () => {
+    setUser(null);
+    localStorage.removeItem('proto-user');
+  };
+
+  return { user, login, logout };
+}
+
+function useWallets() {
+  const [wallets, setWallets] = useState<Wallets>(() => {
+    if (typeof window === 'undefined') return { stars: 1240, ton: 2.5, usdt: 15.0 };
+    const saved = localStorage.getItem('proto-wallets');
+    return saved ? JSON.parse(saved) : { stars: 1240, ton: 2.5, usdt: 15.0 };
+  });
+
+  const deposit = (currency: keyof Wallets, amount: number) => {
+    setWallets(prev => {
+      const next = { ...prev, [currency]: prev[currency] + amount };
+      localStorage.setItem('proto-wallets', JSON.stringify(next));
+      return next;
+    });
+  };
+
+  return { wallets, deposit };
+}
+
 export function ProtoApp() {
   const isDesktop = useIsDesktop();
   const { collapsed, toggle: toggleSidebar } = useSidebarState();
+  const { user, login, logout } = useAuth();
+  const { wallets, deposit } = useWallets();
   const [activeNav, setActiveNav] = useState<NavId>('cases');
-  const [balance] = useState(1240);
   const [openingCase, setOpeningCase] = useState<ProtoCase | null>(null);
   const [verificationStatus, setVerificationStatus] = useState<VerificationStatus>('unverified');
+  const [authModal, setAuthModal] = useState<'login' | 'register' | null>(null);
+  const [showDeposit, setShowDeposit] = useState(false);
 
   const handleOpenCase = (c: ProtoCase) => {
     setOpeningCase(c);
@@ -66,6 +121,16 @@ export function ProtoApp() {
 
   const handleCloseCase = () => {
     setOpeningCase(null);
+  };
+
+  const handleLogin = (userData: User) => {
+    login(userData);
+    setAuthModal(null);
+  };
+
+  const handleDeposit = (currency: keyof Wallets, amount: number) => {
+    deposit(currency, amount);
+    setShowDeposit(false);
   };
 
   const renderPage = () => {
@@ -83,6 +148,7 @@ export function ProtoApp() {
             view={activeNav} 
             verificationStatus={verificationStatus}
             onVerificationChange={setVerificationStatus}
+            wallets={wallets}
           />
         );
       default:
@@ -94,7 +160,7 @@ export function ProtoApp() {
   if (isDesktop) {
     return (
       <div className={`proto-desktop${collapsed ? ' sidebar-collapsed' : ''}`}>
-        {/* Sidebar - primary navigation */}
+        {/* Sidebar */}
         <aside className="proto-sidebar">
           <div className="proto-sidebar-header">
             <button 
@@ -141,9 +207,9 @@ export function ProtoApp() {
           )}
         </aside>
 
-        {/* Main area - fills remaining width */}
+        {/* Main area */}
         <div className="proto-main">
-          {/* Top bar - chrome only (no section nav, just balance/user) */}
+          {/* Top bar */}
           <header className="proto-topbar">
             <div className="proto-topbar-left">
               {collapsed && (
@@ -155,41 +221,98 @@ export function ProtoApp() {
             </div>
             
             <div className="proto-topbar-right">
-              {/* Balance + Deposit */}
-              <div className="proto-balance-box">
-                <div className="proto-balance-amount">
-                  <span className="proto-balance-star">★</span>
-                  <span className="proto-balance-value">{balance.toLocaleString('ru-RU')}</span>
+              {/* Multi-wallet balances */}
+              <div className="proto-wallets-bar">
+                <div className="proto-wallet-item">
+                  <span className="proto-wallet-icon">★</span>
+                  <span className="proto-wallet-value">{wallets.stars.toLocaleString('ru-RU')}</span>
                 </div>
-                <button type="button" className="proto-deposit-btn">
+                <div className="proto-wallet-item">
+                  <span className="proto-wallet-icon">💎</span>
+                  <span className="proto-wallet-value">{wallets.ton.toFixed(2)}</span>
+                  <span className="proto-wallet-code">TON</span>
+                </div>
+                <div className="proto-wallet-item">
+                  <span className="proto-wallet-icon">$</span>
+                  <span className="proto-wallet-value">{wallets.usdt.toFixed(2)}</span>
+                  <span className="proto-wallet-code">USDT</span>
+                </div>
+                <button 
+                  type="button" 
+                  className="proto-deposit-btn"
+                  onClick={() => setShowDeposit(true)}
+                >
                   Депозит
                 </button>
               </div>
               
-              {/* User */}
-              <button 
-                type="button" 
-                className={`proto-user-btn${activeNav === 'cabinet' ? ' active' : ''}`}
-                onClick={() => setActiveNav('cabinet')}
-              >
-                <span className="proto-user-avatar">🦊</span>
-                <span className="proto-user-name">Марк</span>
-                {verificationStatus === 'verified' && (
-                  <span className="proto-user-verified">✓</span>
-                )}
-              </button>
+              {/* Auth / User */}
+              {user ? (
+                <div className="proto-user-menu">
+                  <button 
+                    type="button" 
+                    className={`proto-user-btn${activeNav === 'cabinet' ? ' active' : ''}`}
+                    onClick={() => setActiveNav('cabinet')}
+                  >
+                    <span className="proto-user-avatar">{user.avatar}</span>
+                    <span className="proto-user-name">{user.name}</span>
+                    {verificationStatus === 'verified' && (
+                      <span className="proto-user-verified">✓</span>
+                    )}
+                  </button>
+                  <button 
+                    type="button" 
+                    className="proto-logout-btn"
+                    onClick={logout}
+                    title="Выйти"
+                  >
+                    ⏻
+                  </button>
+                </div>
+              ) : (
+                <div className="proto-auth-btns">
+                  <button 
+                    type="button" 
+                    className="proto-auth-btn proto-auth-btn--login"
+                    onClick={() => setAuthModal('login')}
+                  >
+                    Войти
+                  </button>
+                  <button 
+                    type="button" 
+                    className="proto-auth-btn proto-auth-btn--register"
+                    onClick={() => setAuthModal('register')}
+                  >
+                    Регистрация
+                  </button>
+                </div>
+              )}
             </div>
           </header>
 
-          {/* Content - scrolls page */}
+          {/* Content */}
           <div className="proto-content">
             {renderPage()}
           </div>
         </div>
 
-        {/* Case modal */}
+        {/* Modals */}
         {openingCase && (
           <CaseOpenModal caseData={openingCase} onClose={handleCloseCase} />
+        )}
+        {authModal && (
+          <AuthModal 
+            mode={authModal} 
+            onClose={() => setAuthModal(null)}
+            onLogin={handleLogin}
+            onSwitchMode={(mode) => setAuthModal(mode)}
+          />
+        )}
+        {showDeposit && (
+          <DepositModal 
+            onClose={() => setShowDeposit(false)}
+            onDeposit={handleDeposit}
+          />
         )}
       </div>
     );
@@ -204,9 +327,37 @@ export function ProtoApp() {
           <span className="proto-logo-mark">✦</span>
           <span className="proto-logo-text">Metaluck</span>
         </div>
-        <div className="proto-balance-pill">
-          <span className="star">★</span>
-          <span>{balance.toLocaleString('ru-RU')}</span>
+        
+        <div className="proto-mobile-right">
+          {/* Compact wallet display */}
+          <button 
+            type="button" 
+            className="proto-balance-pill"
+            onClick={() => setShowDeposit(true)}
+          >
+            <span className="star">★</span>
+            <span>{wallets.stars.toLocaleString('ru-RU')}</span>
+            <span className="proto-balance-plus">+</span>
+          </button>
+          
+          {/* Auth / User */}
+          {user ? (
+            <button 
+              type="button" 
+              className="proto-mobile-avatar"
+              onClick={() => setActiveNav('cabinet')}
+            >
+              {user.avatar}
+            </button>
+          ) : (
+            <button 
+              type="button" 
+              className="proto-mobile-login"
+              onClick={() => setAuthModal('login')}
+            >
+              Войти
+            </button>
+          )}
         </div>
       </header>
 
@@ -230,9 +381,23 @@ export function ProtoApp() {
         ))}
       </nav>
 
-      {/* Case modal */}
+      {/* Modals */}
       {openingCase && (
         <CaseOpenModal caseData={openingCase} onClose={handleCloseCase} />
+      )}
+      {authModal && (
+        <AuthModal 
+          mode={authModal} 
+          onClose={() => setAuthModal(null)}
+          onLogin={handleLogin}
+          onSwitchMode={(mode) => setAuthModal(mode)}
+        />
+      )}
+      {showDeposit && (
+        <DepositModal 
+          onClose={() => setShowDeposit(false)}
+          onDeposit={handleDeposit}
+        />
       )}
     </div>
   );

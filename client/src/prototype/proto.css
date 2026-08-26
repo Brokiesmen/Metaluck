@@ -1646,6 +1646,492 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
+   MULTI-WALLET BAR
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.proto-wallets-bar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.proto-wallet-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 12px;
+  height: 36px;
+  border-right: 1px solid var(--border);
+}
+
+.proto-wallet-item:last-of-type {
+  border-right: none;
+}
+
+.proto-wallet-icon {
+  font-size: 14px;
+  color: var(--gold);
+}
+
+.proto-wallet-value {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.proto-wallet-code {
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  margin-left: 2px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   AUTH BUTTONS
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.proto-auth-btns {
+  display: flex;
+  align-items: center;
+  gap: var(--gap-xs);
+}
+
+.proto-auth-btn {
+  height: 36px;
+  padding: 0 16px;
+  border-radius: 8px;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--ease);
+}
+
+.proto-auth-btn--login {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+}
+
+.proto-auth-btn--login:hover {
+  background: var(--surface-hover);
+  border-color: var(--border-hover);
+}
+
+.proto-auth-btn--register {
+  background: var(--gold);
+  border: 1px solid var(--gold);
+  color: #000;
+}
+
+.proto-auth-btn--register:hover {
+  background: #e0c04a;
+}
+
+/* User menu */
+.proto-user-menu {
+  display: flex;
+  align-items: center;
+  gap: var(--gap-xs);
+}
+
+.proto-logout-btn {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-tertiary);
+  font-size: 14px;
+  cursor: pointer;
+  transition: all var(--ease);
+}
+
+.proto-logout-btn:hover {
+  background: rgba(231, 76, 60, 0.15);
+  border-color: rgba(231, 76, 60, 0.3);
+  color: var(--error);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   AUTH MODAL
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.proto-auth-modal {
+  position: relative;
+}
+
+.proto-auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-md);
+}
+
+.proto-form-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-xs);
+}
+
+.proto-form-label {
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.proto-form-field .proto-input {
+  margin-top: 0;
+}
+
+.proto-form-error {
+  padding: 10px 12px;
+  background: rgba(231, 76, 60, 0.15);
+  border: 1px solid rgba(231, 76, 60, 0.3);
+  border-radius: 8px;
+  font-size: var(--text-sm);
+  color: var(--error);
+}
+
+.proto-auth-divider {
+  display: flex;
+  align-items: center;
+  gap: var(--gap-md);
+  margin: var(--gap-md) 0;
+  color: var(--text-tertiary);
+  font-size: var(--text-sm);
+}
+
+.proto-auth-divider::before,
+.proto-auth-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+.proto-auth-socials {
+  display: flex;
+  gap: var(--gap-sm);
+}
+
+.proto-social-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--gap-xs);
+  height: 44px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--text);
+  cursor: pointer;
+  transition: all var(--ease);
+}
+
+.proto-social-btn:hover {
+  background: var(--surface-hover);
+  border-color: var(--border-hover);
+}
+
+.proto-auth-footer {
+  text-align: center;
+  margin-top: var(--gap-md);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+
+.proto-link {
+  background: none;
+  border: none;
+  color: var(--gold);
+  font-weight: 500;
+  cursor: pointer;
+  padding: 0;
+}
+
+.proto-link:hover {
+  text-decoration: underline;
+}
+
+.proto-modal-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-secondary);
+  font-size: 14px;
+  cursor: pointer;
+  transition: all var(--ease);
+}
+
+.proto-modal-close:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   DEPOSIT MODAL
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.proto-deposit-modal {
+  position: relative;
+}
+
+.proto-deposit-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-lg);
+}
+
+.proto-currency-selector {
+  display: flex;
+  gap: var(--gap-xs);
+}
+
+.proto-currency-btn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--ease);
+}
+
+.proto-currency-btn:hover {
+  border-color: var(--border-hover);
+  color: var(--text);
+}
+
+.proto-currency-btn.active {
+  background: var(--gold-dim);
+  border-color: var(--border-gold);
+  color: var(--gold);
+}
+
+.proto-currency-icon {
+  font-size: 20px;
+}
+
+.proto-currency-name {
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+.proto-amount-input {
+  display: flex;
+  align-items: center;
+  background: var(--charcoal);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.proto-amount-icon {
+  padding: 0 14px;
+  font-size: 18px;
+  color: var(--gold);
+}
+
+.proto-amount-field {
+  flex: 1;
+  margin: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  text-align: right;
+  font-size: var(--text-lg);
+  font-weight: 700;
+}
+
+.proto-amount-field:focus {
+  border-color: transparent;
+}
+
+.proto-amount-presets {
+  display: flex;
+  gap: var(--gap-xs);
+  margin-top: var(--gap-sm);
+}
+
+.proto-preset-btn {
+  flex: 1;
+  height: 32px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--ease);
+}
+
+.proto-preset-btn:hover {
+  border-color: var(--border-hover);
+  color: var(--text);
+}
+
+.proto-preset-btn.active {
+  background: var(--gold-dim);
+  border-color: var(--border-gold);
+  color: var(--gold);
+}
+
+.proto-method-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-xs);
+}
+
+.proto-method-btn {
+  display: flex;
+  align-items: center;
+  gap: var(--gap-sm);
+  padding: 12px 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all var(--ease);
+  text-align: left;
+}
+
+.proto-method-btn:hover {
+  border-color: var(--border-hover);
+}
+
+.proto-method-btn.active {
+  border-color: var(--gold);
+}
+
+.proto-method-icon {
+  font-size: 20px;
+}
+
+.proto-method-name {
+  flex: 1;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--text);
+}
+
+.proto-method-check {
+  font-size: 12px;
+  color: var(--gold);
+}
+
+.proto-spinner {
+  animation: proto-spin 1s linear infinite;
+}
+
+@keyframes proto-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Deposit success */
+.proto-deposit-success {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: var(--gap-xl) var(--gap-lg);
+  text-align: center;
+}
+
+.proto-deposit-success-icon {
+  width: 64px;
+  height: 64px;
+  display: grid;
+  place-items: center;
+  background: rgba(46, 204, 113, 0.15);
+  border: 2px solid var(--success);
+  border-radius: 50%;
+  font-size: 28px;
+  color: var(--success);
+  margin-bottom: var(--gap-md);
+  animation: proto-pop 0.4s var(--ease-out);
+}
+
+.proto-deposit-success-title {
+  font-size: var(--text-lg);
+  font-weight: 700;
+  margin: 0 0 var(--gap-xs);
+}
+
+.proto-deposit-success-amount {
+  font-size: var(--text-xl);
+  font-weight: 700;
+  color: var(--gold);
+  margin: 0 0 var(--gap-xs);
+}
+
+.proto-deposit-success-hint {
+  font-size: var(--text-sm);
+  color: var(--text-tertiary);
+  margin: 0;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   MOBILE ADDITIONS
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.proto-mobile-right {
+  display: flex;
+  align-items: center;
+  gap: var(--gap-xs);
+}
+
+.proto-balance-plus {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--gold);
+  margin-left: 4px;
+}
+
+.proto-mobile-avatar {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.proto-mobile-login {
+  height: 32px;
+  padding: 0 12px;
+  background: var(--gold);
+  border: none;
+  border-radius: 8px;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: #000;
+  cursor: pointer;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
    UTILITY
    ═══════════════════════════════════════════════════════════════════════════ */
 
