@@ -50,36 +50,38 @@ export function ProtoApp() {
     <div className="proto-shell">
       {/* Top bar */}
       <header className="proto-topbar">
-        <div className="proto-brand">
-          <span className="proto-brand-mark">✦</span>
-          <span className="proto-brand-name">Metaluck</span>
+        <div className="proto-logo">
+          <span className="proto-logo-mark">✦</span>
+          <span className="proto-logo-text">Metaluck</span>
         </div>
-        <div className="proto-balance">
-          <span className="proto-balance-star">★</span>
+        <div className="proto-balance-pill">
+          <span className="star">★</span>
           <span>{balance.toLocaleString('ru-RU')}</span>
         </div>
       </header>
 
-      {/* Main content */}
-      <main className="proto-main">
+      {/* Main viewport */}
+      <div className="proto-viewport">
         <div className="proto-content">
           {renderPage()}
         </div>
-      </main>
+      </div>
 
       {/* Bottom navigation */}
-      <nav className="proto-bottomnav">
-        {navItems.map((item) => (
-          <button
-            key={item.id}
-            type="button"
-            className={`proto-nav-item${activeNav === item.id ? ' proto-nav-item--active' : ''}`}
-            onClick={() => setActiveNav(item.id)}
-          >
-            <span className="proto-nav-icon">{item.icon}</span>
-            <span>{item.label}</span>
-          </button>
-        ))}
+      <nav className="proto-nav">
+        <div className="proto-nav-inner">
+          {navItems.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              className={`proto-nav-btn${activeNav === item.id ? ' active' : ''}`}
+              onClick={() => setActiveNav(item.id)}
+            >
+              <span className="proto-nav-icon">{item.icon}</span>
+              <span className="proto-nav-label">{item.label}</span>
+            </button>
+          ))}
+        </div>
       </nav>
 
       {/* Case opening modal */}

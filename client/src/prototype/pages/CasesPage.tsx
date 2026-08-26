@@ -1,37 +1,47 @@
+import { useState } from 'react';
 import { protoCases, type ProtoCase } from '../data';
 
 interface Props {
   onOpenCase: (c: ProtoCase) => void;
 }
 
+const filters = ['Все', 'Бесплатные', 'Популярные', 'Новые'];
+
 export function CasesPage({ onOpenCase }: Props) {
+  const [filter, setFilter] = useState('Все');
+
   return (
     <div className="proto-page">
-      {/* Hero banner */}
+      {/* Hero */}
       <section className="proto-hero">
-        <span className="proto-hero-kicker">Эксклюзив</span>
-        <h1 className="proto-hero-title">
-          Получи 200% до 500 <span className="proto-star">★</span>
-        </h1>
-        <p className="proto-hero-sub">Открой первый кейс и удвой выигрыш.</p>
-        <button type="button" className="proto-btn proto-btn--gold">
-          Забрать бонус
-        </button>
-        <span className="proto-hero-art" aria-hidden>🎰</span>
+        <div className="proto-hero-body">
+          <span className="proto-hero-tag">Бонус</span>
+          <h1 className="proto-hero-title">
+            200% до 500 <span className="star">★</span>
+          </h1>
+          <p className="proto-hero-desc">Открой первый кейс и удвой выигрыш</p>
+        </div>
+        <span className="proto-hero-icon">🎰</span>
       </section>
 
-      {/* Page header */}
-      <header className="proto-page-header">
-        <h2 className="proto-page-title">Кейсы</h2>
-        <p className="proto-page-sub">Открывай и выигрывай звёзды</p>
-      </header>
-
-      {/* Case categories */}
+      {/* Filter chips */}
       <div className="proto-chips">
-        <button type="button" className="proto-chip proto-chip--active">Все</button>
-        <button type="button" className="proto-chip">Бесплатные</button>
-        <button type="button" className="proto-chip">Популярные</button>
-        <button type="button" className="proto-chip">Новые</button>
+        {filters.map((f) => (
+          <button
+            key={f}
+            type="button"
+            className={`proto-chip${filter === f ? ' active' : ''}`}
+            onClick={() => setFilter(f)}
+          >
+            {f}
+          </button>
+        ))}
+      </div>
+
+      {/* Section header */}
+      <div className="proto-section-header">
+        <h2 className="proto-section-title">Кейсы</h2>
+        <span className="proto-section-link">Все →</span>
       </div>
 
       {/* Cases grid */}
@@ -41,7 +51,6 @@ export function CasesPage({ onOpenCase }: Props) {
             key={c.id}
             type="button"
             className="proto-case-card"
-            style={{ '--case-accent': c.accent } as React.CSSProperties}
             onClick={() => onOpenCase(c)}
           >
             {c.badge && (
@@ -51,12 +60,12 @@ export function CasesPage({ onOpenCase }: Props) {
             )}
             <span className="proto-case-icon">{c.icon}</span>
             <span className="proto-case-name">{c.name}</span>
-            <span className="proto-case-price">
+            <span className={`proto-case-price${c.price === 0 ? ' proto-case-price--free' : ''}`}>
               {c.price === 0 ? (
                 'Бесплатно'
               ) : (
                 <>
-                  {c.price.toLocaleString('ru-RU')} <span className="proto-star">★</span>
+                  {c.price.toLocaleString('ru-RU')} <span className="star">★</span>
                 </>
               )}
             </span>
@@ -64,42 +73,42 @@ export function CasesPage({ onOpenCase }: Props) {
         ))}
       </div>
 
-      {/* Section: Recent wins */}
-      <div className="proto-section">
-        <h3 className="proto-section-title">Недавние выигрыши</h3>
-        <span className="proto-section-link">Все</span>
+      {/* Recent wins */}
+      <div className="proto-section-header">
+        <h2 className="proto-section-title">Недавние выигрыши</h2>
+        <span className="proto-section-link">Все →</span>
       </div>
 
-      <div className="proto-activity-list">
-        <div className="proto-activity-item">
-          <span className="proto-activity-icon">🎁</span>
-          <div className="proto-activity-meta">
-            <span className="proto-activity-game">Базовый кейс</span>
-            <span className="proto-activity-time">только что</span>
+      <div className="proto-list">
+        <div className="proto-list-item">
+          <div className="proto-list-icon">🎁</div>
+          <div className="proto-list-body">
+            <div className="proto-list-title">Базовый кейс</div>
+            <div className="proto-list-sub">только что</div>
           </div>
-          <span className="proto-activity-amount proto-activity-amount--win">
-            +250 ★
-          </span>
+          <div className="proto-list-end">
+            <div className="proto-list-value proto-list-value--win">+250 ★</div>
+          </div>
         </div>
-        <div className="proto-activity-item">
-          <span className="proto-activity-icon">💎</span>
-          <div className="proto-activity-meta">
-            <span className="proto-activity-game">Премиум кейс</span>
-            <span className="proto-activity-time">2 мин назад</span>
+        <div className="proto-list-item">
+          <div className="proto-list-icon">💎</div>
+          <div className="proto-list-body">
+            <div className="proto-list-title">Премиум кейс</div>
+            <div className="proto-list-sub">2 мин назад</div>
           </div>
-          <span className="proto-activity-amount proto-activity-amount--win">
-            +1000 ★
-          </span>
+          <div className="proto-list-end">
+            <div className="proto-list-value proto-list-value--win">+1000 ★</div>
+          </div>
         </div>
-        <div className="proto-activity-item">
-          <span className="proto-activity-icon">👑</span>
-          <div className="proto-activity-meta">
-            <span className="proto-activity-game">Золотой кейс</span>
-            <span className="proto-activity-time">5 мин назад</span>
+        <div className="proto-list-item">
+          <div className="proto-list-icon">👑</div>
+          <div className="proto-list-body">
+            <div className="proto-list-title">Золотой кейс</div>
+            <div className="proto-list-sub">5 мин назад</div>
           </div>
-          <span className="proto-activity-amount proto-activity-amount--win">
-            +5000 ★
-          </span>
+          <div className="proto-list-end">
+            <div className="proto-list-value proto-list-value--win">+5000 ★</div>
+          </div>
         </div>
       </div>
     </div>

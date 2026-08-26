@@ -8,19 +8,15 @@ export function GamesPage() {
 
   return (
     <div className="proto-page">
-      {/* Hero banner */}
+      {/* Hero */}
       <section className="proto-hero">
-        <span className="proto-hero-kicker">Мини-игры</span>
-        <h1 className="proto-hero-title">Играй и выигрывай</h1>
-        <p className="proto-hero-sub">Оригинальные игры с честным шансом на победу.</p>
-        <span className="proto-hero-art" aria-hidden>🎮</span>
+        <div className="proto-hero-body">
+          <span className="proto-hero-tag">Мини-игры</span>
+          <h1 className="proto-hero-title">Играй и выигрывай</h1>
+          <p className="proto-hero-desc">Оригинальные игры с честным шансом</p>
+        </div>
+        <span className="proto-hero-icon">🎮</span>
       </section>
-
-      {/* Page header */}
-      <header className="proto-page-header">
-        <h2 className="proto-page-title">Игры</h2>
-        <p className="proto-page-sub">Выберите игру и сделайте ставку</p>
-      </header>
 
       {/* Category chips */}
       <div className="proto-chips">
@@ -28,7 +24,7 @@ export function GamesPage() {
           <button
             key={c}
             type="button"
-            className={`proto-chip${category === c ? ' proto-chip--active' : ''}`}
+            className={`proto-chip${category === c ? ' active' : ''}`}
             onClick={() => setCategory(c)}
           >
             {c}
@@ -36,10 +32,10 @@ export function GamesPage() {
         ))}
       </div>
 
-      {/* Trending section */}
-      <div className="proto-section">
-        <h3 className="proto-section-title">Популярные</h3>
-        <span className="proto-section-link">Все игры</span>
+      {/* Section header */}
+      <div className="proto-section-header">
+        <h2 className="proto-section-title">Популярные</h2>
+        <span className="proto-section-link">Все →</span>
       </div>
 
       {/* Games grid */}
@@ -49,19 +45,19 @@ export function GamesPage() {
             {game.hot && <span className="proto-game-badge">HOT</span>}
             <span className="proto-game-icon">{game.icon}</span>
             <span className="proto-game-name">{game.name}</span>
-            <span className="proto-game-players">{game.players}</span>
+            <span className="proto-game-meta">{game.players}</span>
           </div>
         ))}
       </div>
 
       {/* Stats section */}
-      <div className="proto-section">
-        <h3 className="proto-section-title">Статистика</h3>
+      <div className="proto-section-header">
+        <h2 className="proto-section-title">Статистика</h2>
       </div>
 
       <div className="proto-stats-grid">
         <div className="proto-card proto-stat-card">
-          <div className="proto-stat-label">Всего ставок</div>
+          <div className="proto-stat-label">Ставок</div>
           <div className="proto-stat-value">
             312
             <span className="proto-stat-delta">+14</span>
@@ -75,16 +71,14 @@ export function GamesPage() {
           </div>
         </div>
         <div className="proto-card proto-stat-card">
-          <div className="proto-stat-label">Лучший выигрыш</div>
+          <div className="proto-stat-label">Лучший</div>
           <div className="proto-stat-value">
-            5 000 <span className="proto-star">★</span>
+            5 000 <span className="star">★</span>
           </div>
         </div>
         <div className="proto-card proto-stat-card">
-          <div className="proto-stat-label">Серия побед</div>
-          <div className="proto-stat-value">
-            6 🔥
-          </div>
+          <div className="proto-stat-label">Серия</div>
+          <div className="proto-stat-value">6 🔥</div>
         </div>
       </div>
     </div>
