@@ -387,19 +387,25 @@
     color: var(--text-tertiary);
   }
   
-  /* Desktop content */
+  /* Desktop content — uses full width */
   .proto-content {
-    padding: var(--gap-lg);
+    padding: var(--gap-lg) var(--gap-xl);
     padding-bottom: var(--gap-xl);
+    max-width: none;
+    width: 100%;
+  }
+  
+  /* Desktop page — centered with max-width */
+  .proto-page {
     max-width: var(--desktop-max);
     margin: 0 auto;
-    width: 100%;
   }
   
   /* Desktop grids — more columns */
   .proto-cases-grid,
   .proto-games-grid {
     grid-template-columns: repeat(3, 1fr);
+    gap: var(--gap-md);
   }
   
   .proto-stats-grid {
@@ -408,10 +414,17 @@
 }
 
 /* Large desktop — even more columns */
-@media (min-width: 1200px) {
+@media (min-width: 1024px) {
   .proto-cases-grid,
   .proto-games-grid {
     grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+@media (min-width: 1400px) {
+  .proto-cases-grid,
+  .proto-games-grid {
+    grid-template-columns: repeat(5, 1fr);
   }
 }
 
