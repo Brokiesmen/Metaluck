@@ -1,6 +1,6 @@
-/* Metaluck Prototype — Multiplatform Responsive Design
-   Mobile: Bottom tabs, app-like, full-bleed
-   Desktop: Sidebar nav, wider grids, centered content */
+/* Metaluck Prototype — Casino Website Style
+   Desktop: Collapsible sidebar + top bar with balance
+   Mobile: Bottom tabs + compact header */
 
 /* ═══════════════════════════════════════════════════════════════════════════
    DESIGN TOKENS
@@ -35,7 +35,7 @@
   --warning: #f39c12;
   --error: #e74c3c;
   
-  /* Layout — Mobile */
+  /* Layout */
   --content-pad: 16px;
   --card-radius: 12px;
   --card-pad: 16px;
@@ -45,9 +45,10 @@
   --gap-lg: 24px;
   --gap-xl: 32px;
   
-  /* Layout — Desktop */
-  --sidebar-width: 240px;
-  --desktop-max: 1200px;
+  /* Desktop Layout */
+  --sidebar-width: 220px;
+  --sidebar-collapsed: 64px;
+  --topbar-height: 56px;
   
   /* Typography */
   --font: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', system-ui, sans-serif;
@@ -81,21 +82,21 @@
 .proto-shell button { font-family: inherit; }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   MOBILE LAYOUT (default, < 768px)
+   MOBILE LAYOUT
    ═══════════════════════════════════════════════════════════════════════════ */
 
-.proto-shell {
+.proto-mobile {
   display: flex;
   flex-direction: column;
 }
 
-.proto-topbar {
+.proto-topbar-mobile {
   display: flex;
   align-items: center;
   justify-content: space-between;
   height: 56px;
   padding: 0 var(--content-pad);
-  background: var(--black);
+  background: var(--charcoal);
   border-bottom: 1px solid var(--border);
   position: sticky;
   top: 0;
@@ -125,7 +126,7 @@
   gap: 6px;
   height: 32px;
   padding: 0 12px;
-  background: var(--charcoal);
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 16px;
   font-size: var(--text-sm);
@@ -138,15 +139,8 @@
   font-size: 14px;
 }
 
-/* Mobile main area */
-.proto-main {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-}
-
-.proto-content {
+/* Mobile content */
+.proto-mobile .proto-content {
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -165,7 +159,7 @@
   left: 0;
   right: 0;
   z-index: 100;
-  background: var(--black);
+  background: var(--charcoal);
   border-top: 1px solid var(--border);
   padding-bottom: env(safe-area-inset-bottom, 0);
 }
@@ -209,201 +203,342 @@
   letter-spacing: 0.2px;
 }
 
-/* Hide desktop elements on mobile */
-.proto-sidebar,
-.proto-desktop-header {
+/* ═══════════════════════════════════════════════════════════════════════════
+   DESKTOP LAYOUT — Casino Style
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.proto-desktop {
+  display: flex;
+  min-height: 100dvh;
+}
+
+/* Sidebar */
+.proto-desktop .proto-sidebar {
+  display: flex;
+  flex-direction: column;
+  width: var(--sidebar-width);
+  height: 100dvh;
+  background: var(--charcoal);
+  border-right: 1px solid var(--border);
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 60;
+  transition: width var(--ease-out);
+}
+
+.proto-desktop.sidebar-collapsed .proto-sidebar {
+  width: var(--sidebar-collapsed);
+}
+
+.proto-sidebar-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: var(--topbar-height);
+  padding: 0 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.proto-sidebar-logo {
+  font-size: 22px;
+  color: var(--gold);
+  flex-shrink: 0;
+}
+
+.proto-sidebar-title {
+  font-size: var(--text-lg);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.proto-sidebar-nav {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 8px;
+  overflow-y: auto;
+}
+
+.proto-sidebar-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 44px;
+  padding: 0 12px;
+  background: none;
+  border: none;
+  border-radius: 8px;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--ease);
+  text-align: left;
+  width: 100%;
+  white-space: nowrap;
+}
+
+.proto-desktop.sidebar-collapsed .proto-sidebar-item {
+  justify-content: center;
+  padding: 0;
+}
+
+.proto-sidebar-item:hover {
+  background: var(--surface);
+  color: var(--text);
+}
+
+.proto-sidebar-item.active {
+  background: var(--gold-dim);
+  color: var(--gold);
+}
+
+.proto-sidebar-item-icon {
+  font-size: 18px;
+  width: 24px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.proto-sidebar-item-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.proto-desktop.sidebar-collapsed .proto-sidebar-item-label {
   display: none;
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   DESKTOP LAYOUT (>= 768px)
-   ═══════════════════════════════════════════════════════════════════════════ */
+.proto-sidebar-footer {
+  padding: 12px 8px;
+  border-top: 1px solid var(--border);
+}
 
-@media (min-width: 768px) {
-  .proto-shell {
-    flex-direction: row;
-  }
-  
-  /* Hide mobile elements */
-  .proto-topbar,
-  .proto-nav-mobile {
-    display: none;
-  }
-  
-  /* Show sidebar */
-  .proto-sidebar {
-    display: flex;
-    flex-direction: column;
-    width: var(--sidebar-width);
-    height: 100dvh;
-    background: var(--charcoal);
-    border-right: 1px solid var(--border);
-    position: sticky;
-    top: 0;
-    flex-shrink: 0;
-  }
-  
-  .proto-sidebar-header {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 20px;
-    border-bottom: 1px solid var(--border);
-  }
-  
-  .proto-sidebar-logo {
-    font-size: 22px;
-    color: var(--gold);
-  }
-  
-  .proto-sidebar-title {
-    font-size: var(--text-lg);
-    font-weight: 700;
-  }
-  
-  .proto-sidebar-nav {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    padding: 12px;
-    overflow-y: auto;
-  }
-  
-  .proto-sidebar-item {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 12px 14px;
-    background: none;
-    border: none;
-    border-radius: 10px;
-    color: var(--text-secondary);
-    font-size: var(--text-sm);
-    font-weight: 500;
-    cursor: pointer;
-    transition: all var(--ease);
-    text-align: left;
-    width: 100%;
-  }
-  
-  .proto-sidebar-item:hover {
-    background: var(--surface);
-    color: var(--text);
-  }
-  
-  .proto-sidebar-item.active {
-    background: var(--gold-dim);
-    color: var(--gold);
-  }
-  
-  .proto-sidebar-item-icon {
-    font-size: 18px;
-    width: 24px;
-    text-align: center;
-  }
-  
-  .proto-sidebar-footer {
-    padding: 16px;
-    border-top: 1px solid var(--border);
-  }
-  
-  .proto-sidebar-balance {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 14px;
-    background: var(--surface);
-    border-radius: 10px;
-  }
-  
-  .proto-sidebar-balance-label {
-    font-size: var(--text-xs);
-    color: var(--text-tertiary);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-  }
-  
-  .proto-sidebar-balance-value {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: var(--text-lg);
-    font-weight: 700;
-    margin-top: 4px;
-  }
-  
-  /* Desktop main area */
-  .proto-main {
-    flex: 1;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-  }
-  
-  /* Desktop header */
-  .proto-desktop-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    height: 64px;
-    padding: 0 var(--gap-lg);
-    background: var(--black);
-    border-bottom: 1px solid var(--border);
-    position: sticky;
-    top: 0;
-    z-index: 50;
-  }
-  
-  .proto-desktop-title {
-    font-size: var(--text-xl);
-    font-weight: 700;
-  }
-  
-  .proto-desktop-user {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-  }
-  
-  .proto-desktop-avatar {
-    width: 36px;
-    height: 36px;
-    display: grid;
-    place-items: center;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    font-size: 18px;
-  }
-  
-  .proto-desktop-name {
-    font-size: var(--text-sm);
-    font-weight: 600;
-  }
-  
-  .proto-desktop-status {
-    font-size: var(--text-xs);
-    color: var(--text-tertiary);
-  }
-  
-  /* Desktop content — uses full width */
-  .proto-content {
-    padding: var(--gap-lg) var(--gap-xl);
-    padding-bottom: var(--gap-xl);
-    max-width: none;
-    width: 100%;
-  }
-  
-  /* Desktop page — centered with max-width */
-  .proto-page {
-    max-width: var(--desktop-max);
-    margin: 0 auto;
-  }
-  
-  .proto-stats-grid {
-    grid-template-columns: repeat(4, 1fr);
-  }
+.proto-sidebar-promo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  background: linear-gradient(135deg, rgba(212, 175, 55, 0.15) 0%, rgba(212, 175, 55, 0.05) 100%);
+  border: 1px solid var(--border-gold);
+  border-radius: 10px;
+}
+
+.proto-sidebar-promo-icon {
+  font-size: 24px;
+}
+
+.proto-sidebar-promo-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.proto-sidebar-promo-title {
+  font-size: var(--text-sm);
+  font-weight: 700;
+  color: var(--gold);
+}
+
+.proto-sidebar-promo-sub {
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+}
+
+/* Main area */
+.proto-desktop .proto-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  margin-left: var(--sidebar-width);
+  min-height: 100dvh;
+  transition: margin-left var(--ease-out);
+}
+
+.proto-desktop.sidebar-collapsed .proto-main {
+  margin-left: var(--sidebar-collapsed);
+}
+
+/* Desktop top bar */
+.proto-topbar-desktop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: var(--topbar-height);
+  padding: 0 var(--gap-lg);
+  background: var(--charcoal);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+
+.proto-topbar-left {
+  display: flex;
+  align-items: center;
+  gap: var(--gap-md);
+}
+
+.proto-sidebar-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-secondary);
+  font-size: 16px;
+  cursor: pointer;
+  transition: all var(--ease);
+}
+
+.proto-sidebar-toggle:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+  border-color: var(--border-hover);
+}
+
+.proto-topbar-nav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.proto-topbar-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 14px;
+  background: none;
+  border: none;
+  border-radius: 8px;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--ease);
+}
+
+.proto-topbar-nav-item:hover {
+  background: var(--surface);
+  color: var(--text);
+}
+
+.proto-topbar-nav-item.active {
+  background: var(--gold-dim);
+  color: var(--gold);
+}
+
+.proto-topbar-right {
+  display: flex;
+  align-items: center;
+  gap: var(--gap-md);
+}
+
+/* Balance display */
+.proto-balance-display {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.proto-balance-amount {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 14px;
+  height: 36px;
+}
+
+.proto-balance-star {
+  color: var(--gold);
+  font-size: 16px;
+}
+
+.proto-balance-value {
+  font-size: var(--text-sm);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.proto-deposit-btn {
+  height: 36px;
+  padding: 0 16px;
+  background: var(--gold);
+  border: none;
+  color: #000;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--ease);
+}
+
+.proto-deposit-btn:hover {
+  background: #e0c04a;
+}
+
+/* User button */
+.proto-user-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 12px 0 6px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--ease);
+}
+
+.proto-user-btn:hover {
+  background: var(--surface-hover);
+  border-color: var(--border-hover);
+}
+
+.proto-user-btn.active {
+  border-color: var(--gold);
+}
+
+.proto-user-avatar {
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  background: var(--charcoal);
+  border-radius: 6px;
+  font-size: 14px;
+}
+
+.proto-user-name {
+  max-width: 80px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.proto-user-badge {
+  color: var(--success);
+  font-size: 12px;
+}
+
+/* Desktop content */
+.proto-desktop .proto-content {
+  flex: 1;
+  padding: var(--gap-lg);
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -645,6 +780,7 @@
 .proto-case-card:hover {
   background: var(--charcoal-light);
   border-color: var(--border-hover);
+  transform: translateY(-2px);
 }
 
 .proto-case-card:active {
@@ -760,6 +896,7 @@
 .proto-game-card:hover {
   background: var(--charcoal-light);
   border-color: var(--border-hover);
+  transform: translateY(-2px);
 }
 
 .proto-game-badge {
@@ -969,6 +1106,12 @@
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: var(--gap-sm);
+}
+
+@media (min-width: 768px) {
+  .proto-stats-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
 }
 
 .proto-stat-card {

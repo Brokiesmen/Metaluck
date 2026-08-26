@@ -12,7 +12,7 @@ type NavId = 'cases' | 'games' | 'daily' | 'cabinet' | 'wallet';
 const navItems: { id: NavId; icon: string; label: string }[] = [
   { id: 'cases', icon: '📦', label: 'Кейсы' },
   { id: 'games', icon: '🎮', label: 'Игры' },
-  { id: 'daily', icon: '🎁', label: 'Ежедневки' },
+  { id: 'daily', icon: '🎁', label: 'Бонусы' },
   { id: 'cabinet', icon: '👤', label: 'Кабинет' },
   { id: 'wallet', icon: '💰', label: 'Кошелёк' },
 ];
@@ -20,7 +20,7 @@ const navItems: { id: NavId; icon: string; label: string }[] = [
 const pageTitles: Record<NavId, string> = {
   cases: 'Кейсы',
   games: 'Игры',
-  daily: 'Ежедневки',
+  daily: 'Бонусы',
   cabinet: 'Кабинет',
   wallet: 'Кошелёк',
 };
@@ -43,8 +43,26 @@ function useIsDesktop() {
   return isDesktop;
 }
 
+function useSidebarState() {
+  const [collapsed, setCollapsed] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return localStorage.getItem('proto-sidebar-collapsed') === 'true';
+  });
+
+  const toggle = () => {
+    setCollapsed(prev => {
+      const next = !prev;
+      localStorage.setItem('proto-sidebar-collapsed', String(next));
+      return next;
+    });
+  };
+
+  return { collapsed, toggle };
+}
+
 export function ProtoApp() {
   const isDesktop = useIsDesktop();
+  const { collapsed, toggle: toggleSidebar } = useSidebarState();
   const [activeNav, setActiveNav] = useState<NavId>('cases');
   const [balance] = useState(1240);
   const [openingCase, setOpeningCase] = useState<ProtoCase | null>(null);
@@ -80,14 +98,15 @@ export function ProtoApp() {
     }
   };
 
-  return (
-    <div className="proto-shell">
-      {/* Desktop sidebar */}
-      {isDesktop && (
+  // Desktop layout
+  if (isDesktop) {
+    return (
+      <div className={`proto-shell proto-desktop${collapsed ? ' sidebar-collapsed' : ''}`}>
+        {/* Desktop sidebar - collapsible */}
         <aside className="proto-sidebar">
           <div className="proto-sidebar-header">
             <span className="proto-sidebar-logo">✦</span>
-            <span className="proto-sidebar-title">Metaluck</span>
+            {!collapsed && <span className="proto-sidebar-title">Metaluck</span>}
           </div>
           
           <nav className="proto-sidebar-nav">
@@ -97,83 +116,132 @@ export function ProtoApp() {
                 type="button"
                 className={`proto-sidebar-item${activeNav === item.id ? ' active' : ''}`}
                 onClick={() => setActiveNav(item.id)}
+                title={collapsed ? item.label : undefined}
               >
                 <span className="proto-sidebar-item-icon">{item.icon}</span>
-                <span>{item.label}</span>
+                {!collapsed && <span className="proto-sidebar-item-label">{item.label}</span>}
               </button>
             ))}
           </nav>
           
-          <div className="proto-sidebar-footer">
-            <div className="proto-sidebar-balance">
-              <div>
-                <div className="proto-sidebar-balance-label">Баланс</div>
-                <div className="proto-sidebar-balance-value">
-                  {balance.toLocaleString('ru-RU')} <span className="star">★</span>
+          {!collapsed && (
+            <div className="proto-sidebar-footer">
+              <div className="proto-sidebar-promo">
+                <div className="proto-sidebar-promo-icon">🎰</div>
+                <div className="proto-sidebar-promo-text">
+                  <div className="proto-sidebar-promo-title">Бонус 100%</div>
+                  <div className="proto-sidebar-promo-sub">на первый депозит</div>
                 </div>
               </div>
             </div>
-          </div>
+          )}
         </aside>
-      )}
 
-      {/* Mobile top bar */}
-      {!isDesktop && (
-        <header className="proto-topbar">
-          <div className="proto-logo">
-            <span className="proto-logo-mark">✦</span>
-            <span className="proto-logo-text">Metaluck</span>
-          </div>
-          <div className="proto-balance-pill">
-            <span className="star">★</span>
-            <span>{balance.toLocaleString('ru-RU')}</span>
-          </div>
-        </header>
-      )}
-
-      {/* Main content area */}
-      <main className="proto-main">
-        {/* Desktop header */}
-        {isDesktop && (
-          <header className="proto-desktop-header">
-            <h1 className="proto-desktop-title">{pageTitles[activeNav]}</h1>
-            <div className="proto-desktop-user">
-              <div>
-                <div className="proto-desktop-name">Марк Иванов</div>
-                <div className="proto-desktop-status">
-                  {verificationStatus === 'verified' ? '✓ Верифицирован' : 
-                   verificationStatus === 'pending' ? '⏳ На проверке' : 
-                   '○ Не верифицирован'}
+        {/* Main area */}
+        <div className="proto-main">
+          {/* Top header bar - casino style */}
+          <header className="proto-topbar-desktop">
+            <div className="proto-topbar-left">
+              <button 
+                type="button" 
+                className="proto-sidebar-toggle"
+                onClick={toggleSidebar}
+                title={collapsed ? 'Развернуть меню' : 'Свернуть меню'}
+              >
+                {collapsed ? '☰' : '✕'}
+              </button>
+              <nav className="proto-topbar-nav">
+                {navItems.slice(0, 3).map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    className={`proto-topbar-nav-item${activeNav === item.id ? ' active' : ''}`}
+                    onClick={() => setActiveNav(item.id)}
+                  >
+                    <span>{item.icon}</span>
+                    <span>{item.label}</span>
+                  </button>
+                ))}
+              </nav>
+            </div>
+            
+            <div className="proto-topbar-right">
+              {/* Balance display */}
+              <div className="proto-balance-display">
+                <div className="proto-balance-amount">
+                  <span className="proto-balance-star">★</span>
+                  <span className="proto-balance-value">{balance.toLocaleString('ru-RU')}</span>
                 </div>
+                <button type="button" className="proto-deposit-btn">
+                  Депозит
+                </button>
               </div>
-              <div className="proto-desktop-avatar">🦊</div>
+              
+              {/* User menu */}
+              <button 
+                type="button" 
+                className={`proto-user-btn${activeNav === 'cabinet' ? ' active' : ''}`}
+                onClick={() => setActiveNav('cabinet')}
+              >
+                <span className="proto-user-avatar">🦊</span>
+                <span className="proto-user-name">Марк</span>
+                {verificationStatus === 'verified' && (
+                  <span className="proto-user-badge">✓</span>
+                )}
+              </button>
             </div>
           </header>
-        )}
 
-        <div className="proto-content">
-          {renderPage()}
+          {/* Page content */}
+          <div className="proto-content">
+            {renderPage()}
+          </div>
         </div>
-      </main>
+
+        {/* Case opening modal */}
+        {openingCase && (
+          <CaseOpenModal caseData={openingCase} onClose={handleCloseCase} />
+        )}
+      </div>
+    );
+  }
+
+  // Mobile layout
+  return (
+    <div className="proto-shell proto-mobile">
+      {/* Mobile top bar */}
+      <header className="proto-topbar-mobile">
+        <div className="proto-logo">
+          <span className="proto-logo-mark">✦</span>
+          <span className="proto-logo-text">Metaluck</span>
+        </div>
+        <div className="proto-balance-pill">
+          <span className="star">★</span>
+          <span>{balance.toLocaleString('ru-RU')}</span>
+        </div>
+      </header>
+
+      {/* Main content area */}
+      <div className="proto-content">
+        {renderPage()}
+      </div>
 
       {/* Mobile bottom navigation */}
-      {!isDesktop && (
-        <nav className="proto-nav-mobile">
-          <div className="proto-nav-mobile-inner">
-            {navItems.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                className={`proto-nav-btn${activeNav === item.id ? ' active' : ''}`}
-                onClick={() => setActiveNav(item.id)}
-              >
-                <span className="proto-nav-icon">{item.icon}</span>
-                <span className="proto-nav-label">{item.label}</span>
-              </button>
-            ))}
-          </div>
-        </nav>
-      )}
+      <nav className="proto-nav-mobile">
+        <div className="proto-nav-mobile-inner">
+          {navItems.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              className={`proto-nav-btn${activeNav === item.id ? ' active' : ''}`}
+              onClick={() => setActiveNav(item.id)}
+            >
+              <span className="proto-nav-icon">{item.icon}</span>
+              <span className="proto-nav-label">{item.label}</span>
+            </button>
+          ))}
+        </div>
+      </nav>
 
       {/* Case opening modal */}
       {openingCase && (
