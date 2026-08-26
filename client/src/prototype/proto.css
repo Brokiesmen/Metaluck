@@ -401,30 +401,8 @@
     margin: 0 auto;
   }
   
-  /* Desktop grids — more columns */
-  .proto-cases-grid,
-  .proto-games-grid {
-    grid-template-columns: repeat(3, 1fr);
-    gap: var(--gap-md);
-  }
-  
   .proto-stats-grid {
     grid-template-columns: repeat(4, 1fr);
-  }
-}
-
-/* Large desktop — even more columns */
-@media (min-width: 1024px) {
-  .proto-cases-grid,
-  .proto-games-grid {
-    grid-template-columns: repeat(4, 1fr);
-  }
-}
-
-@media (min-width: 1400px) {
-  .proto-cases-grid,
-  .proto-games-grid {
-    grid-template-columns: repeat(5, 1fr);
   }
 }
 
@@ -630,6 +608,25 @@
   gap: var(--gap-sm);
 }
 
+@media (min-width: 768px) {
+  .proto-cases-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--gap-md);
+  }
+}
+
+@media (min-width: 1024px) {
+  .proto-cases-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+@media (min-width: 1400px) {
+  .proto-cases-grid {
+    grid-template-columns: repeat(5, 1fr);
+  }
+}
+
 .proto-case-card {
   display: flex;
   flex-direction: column;
@@ -724,6 +721,25 @@
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: var(--gap-sm);
+}
+
+@media (min-width: 768px) {
+  .proto-games-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--gap-md);
+  }
+}
+
+@media (min-width: 1024px) {
+  .proto-games-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+@media (min-width: 1400px) {
+  .proto-games-grid {
+    grid-template-columns: repeat(5, 1fr);
+  }
 }
 
 .proto-game-card {
