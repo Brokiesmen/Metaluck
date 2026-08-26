@@ -1,6 +1,6 @@
-/* Metaluck Prototype v2 — Classic Black Casino UI
-   Design: True black, charcoal surfaces, hairline borders, gold accents only
-   Layout: Strict grid alignment — consistent widths, padding, spacing */
+/* Metaluck Prototype — Multiplatform Responsive Design
+   Mobile: Bottom tabs, app-like, full-bleed
+   Desktop: Sidebar nav, wider grids, centered content */
 
 /* ═══════════════════════════════════════════════════════════════════════════
    DESIGN TOKENS
@@ -32,10 +32,10 @@
   
   /* Semantic */
   --success: #2ecc71;
+  --warning: #f39c12;
   --error: #e74c3c;
   
-  /* Layout grid — strict alignment */
-  --content-max: 400px;
+  /* Layout — Mobile */
   --content-pad: 16px;
   --card-radius: 12px;
   --card-pad: 16px;
@@ -44,6 +44,10 @@
   --gap-md: 16px;
   --gap-lg: 24px;
   --gap-xl: 32px;
+  
+  /* Layout — Desktop */
+  --sidebar-width: 240px;
+  --desktop-max: 1200px;
   
   /* Typography */
   --font: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', system-ui, sans-serif;
@@ -67,8 +71,6 @@
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   min-height: 100dvh;
-  display: flex;
-  flex-direction: column;
 }
 
 .proto-shell *, .proto-shell *::before, .proto-shell *::after {
@@ -79,35 +81,13 @@
 .proto-shell button { font-family: inherit; }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   LAYOUT SYSTEM — Strict grid alignment
+   MOBILE LAYOUT (default, < 768px)
    ═══════════════════════════════════════════════════════════════════════════ */
 
-.proto-viewport {
-  flex: 1 1 auto;
+.proto-shell {
   display: flex;
   flex-direction: column;
-  width: 100%;
-  max-width: var(--content-max);
-  margin: 0 auto;
-  min-height: 0;
-  overflow: hidden;
 }
-
-.proto-content {
-  flex: 1 1 auto;
-  display: flex;
-  flex-direction: column;
-  gap: var(--gap-lg);
-  padding: var(--content-pad);
-  padding-bottom: calc(72px + env(safe-area-inset-bottom, 16px));
-  overflow-x: hidden;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   TOP BAR
-   ═══════════════════════════════════════════════════════════════════════════ */
 
 .proto-topbar {
   display: flex;
@@ -117,9 +97,9 @@
   padding: 0 var(--content-pad);
   background: var(--black);
   border-bottom: 1px solid var(--border);
-  max-width: var(--content-max);
-  width: 100%;
-  margin: 0 auto;
+  position: sticky;
+  top: 0;
+  z-index: 50;
 }
 
 .proto-logo {
@@ -158,11 +138,28 @@
   font-size: 14px;
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   BOTTOM NAVIGATION
-   ═══════════════════════════════════════════════════════════════════════════ */
+/* Mobile main area */
+.proto-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
 
-.proto-nav {
+.proto-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-lg);
+  padding: var(--content-pad);
+  padding-bottom: calc(72px + env(safe-area-inset-bottom, 16px));
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Mobile bottom navigation */
+.proto-nav-mobile {
   position: fixed;
   bottom: 0;
   left: 0;
@@ -170,14 +167,12 @@
   z-index: 100;
   background: var(--black);
   border-top: 1px solid var(--border);
+  padding-bottom: env(safe-area-inset-bottom, 0);
 }
 
-.proto-nav-inner {
+.proto-nav-mobile-inner {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
-  max-width: var(--content-max);
-  margin: 0 auto;
-  padding-bottom: env(safe-area-inset-bottom, 0);
 }
 
 .proto-nav-btn {
@@ -214,6 +209,212 @@
   letter-spacing: 0.2px;
 }
 
+/* Hide desktop elements on mobile */
+.proto-sidebar,
+.proto-desktop-header {
+  display: none;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   DESKTOP LAYOUT (>= 768px)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@media (min-width: 768px) {
+  .proto-shell {
+    flex-direction: row;
+  }
+  
+  /* Hide mobile elements */
+  .proto-topbar,
+  .proto-nav-mobile {
+    display: none;
+  }
+  
+  /* Show sidebar */
+  .proto-sidebar {
+    display: flex;
+    flex-direction: column;
+    width: var(--sidebar-width);
+    height: 100dvh;
+    background: var(--charcoal);
+    border-right: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    flex-shrink: 0;
+  }
+  
+  .proto-sidebar-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 20px;
+    border-bottom: 1px solid var(--border);
+  }
+  
+  .proto-sidebar-logo {
+    font-size: 22px;
+    color: var(--gold);
+  }
+  
+  .proto-sidebar-title {
+    font-size: var(--text-lg);
+    font-weight: 700;
+  }
+  
+  .proto-sidebar-nav {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 12px;
+    overflow-y: auto;
+  }
+  
+  .proto-sidebar-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    background: none;
+    border: none;
+    border-radius: 10px;
+    color: var(--text-secondary);
+    font-size: var(--text-sm);
+    font-weight: 500;
+    cursor: pointer;
+    transition: all var(--ease);
+    text-align: left;
+    width: 100%;
+  }
+  
+  .proto-sidebar-item:hover {
+    background: var(--surface);
+    color: var(--text);
+  }
+  
+  .proto-sidebar-item.active {
+    background: var(--gold-dim);
+    color: var(--gold);
+  }
+  
+  .proto-sidebar-item-icon {
+    font-size: 18px;
+    width: 24px;
+    text-align: center;
+  }
+  
+  .proto-sidebar-footer {
+    padding: 16px;
+    border-top: 1px solid var(--border);
+  }
+  
+  .proto-sidebar-balance {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px;
+    background: var(--surface);
+    border-radius: 10px;
+  }
+  
+  .proto-sidebar-balance-label {
+    font-size: var(--text-xs);
+    color: var(--text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  
+  .proto-sidebar-balance-value {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: var(--text-lg);
+    font-weight: 700;
+    margin-top: 4px;
+  }
+  
+  /* Desktop main area */
+  .proto-main {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  
+  /* Desktop header */
+  .proto-desktop-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 64px;
+    padding: 0 var(--gap-lg);
+    background: var(--black);
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    z-index: 50;
+  }
+  
+  .proto-desktop-title {
+    font-size: var(--text-xl);
+    font-weight: 700;
+  }
+  
+  .proto-desktop-user {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  
+  .proto-desktop-avatar {
+    width: 36px;
+    height: 36px;
+    display: grid;
+    place-items: center;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    font-size: 18px;
+  }
+  
+  .proto-desktop-name {
+    font-size: var(--text-sm);
+    font-weight: 600;
+  }
+  
+  .proto-desktop-status {
+    font-size: var(--text-xs);
+    color: var(--text-tertiary);
+  }
+  
+  /* Desktop content */
+  .proto-content {
+    padding: var(--gap-lg);
+    padding-bottom: var(--gap-xl);
+    max-width: var(--desktop-max);
+    margin: 0 auto;
+    width: 100%;
+  }
+  
+  /* Desktop grids — more columns */
+  .proto-cases-grid,
+  .proto-games-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  
+  .proto-stats-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+/* Large desktop — even more columns */
+@media (min-width: 1200px) {
+  .proto-cases-grid,
+  .proto-games-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
 /* ═══════════════════════════════════════════════════════════════════════════
    PAGE STRUCTURE
    ═══════════════════════════════════════════════════════════════════════════ */
@@ -230,7 +431,7 @@
   to { opacity: 1; transform: translateY(0); }
 }
 
-/* Section header — aligned */
+/* Section header */
 .proto-section-header {
   display: flex;
   align-items: center;
@@ -260,7 +461,7 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   CARDS — Consistent styling
+   CARDS
    ═══════════════════════════════════════════════════════════════════════════ */
 
 .proto-card {
@@ -284,7 +485,7 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   HERO BANNER — Minimal, aligned
+   HERO BANNER
    ═══════════════════════════════════════════════════════════════════════════ */
 
 .proto-hero {
@@ -407,7 +608,7 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   CASE CARDS GRID — Strict 2-column, equal sizing
+   CASE CARDS GRID
    ═══════════════════════════════════════════════════════════════════════════ */
 
 .proto-cases-grid {
@@ -503,7 +704,7 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   GAMES GRID — Same sizing as cases
+   GAMES GRID
    ═══════════════════════════════════════════════════════════════════════════ */
 
 .proto-games-grid {
@@ -564,7 +765,7 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   FILTER CHIPS — Aligned row
+   FILTER CHIPS
    ═══════════════════════════════════════════════════════════════════════════ */
 
 .proto-chips {
@@ -574,6 +775,14 @@
   scrollbar-width: none;
   margin: 0 calc(-1 * var(--content-pad));
   padding: 0 var(--content-pad);
+}
+
+@media (min-width: 768px) {
+  .proto-chips {
+    margin: 0;
+    padding: 0;
+    flex-wrap: wrap;
+  }
 }
 
 .proto-chips::-webkit-scrollbar {
@@ -606,7 +815,7 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   LIST ITEMS — Consistent height and alignment
+   LIST ITEMS
    ═══════════════════════════════════════════════════════════════════════════ */
 
 .proto-list {
@@ -696,7 +905,7 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   REWARD CARDS
+   REWARD BUTTON
    ═══════════════════════════════════════════════════════════════════════════ */
 
 .proto-reward-btn {
@@ -724,7 +933,7 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   STATS GRID — 2x2, equal sizing
+   STATS GRID
    ═══════════════════════════════════════════════════════════════════════════ */
 
 .proto-stats-grid {
@@ -811,8 +1020,38 @@
   color: var(--text-tertiary);
 }
 
+/* Verification badge */
+.proto-verification-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  margin-top: 6px;
+}
+
+.proto-verification-badge--unverified {
+  background: rgba(231, 76, 60, 0.15);
+  border: 1px solid rgba(231, 76, 60, 0.3);
+  color: var(--error);
+}
+
+.proto-verification-badge--pending {
+  background: rgba(243, 156, 18, 0.15);
+  border: 1px solid rgba(243, 156, 18, 0.3);
+  color: var(--warning);
+}
+
+.proto-verification-badge--verified {
+  background: rgba(46, 204, 113, 0.15);
+  border: 1px solid rgba(46, 204, 113, 0.3);
+  color: var(--success);
+}
+
 /* ═══════════════════════════════════════════════════════════════════════════
-   WALLET BALANCE HERO
+   WALLET HERO
    ═══════════════════════════════════════════════════════════════════════════ */
 
 .proto-wallet-hero {
@@ -907,7 +1146,7 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   MODAL — Same width as content, aligned
+   MODAL
    ═══════════════════════════════════════════════════════════════════════════ */
 
 .proto-modal-backdrop {
@@ -928,7 +1167,7 @@
 
 .proto-modal {
   width: 100%;
-  max-width: calc(var(--content-max) - var(--content-pad) * 2);
+  max-width: 400px;
   background: var(--charcoal);
   border: 1px solid var(--border);
   border-radius: var(--card-radius);
@@ -1266,6 +1505,89 @@
 .proto-toggle.on .proto-toggle-knob {
   left: 20px;
   background: var(--gold);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   VERIFICATION FLOW
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.proto-verify-steps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-md);
+}
+
+.proto-verify-step {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--gap-sm);
+  padding: var(--card-pad);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--card-radius);
+}
+
+.proto-verify-step-num {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  background: var(--charcoal);
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  font-size: var(--text-sm);
+  font-weight: 700;
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+}
+
+.proto-verify-step--done .proto-verify-step-num {
+  background: var(--gold-dim);
+  border-color: var(--border-gold);
+  color: var(--gold);
+}
+
+.proto-verify-step--active .proto-verify-step-num {
+  background: var(--gold);
+  border-color: var(--gold);
+  color: #000;
+}
+
+.proto-verify-step-body {
+  flex: 1;
+}
+
+.proto-verify-step-title {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+.proto-verify-step-desc {
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+}
+
+.proto-input {
+  width: 100%;
+  height: 44px;
+  padding: 0 14px;
+  background: var(--charcoal);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: var(--text-sm);
+  color: var(--text);
+  margin-top: var(--gap-sm);
+  transition: border-color var(--ease);
+}
+
+.proto-input:focus {
+  outline: none;
+  border-color: var(--gold);
+}
+
+.proto-input::placeholder {
+  color: var(--text-tertiary);
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════

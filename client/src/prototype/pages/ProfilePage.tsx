@@ -1,17 +1,68 @@
+import { useState } from 'react';
 import { protoProfile, protoStats, protoActivity, protoWallets } from '../data';
+import type { VerificationStatus } from '../ProtoApp';
+import { VerificationModal } from '../components/VerificationModal';
 
 interface Props {
   view: 'cabinet' | 'wallet';
+  verificationStatus: VerificationStatus;
+  onVerificationChange: (status: VerificationStatus) => void;
 }
 
-export function ProfilePage({ view }: Props) {
+export function ProfilePage({ view, verificationStatus, onVerificationChange }: Props) {
   if (view === 'wallet') {
     return <WalletView />;
   }
-  return <CabinetView />;
+  return (
+    <CabinetView 
+      verificationStatus={verificationStatus} 
+      onVerificationChange={onVerificationChange} 
+    />
+  );
 }
 
-function CabinetView() {
+interface CabinetProps {
+  verificationStatus: VerificationStatus;
+  onVerificationChange: (status: VerificationStatus) => void;
+}
+
+function CabinetView({ verificationStatus, onVerificationChange }: CabinetProps) {
+  const [showVerification, setShowVerification] = useState(false);
+
+  const getVerificationBadge = () => {
+    switch (verificationStatus) {
+      case 'verified':
+        return (
+          <span className="proto-verification-badge proto-verification-badge--verified">
+            ✓ Верифицирован
+          </span>
+        );
+      case 'pending':
+        return (
+          <span className="proto-verification-badge proto-verification-badge--pending">
+            ⏳ На проверке
+          </span>
+        );
+      default:
+        return (
+          <span className="proto-verification-badge proto-verification-badge--unverified">
+            ○ Не верифицирован
+          </span>
+        );
+    }
+  };
+
+  const getVerificationHint = () => {
+    switch (verificationStatus) {
+      case 'verified':
+        return 'Аккаунт подтверждён';
+      case 'pending':
+        return 'Проверка документов...';
+      default:
+        return 'Требуется верификация';
+    }
+  };
+
   return (
     <div className="proto-page">
       {/* Profile header */}
@@ -23,8 +74,39 @@ function CabinetView() {
           <div className="proto-profile-meta">
             Уровень {protoProfile.level} · {protoProfile.joined}
           </div>
+          {getVerificationBadge()}
         </div>
       </div>
+
+      {/* Verification card - prominent when unverified */}
+      {verificationStatus !== 'verified' && (
+        <div 
+          className="proto-list-item proto-list-item--interactive"
+          onClick={() => setShowVerification(true)}
+          style={{
+            borderColor: verificationStatus === 'unverified' 
+              ? 'rgba(231, 76, 60, 0.3)' 
+              : 'rgba(243, 156, 18, 0.3)'
+          }}
+        >
+          <div 
+            className="proto-list-icon"
+            style={{ 
+              color: verificationStatus === 'unverified' ? '#e74c3c' : '#f39c12',
+              background: verificationStatus === 'unverified' 
+                ? 'rgba(231, 76, 60, 0.15)' 
+                : 'rgba(243, 156, 18, 0.15)'
+            }}
+          >
+            {verificationStatus === 'pending' ? '⏳' : '🛡️'}
+          </div>
+          <div className="proto-list-body">
+            <div className="proto-list-title">Верификация</div>
+            <div className="proto-list-sub">{getVerificationHint()}</div>
+          </div>
+          <span style={{ color: 'var(--text-tertiary)', fontSize: '16px' }}>›</span>
+        </div>
+      )}
 
       {/* Stats */}
       <div className="proto-section-header">
@@ -92,6 +174,16 @@ function CabinetView() {
       </div>
 
       <div className="proto-settings-list">
+        <div 
+          className="proto-setting-row proto-setting-row--interactive"
+          onClick={() => setShowVerification(true)}
+        >
+          <div>
+            <div className="proto-setting-label">Верификация</div>
+            <div className="proto-setting-hint">{getVerificationHint()}</div>
+          </div>
+          <span className="proto-setting-chevron">›</span>
+        </div>
         <div className="proto-setting-row proto-setting-row--interactive">
           <div>
             <div className="proto-setting-label">Уведомления</div>
@@ -133,6 +225,15 @@ function CabinetView() {
       >
         Выйти
       </button>
+
+      {/* Verification modal */}
+      {showVerification && (
+        <VerificationModal 
+          status={verificationStatus}
+          onClose={() => setShowVerification(false)}
+          onStatusChange={onVerificationChange}
+        />
+      )}
     </div>
   );
 }
